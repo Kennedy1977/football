@@ -7,6 +7,7 @@
     "node": ">=20.0.0"
   },
   "scripts": {
+    "postinstall": "npm run build",
     "start": "NODE_ENV=production node server.js",
     "dev": "tsx watch server.ts",
     "build": "npm run build:web && npm run build:server",
@@ -22,6 +23,8 @@
   "license": "ISC",
   "dependencies": {
     "@reduxjs/toolkit": "^2.11.2",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.3.5",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "dotenv": "^17.3.1",
@@ -31,12 +34,10 @@
     "phaser": "^3.90.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-redux": "^9.2.0"
+    "react-redux": "^9.2.0",
+    "typescript": "^5.9.3"
   },
   "devDependencies": {
-    "@types/express": "^5.0.6",
-    "@types/node": "^25.3.5",
-    "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "tsx": "^4.21.0"
   }
 }

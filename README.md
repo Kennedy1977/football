@@ -47,6 +47,7 @@ Database connectivity still uses `.env` with MySQL credentials.
 - Build command: `npm run build`
 - Start command: `npm run start`
 - Node.js version: `22.x` (minimum supported: `20.9.0`)
+- If your platform skips build, `server.js` will attempt a fallback build using local `next` + `tsc` binaries.
 
 ## Recommended next step
 
