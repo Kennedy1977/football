@@ -1,209 +1,265 @@
-# Football Manager Arcade v1 - Practical Implementation Plan
+# Football Manager Arcade v1 - Updated Phaser Implementation Plan
 
-## 1. Monorepo Structure (single repository)
+## 1. Product + Tech Constraints (Source of Truth)
+
+- Single monorepo
+- Web app shell: Next.js
+- Mobile app shell: Expo / React Native
+- Backend: Express wrapper around Next.js runtime
+- Database: MySQL
+- Auth: Clerk (email/password, Google, Apple, Facebook)
+- State: Redux Toolkit + RTK Query
+- Shared logic package: TypeScript rules/types/formulas/validators
+- Match gameplay runtime: Phaser only (portrait-first)
+
+Non-negotiable architecture boundaries:
+- Phaser handles match presentation + gameplay interactions only.
+- Phaser never talks to DB or backend directly.
+- App shell (Next/Expo) owns API calls, session, navigation, and persistence.
+- Shared rules package is the only source for deterministic gameplay formulas.
+
+## 2. Monorepo Structure
 
 ```text
 football/
   apps/
-    server/                  # Express API wrapper around Next runtime (v1 scaffold)
-      src/routes/
-    web/                     # Next.js app (planned)
-    mobile/                  # Expo app (planned)
-  packages/
-    game-core/               # Shared rules, simulation, formulas, constants, TS types
+    web/                        # Next.js app shell
+      app/
       src/
+        components/
+        state/
+        match/                  # Phaser integration layer (web canvas host)
+    mobile/                     # Expo app shell
+      src/
+        screens/
+        state/
+        match/                  # Phaser alternative adapter / scene host bridge
+    server/                     # Express API (mounted under /api)
+      src/
+        routes/
+        middleware/
+        lib/
+        config/
+  packages/
+    game-core/                  # shared deterministic rules + contracts
+      src/
+        api-contracts.ts
         constants.ts
-        formulas.ts
         types.ts
-        engine/simulateMatch.ts
+        formulas.ts
+        validation/
+          lineup.ts
+          match-submit.ts
+        engine/
+          simulateMatch.ts
+          chance-model.ts
+          momentum-model.ts
+        phaser-contracts.ts     # scene config/output contracts (no Phaser imports)
   database/
-    schema.sql               # MySQL schema + seeds for leagues and packs
+    schema.sql
+    migrations/
   docs/
     implementation-plan.md
 ```
 
-Why this split:
-- `packages/game-core` is imported by `apps/web`, `apps/mobile`, and `apps/server`.
-- UI can diverge by platform while rules and calculations stay identical.
-- API remains light validation + persistence, as required.
+## 3. Gameplay Architecture (Phaser Included)
 
-## 2. Storyboard-to-Screen Plan
+### App Shell vs Phaser Responsibilities
 
-Storyboard panel mapping from your image:
-1. Start Game -> `/(auth)` sign-in + onboarding gate.
-2. Create Club -> `/onboarding/club` multi-step form.
-3. Daily Reward Pop-up -> dashboard modal + persistent claim button.
-4. Main Dashboard -> `/home` modules for Play/Squad/League/Shop/Profile.
-5. Play Match -> `/match/prep` showing opponent, strengths, start CTA.
-6. In-Match -> `/match/live` Phaser-driven top-down mini-sim + chance events.
-7. Squad Management -> `/squad` lineup, bench, stamina, formation locks.
-8. League Table -> `/league` condensed table + movement markers.
-9. Match Result -> `/match/result` staged rewards + progression + promotion reveal.
+- App Shell (Next/Expo):
+  - Auth, onboarding, dashboard, squad/shop/league screens
+  - Pre-match setup and API start call
+  - Starts Phaser with `MatchRuntimeConfig`
+  - Receives `MatchRuntimeResult` callback
+  - Calls `POST /api/match/submit`
 
-## 3. MySQL Schema
+- Phaser Runtime:
+  - Top-down mini-sim in portrait mode
+  - Score/time HUD + commentary ticker
+  - Chance-event transitions
+  - Shot/save timing-bar minigame scenes
+  - Emits final result object only
 
-Implemented in `database/schema.sql`.
+### Data Contract Boundary
 
-Core tables:
-- Identity: `accounts` (Clerk link)
-- Profile: `managers`
-- Club: `clubs`
-- Leagues: `league_tiers`, `league_memberships`
-- Squad: `players`, `lineups`, `formation_unlocks`
-- Match: `matches`
-- Rewards: `daily_reward_claims`, `promotion_reward_claims`
-- Shop/Packs: `pack_catalogue`, `pack_purchases`, `pack_rewards`
-- Economy ledger: `economy_transactions`
+From app shell into Phaser:
+- `matchSeed`
+- team snapshots (overall/formation/fatigue modifiers)
+- rules (3-minute timer, max 10 goals, 3-goal lead)
+- chance interval rules (max 20s)
 
-Included seeds:
-- All league tiers from Beginner I to Legends
-- Pack catalogue prices: 250, 500, 1000, 2500, 5000, 10000
+From Phaser back to app shell:
+- final score
+- duration
+- end reason (`THREE_GOAL_LEAD` | `TEN_TOTAL_GOALS` | `TIMER_EXPIRED`)
+- compact simulation payload (events, timings, chance outcomes)
 
-## 4. Shared TypeScript Domain Models
+## 4. Core Flow Mapping
 
-Implemented starter interfaces in `packages/game-core/src/types.ts`:
-- `ManagerProfile`, `ClubSummary`
-- `PlayerCard`, `Lineup`
-- `MatchSimulationInput`, `MatchSimulationOutput`, `MatchChanceEvent`
-- Domain enums/unions for positions, rarities, results, leagues, formations
+1. Sign in/up (Clerk)
+2. `POST /api/auth/session` creates/syncs account row only
+3. Create manager profile
+4. Create club identity
+5. Generate starter squad (15 players, all Common)
+6. Dashboard loop (daily claim, squad, shop, league, profile)
+7. Match loop:
+   - `/api/match/start`
+   - Phaser runtime
+   - `/api/match/submit`
+8. Result flow + league movement + optional promotion claim
 
-## 5. Backend API Route Plan
+## 5. Database Scope
 
-Scaffolded under `apps/server/src/routes`.
+Keep and use current schema as the v1 base:
+- `accounts`, `managers`, `clubs`
+- `league_tiers`, `league_memberships`
+- `players`, `lineups`, `formation_unlocks`
+- `matches`
+- `daily_reward_claims`, `promotion_reward_claims`
+- `pack_catalogue`, `pack_purchases`, `pack_rewards`
+- `economy_transactions`
 
-Primary endpoint groups:
-- Onboarding
-  - `POST /api/onboarding/manager`
-  - `POST /api/onboarding/club`
-  - `POST /api/onboarding/reset-club`
-- Dashboard
-  - `GET /api/dashboard/summary`
-- Squad
-  - `GET /api/squad/players`
-  - `PUT /api/squad/lineup`
-  - `POST /api/squad/sell`
-- Match
-  - `POST /api/match/start`
-  - `POST /api/match/submit`
-- Shop
-  - `GET /api/shop/packs`
-  - `POST /api/shop/packs/purchase`
-  - `POST /api/shop/packs/reward-decision`
-- Rewards
-  - `POST /api/rewards/daily-claim`
-  - `POST /api/rewards/promotion-claim`
-- League
-  - `GET /api/league/table`
-  - `GET /api/league/legends`
+Additional v1 recommendation for inactive CPU automation:
+- Add a scheduled worker (or cron-trigger endpoint) to:
+  - toggle inactive clubs to CPU after 30 days
+  - mark reusable CPU slots after 90 days
 
-## 6. Shared Match Engine Module Breakdown
+## 6. Shared Rule Modules (`packages/game-core`)
 
-Implemented starter engine in `packages/game-core/src/engine/simulateMatch.ts`.
-
-Module responsibilities:
-- `simulateMatch(input)`
-  - Runs 180-second match timeline
-  - Spawns chance events at random intervals (never >20s)
-  - Resolves scoring using strength edge + variance + mild underdog bias
-  - Ends early on 3-goal lead or 10 total goals
+Required deterministic modules:
+- `engine/simulateMatch.ts`
+  - chance cadence (<= 20 seconds)
+  - momentum bursts
+  - underdog adjustment (mild)
+  - early stop conditions
+- `engine/chance-model.ts`
+  - chance ownership probability using team quality + fatigue + momentum
+- `engine/minigame-resolution.ts`
+  - timing bar outcome resolution with stat-based green zone + variance
 - `formulas.ts`
-  - League points (0/1/3)
-  - Coin reward (goals + result bonus)
-  - EXP gains (manager + starter players)
-  - Fatigue + recovery rules
-  - Team overall and out-of-position penalties
-  - Player sell value
+  - league points
+  - coin rewards
+  - manager/starter EXP gains
+  - stamina drain/recovery
+  - sell values
+  - team overall with formation/out-of-position penalties
+- `validation/*`
+  - lineup validity (11 starters + GK)
+  - squad sale constraints
+  - match submit bounds (duration/goals/end reason)
 
-## 7. Redux Toolkit + RTK Query State Plan
+## 7. Phaser Scene Plan (Portrait)
 
-Recommended slices:
-- `authSlice`
-  - clerk user identity + session flags
-- `clubSlice`
-  - manager summary, club summary, coins, team overall, unlocks
-- `squadSlice`
-  - players, lineup, formation lock states, compare target
-- `matchSlice`
-  - pre-match selection, live state, events, result payload
-- `leagueSlice`
-  - tier info, table snapshot, legends view
-- `shopSlice`
-  - pack catalogue, pending purchase, opened rewards
-- `rewardsSlice`
-  - daily reward status, promotion reward statuses
-- `uiSlice`
-  - modals, toasts, staged result-step progress
+Scenes:
+1. `MatchIntroScene`
+   - team names, kick-off transition
+2. `PitchSimScene`
+   - lightweight top-down movement
+   - timer and score overlay
+   - commentary callouts
+3. `ChanceTransitionScene`
+   - quick zoom/spotlight animation into chance type
+4. `ShotMinigameScene`
+   - attacker timing-bar
+5. `SaveMinigameScene`
+   - goalkeeper timing-bar
+6. `MatchOutroScene`
+   - final whistle + emit result callback
 
-RTK Query APIs:
-- `onboardingApi`
-- `dashboardApi`
-- `squadApi`
-- `matchApi`
-- `shopApi`
-- `rewardsApi`
-- `leagueApi`
+Phaser integration wrappers:
+- Web: mount canvas in `/match/live` React host
+- Mobile: RN-hosted WebView/bridge adapter (same runtime config + result contract)
 
-Current scaffold in repo:
-- `apps/web/src/state/apis/gameApi.ts`
-- `apps/web/src/state/store.ts`
-- `apps/web/src/state/slices/*`
+## 8. API Surface (v1)
 
-## 8. Build Order (MVP stages)
+Auth + onboarding:
+- `POST /api/auth/session`
+- `POST /api/onboarding/manager`
+- `POST /api/onboarding/club`
+- `POST /api/onboarding/reset-club`
 
-1. Foundation
-- Workspace setup, shared package wiring, Clerk integration, MySQL connection.
+Core loop:
+- `GET /api/dashboard/summary`
+- `GET /api/squad/players`
+- `PUT /api/squad/lineup`
+- `POST /api/squad/sell`
+- `POST /api/match/start`
+- `POST /api/match/submit`
+- `GET /api/league/table`
+- `GET /api/league/legends`
+- `POST /api/rewards/daily-claim`
+- `POST /api/rewards/promotion-claim`
+- `GET /api/shop/packs`
+- `POST /api/shop/packs/purchase`
+- `POST /api/shop/packs/reward-decision`
 
-2. Onboarding + Data Bootstrapping
-- Manager creation, club creation, starter squad generation (15 players all Common).
+## 9. State Model (Redux + RTK Query)
 
-3. Dashboard + Daily Reward
-- Summary view, daily claim at 01:00 reset, coin ledger updates.
+Slices:
+- `authSlice`: Clerk user identity + session-sync status
+- `clubSlice`: manager, club, onboarding completion, coins/team overall
+- `squadSlice`: players, lineup, unlocked formations
+- `matchSlice`: prep state, live events, final submission
+- `leagueSlice`: table snapshot + legends nearby
+- `shopSlice`: packs, purchases, reward decisions
+- `rewardsSlice`: daily + promotion statuses
+- `uiSlice`: modals, toasts, staged result flow progress
 
-4. Squad + Formation Unlocks
-- 4-4-2 baseline, lineup validation, unlock 4-3-3 (3 wins), unlock 4-5-1 (5 wins).
+RTK Query:
+- single `gameApi` with tag invalidation by domain (`Dashboard`, `Squad`, `League`, `Packs`)
 
-5. Match Loop
-- Pre-match selection, simulation run, submit result, apply EXP/stamina/coins/league points.
+## 10. Phaser-Specific Acceptance Criteria
 
-6. League + Promotion Flow
-- Condensed table, thresholds, one-time promotion rewards.
+- Portrait runtime with stable 60fps target on modern phones
+- Chance intervals never exceed 20s
+- Early match stop rules always respected
+- Minigame result reproducible from seed + input + config
+- Phaser returns result via callback only; no network calls from scenes
+- Match submit rejects invalid payloads and replays
 
-7. Shop + Pack Open Flow
-- Purchase, reveal, keep/convert decisions, squad cap checks.
+## 11. MVP Delivery Phases
 
-8. Polish + Hardening
-- Validation, anti-duplication checks, idempotent reward claims, telemetry.
+Phase 1: Foundation
+- Repo wiring, shared package, Clerk session sync, MySQL connectivity
 
-## 9. Risks and Edge Cases
+Phase 2: Onboarding
+- Manager + club creation
+- starter squad generation
+- default 4-4-2 lineup
 
-Critical:
-- Duplicate reward claims (daily/promotion) under retries.
-- Invalid lineup submissions (no GK, <11 players, red stamina starters).
-- Pack reward race conditions when squad is full.
-- Match submission replay/fraud; require server-side invariant checks.
+Phase 3: Dashboard + Core Modules
+- home summary
+- squad management
+- league table
+- shop list + purchase flow skeleton
+- daily reward claim
 
-Gameplay balance:
-- Strong team dominance if chance quality scaling is too steep.
-- Underdog boost becoming too strong and flattening progression.
-- Stamina loops causing hard lock if recovery + selection rules conflict.
+Phase 4: Phaser Match Runtime
+- portrait pitch sim scene
+- chance transitions
+- shot/save timing bars
+- callback contract wired to `/api/match/submit`
 
-Platform consistency:
-- Drift between web/mobile if game-core is bypassed.
-- Different timer behavior by platform for live match scene.
+Phase 5: Progression
+- EXP/stamina/coins/post-match staging
+- formation unlocks (3 wins and 5 wins)
+- promotion flow + claim-once enforcement
 
-## 10. Next Code Scaffolding Targets
+Phase 6: Hardening
+- idempotent reward handling
+- anti-replay checks
+- edge-case validation (GK minimum, squad minimum, full squad conversions)
+- telemetry/logging for match runtime + submit failures
 
-Immediate next implementation files:
-- `apps/server/src/app.ts` to mount the API router and middleware
-- `apps/web/app/(game)/...` route tree
-- `apps/mobile/src/screens/...` navigation stack
-- `packages/game-core/src/pack-generation.ts`
-- `packages/game-core/src/validation/lineup.ts`
-- `apps/web/src/match/phaser-match-simulation.ts`
+## 12. Immediate Next Tasks
 
-This keeps v1 aligned with your non-negotiables while staying shippable in stages.
+1. Finalize Clerk production env config and verified session flow on live domain.
+2. Complete squad lineup editor for full 11+bench management (starter integrity checks).
+3. Lock Phaser live scene contract to a single `MatchRuntimeConfig` + `MatchRuntimeResult` interface and consume it in web match flow.
+4. Add promotion staging screen after result + condensed 9-team table.
+5. Add automated inactive-club CPU toggle process (30/90-day lifecycle).
 
-## Deployment Base URLs
+## 13. Deployment Base URLs
 
-- App domain: `https://football.andrewkennedydev.com/`
-- API base: `https://football.andrewkennedydev.com/api`
+- App: `https://football.andrewkennedydev.com/`
+- API: `https://football.andrewkennedydev.com/api`

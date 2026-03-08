@@ -40,6 +40,7 @@ npm run api:dev
 ```
 
 Database connectivity still uses `.env` with MySQL credentials.
+Authentication uses Clerk (publishable + secret keys in `.env`).
 
 ## Hostinger Node deploy
 

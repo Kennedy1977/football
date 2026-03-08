@@ -85,20 +85,30 @@ const STARTING_SLOT_ORDER: Position[] = [
 ];
 
 const SHIRT_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21];
+const POSITION_ORDER: Position[] = ["GK", "DEF", "MID", "ATT"];
 
 export function generateStarterSquad(seedSource: string): StarterPlayerRow[] {
   const random = createSeededRng(seedSource);
 
-  const positions: Position[] = [
-    ...createPositionArray("GK", STARTING_SQUAD_SPLIT.GK),
-    ...createPositionArray("DEF", STARTING_SQUAD_SPLIT.DEF),
-    ...createPositionArray("MID", STARTING_SQUAD_SPLIT.MID),
-    ...createPositionArray("ATT", STARTING_SQUAD_SPLIT.ATT),
-  ];
+  const starterPositions: Position[] = [...STARTING_SLOT_ORDER];
+  const starterCounts = starterPositions.reduce<Record<Position, number>>(
+    (acc, position) => {
+      acc[position] += 1;
+      return acc;
+    },
+    { GK: 0, DEF: 0, MID: 0, ATT: 0 }
+  );
+
+  const benchPositions = POSITION_ORDER.flatMap((position) =>
+    createPositionArray(position, Math.max(0, STARTING_SQUAD_SPLIT[position] - starterCounts[position]))
+  );
+
+  const positions: Position[] = [...starterPositions, ...benchPositions];
 
   return positions.map((position, index) => {
     const baseOverall = baseOverallForPosition(position, random);
     const stats = buildStats(position, baseOverall, random);
+    const isStarter = index < STARTING_SLOT_ORDER.length;
 
     return {
       name: `${pick(random, FIRST_NAMES)} ${pick(random, LAST_NAMES)}`,
@@ -118,8 +128,8 @@ export function generateStarterSquad(seedSource: string): StarterPlayerRow[] {
       strength: stats.strength,
       goalkeeping: stats.goalkeeping,
       stamina: 100,
-      is_starting: STARTING_SLOT_ORDER[index] === position,
-      is_bench: STARTING_SLOT_ORDER[index] !== position,
+      is_starting: isStarter,
+      is_bench: !isStarter,
       portrait_seed: `${seedSource}-${index + 1}`,
     };
   });

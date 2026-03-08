@@ -2,6 +2,7 @@ import path from "node:path";
 import dotenv from "dotenv";
 import express from "express";
 import next from "next";
+import { clerkMiddleware } from "@clerk/express";
 import { pool } from "./apps/server/src/config/db";
 import { errorHandler, notFoundHandler } from "./apps/server/src/middleware/error-handler";
 import { createApiRouter } from "./apps/server/src/routes";
@@ -45,6 +46,9 @@ async function start() {
     }
   });
 
+  if (process.env.CLERK_SECRET_KEY) {
+    server.use("/api", clerkMiddleware());
+  }
   server.use("/api", createApiRouter());
   server.use("/api", notFoundHandler);
   server.use("/api", errorHandler);

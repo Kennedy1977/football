@@ -1,5 +1,6 @@
 import type { Request } from "express";
 import type { RowDataPacket } from "mysql2";
+import { getAuth } from "@clerk/express";
 import { pool } from "../config/db";
 import { HttpError } from "./errors";
 
@@ -9,12 +10,21 @@ interface AccountRow extends RowDataPacket {
 }
 
 export function readClerkUserId(req: Request): string {
+  try {
+    const auth = getAuth(req);
+    if (auth.userId) {
+      return auth.userId;
+    }
+  } catch {
+    // Fallback path for local scripts where Clerk middleware is not mounted.
+  }
+
   const fromHeader = req.header("x-clerk-user-id");
   const fromBody = typeof req.body?.clerkUserId === "string" ? req.body.clerkUserId : undefined;
   const clerkUserId = fromHeader || fromBody;
 
   if (!clerkUserId) {
-    throw new HttpError(401, "Missing x-clerk-user-id header");
+    throw new HttpError(401, "Missing authenticated Clerk user id");
   }
 
   return clerkUserId;

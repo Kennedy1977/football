@@ -11,6 +11,7 @@ npm run api:dev
 In production deploy, API is mounted by the root app server at `/api`.
 
 Implemented endpoints:
+- `POST /api/auth/session`
 - `POST /api/onboarding/manager`
 - `POST /api/onboarding/club`
 - `POST /api/onboarding/reset-club`
@@ -28,7 +29,12 @@ Implemented endpoints:
 - `GET /api/league/table`
 - `GET /api/league/legends`
 
-Auth for now uses `x-clerk-user-id` request header until full Clerk middleware is wired.
+Auth uses Clerk:
+- If `CLERK_SECRET_KEY` is configured, Express mounts Clerk middleware and reads authenticated user id from Clerk session/cookies.
+- For local scripts/dev fallback, API still accepts `x-clerk-user-id` header.
+
+First sign-in flow:
+- Call `POST /api/auth/session` to create or sync `accounts` row before manager/club onboarding.
 
 Deployment target:
 - App domain: `https://football.andrewkennedydev.com/`

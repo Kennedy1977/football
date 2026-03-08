@@ -33,7 +33,7 @@ export interface ApiPlayerSummary {
 }
 
 export interface CreateManagerRequest {
-  email: string;
+  email?: string;
   name: string;
   age?: number;
   gender?: string;
@@ -43,6 +43,23 @@ export interface CreateManagerRequest {
 export interface CreateManagerResponse {
   created: boolean;
   manager: ApiManagerSummary;
+}
+
+export interface SyncAuthSessionRequest {
+  clerkUserId?: string;
+  email?: string;
+  confirmLink?: boolean;
+}
+
+export interface SyncAuthSessionResponse {
+  synced: true;
+  created: boolean;
+  linkedExistingEmail: boolean;
+  account: {
+    id: number;
+    clerkUserId: string;
+    email: string;
+  };
 }
 
 export interface ClubIdentityPayload {

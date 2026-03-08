@@ -1,18 +1,37 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type { MatchChanceEvent, MatchResult } from "../../../../../packages/game-core/src";
+import type {
+  MatchChanceEvent,
+  MatchResult,
+  StartMatchResponse,
+  SubmitMatchResponse,
+} from "../../../../../packages/game-core/src";
+
+interface MatchPrepState {
+  matchSeed: string;
+  opponentClubId: number;
+  opponentName: string;
+  yourTeamOverall: number;
+  opponentTeamOverall: number;
+  yourRank: number;
+  opponentRank: number;
+}
 
 interface MatchState {
   activeMatchSeed: string | null;
   opponentClubId: number | null;
+  matchPrep: MatchPrepState | null;
   events: MatchChanceEvent[];
   result: MatchResult | null;
+  lastSubmission: SubmitMatchResponse | null;
 }
 
 const initialState: MatchState = {
   activeMatchSeed: null,
   opponentClubId: null,
+  matchPrep: null,
   events: [],
   result: null,
+  lastSubmission: null,
 };
 
 const matchSlice = createSlice({
@@ -24,6 +43,23 @@ const matchSlice = createSlice({
       state.opponentClubId = action.payload.opponentClubId;
       state.events = [];
       state.result = null;
+      state.lastSubmission = null;
+    },
+    setMatchPrep(state, action: PayloadAction<StartMatchResponse>) {
+      state.activeMatchSeed = action.payload.matchSeed;
+      state.opponentClubId = action.payload.opponent.clubId;
+      state.matchPrep = {
+        matchSeed: action.payload.matchSeed,
+        opponentClubId: action.payload.opponent.clubId,
+        opponentName: action.payload.opponent.name,
+        yourTeamOverall: action.payload.yourClub.teamOverall,
+        opponentTeamOverall: action.payload.opponent.teamOverall,
+        yourRank: action.payload.yourClub.rank,
+        opponentRank: action.payload.opponent.rank,
+      };
+      state.events = [];
+      state.result = null;
+      state.lastSubmission = null;
     },
     setMatchEvents(state, action: PayloadAction<MatchChanceEvent[]>) {
       state.events = action.payload;
@@ -31,14 +67,27 @@ const matchSlice = createSlice({
     finishMatchState(state, action: PayloadAction<MatchResult>) {
       state.result = action.payload;
     },
+    setMatchSubmission(state, action: PayloadAction<SubmitMatchResponse>) {
+      state.lastSubmission = action.payload;
+      state.result = action.payload.result;
+    },
     clearMatchState(state) {
       state.activeMatchSeed = null;
       state.opponentClubId = null;
+      state.matchPrep = null;
       state.events = [];
       state.result = null;
+      state.lastSubmission = null;
     },
   },
 });
 
-export const { startMatchState, setMatchEvents, finishMatchState, clearMatchState } = matchSlice.actions;
+export const {
+  startMatchState,
+  setMatchPrep,
+  setMatchEvents,
+  finishMatchState,
+  setMatchSubmission,
+  clearMatchState,
+} = matchSlice.actions;
 export const matchReducer = matchSlice.reducer;

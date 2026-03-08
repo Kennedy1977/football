@@ -18,11 +18,14 @@ import type {
   SellPlayerResponse,
   SquadResponse,
   StartMatchResponse,
+  SyncAuthSessionRequest,
+  SyncAuthSessionResponse,
   SubmitMatchRequest,
   SubmitMatchResponse,
   UpdateLineupRequest,
   UpdateLineupResponse,
 } from "../../../../../packages/game-core/src";
+import type { RootState } from "../store";
 
 function getApiBaseUrl(): string {
   return process.env.NEXT_PUBLIC_API_BASE_URL || process.env.API_BASE_URL || "/api";
@@ -32,15 +35,27 @@ export const gameApi = createApi({
   reducerPath: "gameApi",
   baseQuery: fetchBaseQuery({
     baseUrl: getApiBaseUrl(),
-    prepareHeaders: (headers) => {
-      const clerkUserId = process.env.NEXT_PUBLIC_DEV_CLERK_USER_ID || process.env.CLERK_USER_ID || "dev-local-user";
-      headers.set("x-clerk-user-id", clerkUserId);
+    prepareHeaders: (headers, { getState }) => {
+      const state = getState() as RootState;
+      const stateUserId = state?.auth?.clerkUserId;
+      const devFallback =
+        process.env.NODE_ENV === "production" ? undefined : process.env.NEXT_PUBLIC_DEV_CLERK_USER_ID;
+      const clerkUserId = stateUserId || devFallback;
+
+      if (clerkUserId) {
+        headers.set("x-clerk-user-id", clerkUserId);
+      }
+
       headers.set("content-type", "application/json");
       return headers;
     },
   }),
   tagTypes: ["Dashboard", "Squad", "League", "Packs"],
   endpoints: (builder) => ({
+    syncAuthSession: builder.mutation<SyncAuthSessionResponse, SyncAuthSessionRequest>({
+      query: (body) => ({ url: "/auth/session", method: "POST", body }),
+      invalidatesTags: ["Dashboard"],
+    }),
     createManager: builder.mutation<CreateManagerResponse, CreateManagerRequest>({
       query: (body) => ({ url: "/onboarding/manager", method: "POST", body }),
       invalidatesTags: ["Dashboard"],
@@ -108,6 +123,7 @@ export const gameApi = createApi({
 });
 
 export const {
+  useSyncAuthSessionMutation,
   useCreateManagerMutation,
   useCreateClubMutation,
   useResetClubMutation,

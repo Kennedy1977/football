@@ -1,22 +1,28 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import type { MatchSimulationOutput, SubmitMatchRequest } from "../../../../../packages/game-core/src";
-import { useStartMatchMutation, useSubmitMatchMutation } from "../../../src/state/apis/gameApi";
+import { useDispatch, useSelector } from "react-redux";
+import type { MatchRuntimeResult, SubmitMatchRequest } from "../../../../../packages/game-core/src";
+import { useSubmitMatchMutation } from "../../../src/state/apis/gameApi";
+import { readApiErrorMessage } from "../../../src/lib/api-error";
+import type { RootState } from "../../../src/state/store";
+import { setMatchEvents, setMatchSubmission } from "../../../src/state/slices/matchSlice";
 
 type MountedPhaserMatch = {
-  result: MatchSimulationOutput;
   destroy: () => void;
+  getResult: () => MatchRuntimeResult;
 };
 
 export default function MatchLivePage() {
+  const router = useRouter();
+  const dispatch = useDispatch();
+  const prep = useSelector((state: RootState) => state.match.matchPrep);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mountedSimRef = useRef<MountedPhaserMatch | null>(null);
-  const [simulation, setSimulation] = useState<MatchSimulationOutput | null>(null);
-  const [opponentClubId, setOpponentClubId] = useState<number | null>(null);
-  const [matchSeed, setMatchSeed] = useState<string | null>(null);
+  const [simulation, setSimulation] = useState<MatchRuntimeResult | null>(null);
 
-  const [startMatch, startState] = useStartMatchMutation();
   const [submitMatch, submitState] = useSubmitMatchMutation();
 
   useEffect(() => {
@@ -26,18 +32,35 @@ export default function MatchLivePage() {
     };
   }, []);
 
+  if (!prep) {
+    return (
+      <main className="page-panel">
+        <h2 className="page-title">Match Live</h2>
+        <p className="feedback error">No active match prep found. Start from match prep first.</p>
+        <div className="inline">
+          <Link href="/match/prep" className="btn">
+            Open Match Prep
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="page-panel">
       <h2 className="page-title">Match Live</h2>
       <p className="page-copy">Phaser mini-sim powered by shared match engine, then validated via `/api/match/submit`.</p>
 
       <div className="inline" style={{ marginBottom: 12 }}>
+        <span className="label-pill">Opponent: {prep.opponentName}</span>
+        <span className="label-pill">Rank: #{prep.opponentRank}</span>
+        <span className="label-pill">Strength: {prep.yourTeamOverall} vs {prep.opponentTeamOverall}</span>
+      </div>
+
+      <div className="inline" style={{ marginBottom: 12 }}>
         <button
           type="button"
-          disabled={startState.isLoading}
           onClick={async () => {
-            const start = await startMatch().unwrap();
-
             mountedSimRef.current?.destroy();
             mountedSimRef.current = null;
 
@@ -50,36 +73,35 @@ export default function MatchLivePage() {
             const mounted = mountPhaserMatchSimulation(
               containerRef.current,
               {
-                seed: start.matchSeed,
-                homeTeamStrength: start.yourClub.teamOverall,
-                awayTeamStrength: start.opponent.teamOverall,
+                matchSeed: prep.matchSeed,
+                homeTeam: { name: "Your Team", strength: prep.yourTeamOverall },
+                awayTeam: { name: prep.opponentName, strength: prep.opponentTeamOverall },
               },
               {
-                homeName: "Your Team",
-                awayName: start.opponent.name,
                 width: 390,
                 height: 780,
+                onResolved: (resolved) => {
+                  setSimulation(resolved);
+                  dispatch(setMatchEvents(resolved.events));
+                },
               }
             );
 
             mountedSimRef.current = mounted;
-            setSimulation(mounted.result);
-            setOpponentClubId(start.opponent.clubId);
-            setMatchSeed(start.matchSeed);
           }}
         >
-          {startState.isLoading ? "Starting..." : "Start Match"}
+          {simulation ? "Re-Simulate Match" : "Run Simulation"}
         </button>
 
         <button
           type="button"
-          disabled={!simulation || !matchSeed || submitState.isLoading}
+          disabled={!simulation || submitState.isLoading}
           onClick={async () => {
-            if (!simulation || !matchSeed) return;
+            if (!simulation) return;
 
             const payload: SubmitMatchRequest = {
-              matchSeed,
-              opponentClubId: opponentClubId || undefined,
+              matchSeed: prep.matchSeed,
+              opponentClubId: prep.opponentClubId,
               clubGoals: simulation.homeGoals,
               opponentGoals: simulation.awayGoals,
               durationSeconds: simulation.durationSeconds,
@@ -87,10 +109,13 @@ export default function MatchLivePage() {
               simulationPayload: {
                 events: simulation.events,
                 result: simulation.result,
+                summary: simulation.summary,
               },
             };
 
-            await submitMatch(payload).unwrap();
+            const submission = await submitMatch(payload).unwrap();
+            dispatch(setMatchSubmission(submission));
+            router.push("/match/result");
           }}
         >
           {submitState.isLoading ? "Submitting..." : "Submit Match Result"}
@@ -99,16 +124,17 @@ export default function MatchLivePage() {
 
       <div ref={containerRef} className="match-sim-root" />
 
-      {startState.isError && <p className="feedback error">Match start failed. Validate lineup and stamina in Squad screen.</p>}
-
       {simulation ? (
         <p className="feedback">
           Simulated: {simulation.homeGoals}-{simulation.awayGoals} ({simulation.result}) ending via {simulation.endReason}.
         </p>
       ) : null}
 
-      {submitState.isSuccess ? <p className="feedback">Match result submitted and progression applied.</p> : null}
-      {submitState.isError ? <p className="feedback error">Match submission failed validation on server.</p> : null}
+      {submitState.isError ? (
+        <p className="feedback error">
+          Match submission failed: {readApiErrorMessage(submitState.error) || "Server validation rejected payload."}
+        </p>
+      ) : null}
     </main>
   );
 }

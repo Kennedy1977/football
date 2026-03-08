@@ -1,29 +1,44 @@
 import * as Phaser from "phaser";
-import { MATCH_DURATION_SECONDS } from "../../../../packages/game-core/src/constants";
+import {
+  EARLY_FINISH_GOAL_LEAD,
+  MATCH_DURATION_SECONDS,
+  MAX_EVENT_GAP_SECONDS,
+  MAX_TOTAL_GOALS,
+} from "../../../../packages/game-core/src/constants";
 import { simulateMatch } from "../../../../packages/game-core/src/engine/simulateMatch";
-import type { MatchChanceEvent, MatchSimulationInput, MatchSimulationOutput } from "../../../../packages/game-core/src/types";
+import type { MatchRuntimeConfig, MatchRuntimeResult } from "../../../../packages/game-core/src/phaser-contracts";
+import type { MatchChanceEvent, MatchSimulationOutput } from "../../../../packages/game-core/src/types";
 
 export interface PhaserMatchOptions {
   width?: number;
   height?: number;
-  homeName?: string;
-  awayName?: string;
   homeColor?: number;
   awayColor?: number;
   backgroundColor?: string;
+  onResolved?: (result: MatchRuntimeResult) => void;
 }
 
 export interface MountedPhaserMatch {
-  result: MatchSimulationOutput;
   destroy: () => void;
+  getResult: () => MatchRuntimeResult;
 }
 
 export function mountPhaserMatchSimulation(
   container: HTMLElement,
-  input: MatchSimulationInput,
+  config: MatchRuntimeConfig,
   options: PhaserMatchOptions = {}
 ): MountedPhaserMatch {
-  const result = simulateMatch(input);
+  const runtimeConfig = buildMatchRuntimeConfig(config);
+
+  const result = simulateMatch({
+    seed: runtimeConfig.matchSeed,
+    homeTeamStrength: runtimeConfig.homeTeam.strength,
+    awayTeamStrength: runtimeConfig.awayTeam.strength,
+    homeMomentumBias: runtimeConfig.homeTeam.momentumBias ?? 0,
+    awayMomentumBias: runtimeConfig.awayTeam.momentumBias ?? 0,
+  });
+
+  const runtimeResult = toRuntimeResult(runtimeConfig.matchSeed, result);
 
   const game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -32,8 +47,8 @@ export function mountPhaserMatchSimulation(
     height: options.height ?? 780,
     backgroundColor: options.backgroundColor ?? "#0b1a2f",
     scene: new MatchSimulationScene(result, {
-      homeName: options.homeName ?? "Your Team",
-      awayName: options.awayName ?? "Rival Team",
+      homeName: runtimeConfig.homeTeam.name,
+      awayName: runtimeConfig.awayTeam.name,
       homeColor: options.homeColor ?? 0x3b82f6,
       awayColor: options.awayColor ?? 0xef4444,
     }),
@@ -41,9 +56,11 @@ export function mountPhaserMatchSimulation(
     audio: { noAudio: true },
   });
 
+  options.onResolved?.(runtimeResult);
+
   return {
-    result,
     destroy: () => game.destroy(true),
+    getResult: () => runtimeResult,
   };
 }
 
@@ -247,4 +264,34 @@ function formatMatchClock(seconds: number): string {
     .toString()
     .padStart(2, "0");
   return `${mins}:${secs}`;
+}
+
+function toRuntimeResult(matchSeed: string, output: MatchSimulationOutput): MatchRuntimeResult {
+  return {
+    matchSeed,
+    result: output.result,
+    endReason: output.endReason,
+    durationSeconds: output.durationSeconds,
+    homeGoals: output.homeGoals,
+    awayGoals: output.awayGoals,
+    events: output.events,
+    summary: {
+      scoreline: `${output.homeGoals}-${output.awayGoals}`,
+      totalGoals: output.homeGoals + output.awayGoals,
+    },
+  };
+}
+
+export function buildMatchRuntimeConfig(config: MatchRuntimeConfig): MatchRuntimeConfig {
+  return {
+    matchSeed: config.matchSeed,
+    homeTeam: config.homeTeam,
+    awayTeam: config.awayTeam,
+    rules: {
+      durationSeconds: config.rules?.durationSeconds ?? MATCH_DURATION_SECONDS,
+      maxTotalGoals: config.rules?.maxTotalGoals ?? MAX_TOTAL_GOALS,
+      earlyFinishGoalLead: config.rules?.earlyFinishGoalLead ?? EARLY_FINISH_GOAL_LEAD,
+      maxChanceGapSeconds: config.rules?.maxChanceGapSeconds ?? MAX_EVENT_GAP_SECONDS,
+    },
+  };
 }

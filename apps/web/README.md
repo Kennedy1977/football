@@ -1,7 +1,10 @@
 # Web App (Next.js)
 
 Implemented routes:
-- `/` auth gate + onboarding redirect
+- `/` redirects to onboarding start
+- `/sign-in` Clerk sign-in
+- `/sign-up` Clerk sign-up
+- `/start` onboarding flow (manager + club)
 - `/home` dashboard
 - `/squad`
 - `/league`
@@ -27,6 +30,10 @@ Run locally:
 ```bash
 npm run web:dev
 ```
+
+Required auth env:
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+- `CLERK_SECRET_KEY` (required by API runtime for verified Clerk sessions)
 
 ## Phaser Match Simulation
 
