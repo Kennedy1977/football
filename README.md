@@ -41,6 +41,13 @@ npm run api:dev
 
 Database connectivity still uses `.env` with MySQL credentials.
 
+## Hostinger Node deploy
+
+- Install command: `npm install`
+- Build command: `npm run build`
+- Start command: `npm run start`
+- Node.js version: `22.x` (minimum supported: `20.9.0`)
+
 ## Recommended next step
 
 Initialize workspace tooling (npm/pnpm workspaces + TypeScript project refs), then wire:
