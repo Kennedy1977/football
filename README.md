@@ -31,7 +31,7 @@ npm start
 This serves:
 - Next.js frontend on `/`
 - Express API on `/api`
-- Start entrypoint: `server.js` (loads compiled runtime `dist/server.js`)
+- Start entrypoint: `server.js` (auto-builds if `dist/server.js` is missing, then starts runtime)
 
 API-only runtime (optional):
 
