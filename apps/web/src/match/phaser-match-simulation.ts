@@ -1,4 +1,4 @@
-import Phaser from "phaser";
+import * as Phaser from "phaser";
 import { MATCH_DURATION_SECONDS } from "../../../../packages/game-core/src/constants";
 import { simulateMatch } from "../../../../packages/game-core/src/engine/simulateMatch";
 import type { MatchChanceEvent, MatchSimulationInput, MatchSimulationOutput } from "../../../../packages/game-core/src/types";

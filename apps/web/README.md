@@ -1,6 +1,6 @@
 # Web App (Next.js)
 
-Planned routes:
+Implemented routes:
 - `/` auth gate + onboarding redirect
 - `/home` dashboard
 - `/squad`
@@ -21,6 +21,12 @@ Redux Toolkit + RTK Query scaffold:
 - `apps/web/src/state/store.ts`
 - `apps/web/src/state/apis/gameApi.ts`
 - `apps/web/src/state/slices/*`
+
+Run locally:
+
+```bash
+npm run web:dev
+```
 
 ## Phaser Match Simulation
 

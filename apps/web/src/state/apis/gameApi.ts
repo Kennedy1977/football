@@ -25,7 +25,7 @@ import type {
 } from "../../../../../packages/game-core/src";
 
 function getApiBaseUrl(): string {
-  return process.env.API_BASE_URL || "http://localhost:4000/api";
+  return process.env.NEXT_PUBLIC_API_BASE_URL || process.env.API_BASE_URL || "/api";
 }
 
 export const gameApi = createApi({
@@ -33,7 +33,7 @@ export const gameApi = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: getApiBaseUrl(),
     prepareHeaders: (headers) => {
-      const clerkUserId = process.env.CLERK_USER_ID || "dev-local-user";
+      const clerkUserId = process.env.NEXT_PUBLIC_DEV_CLERK_USER_ID || process.env.CLERK_USER_ID || "dev-local-user";
       headers.set("x-clerk-user-id", clerkUserId);
       headers.set("content-type", "application/json");
       return headers;

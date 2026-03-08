@@ -4,8 +4,12 @@
   "description": "Football Manager Arcade MVP scaffold",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js",
+    "start": "NODE_ENV=production node server.js",
+    "dev": "tsx watch server.ts",
+    "build": "npm run build:web && npm run build:server",
+    "build:web": "next build apps/web",
+    "build:server": "tsc -p tsconfig.server.json",
+    "web:dev": "next dev apps/web -p 3000",
     "api:start": "tsx apps/server/src/app.ts",
     "api:dev": "tsx watch apps/server/src/app.ts",
     "typecheck": "tsc --noEmit"

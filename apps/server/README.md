@@ -8,6 +8,8 @@ Run:
 npm run api:dev
 ```
 
+In production deploy, API is mounted by the root app server at `/api`.
+
 Implemented endpoints:
 - `POST /api/onboarding/manager`
 - `POST /api/onboarding/club`

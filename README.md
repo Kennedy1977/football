@@ -21,13 +21,19 @@ Football Manager Arcade v1 architecture scaffold.
 
 ## Current runtime app
 
-The existing root Express server from earlier setup is still available:
+Production runtime (single process):
 
 ```bash
+npm run build
 npm start
 ```
 
-The new TypeScript MVP API server runs separately:
+This serves:
+- Next.js frontend on `/`
+- Express API on `/api`
+- Start entrypoint: `server.js` (loads compiled runtime `dist/server.js`)
+
+API-only runtime (optional):
 
 ```bash
 npm run api:dev

@@ -10,6 +10,7 @@
     "resolveJsonModule": true
   },
   "include": [
+    "server.ts",
     "apps/**/*.ts",
     "packages/**/*.ts"
   ]
