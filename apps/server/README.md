@@ -29,6 +29,9 @@ Implemented endpoints:
 - `GET /api/league/table`
 - `GET /api/league/legends`
 
+Match start payload note:
+- `POST /api/match/start` now includes `arcadeRatings` (attack/defense/control/goalkeeping/stamina) for both clubs so Phaser timing bars can be stat-driven.
+
 Auth uses Clerk:
 - If `CLERK_SECRET_KEY` is configured, Express mounts Clerk middleware and reads authenticated user id from Clerk session/cookies.
 - For local scripts/dev fallback, API still accepts `x-clerk-user-id` header.

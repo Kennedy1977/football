@@ -39,12 +39,20 @@ Required auth env:
 
 Implemented starter module:
 - `apps/web/src/match/phaser-match-simulation.ts`
+- Contract-driven input/output from shared package:
+  - `packages/game-core/src/phaser-contracts.ts`
 
 Entry helper:
 - `apps/web/src/match/demo.ts`
 
 The Phaser scene is driven by shared engine output from:
 - `packages/game-core/src/engine/simulateMatch.ts`
+
+Runtime flow:
+- App shell passes `MatchRuntimeConfig`
+- Phaser runs portrait match + chance timing bars
+- Phaser emits `MatchRuntimeResult` via callback
+- Timing-bar window size and speed are now stat-driven from `match/start` arcade ratings.
 
 Minimal usage:
 

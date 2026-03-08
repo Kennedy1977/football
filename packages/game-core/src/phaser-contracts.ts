@@ -3,6 +3,11 @@ import type { MatchChanceEvent, MatchEndReason, MatchResult } from "./types";
 export interface MatchRuntimeTeamConfig {
   name: string;
   strength: number;
+  attackRating?: number;
+  defenseRating?: number;
+  controlRating?: number;
+  goalkeepingRating?: number;
+  staminaRating?: number;
   momentumBias?: number;
 }
 

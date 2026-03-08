@@ -11,6 +11,8 @@ import {
   applyPlayerExp,
   applyStaminaAfterMatch,
   computeTeamOverall,
+  deriveArcadeRatingsFromOverall,
+  deriveArcadeTeamRatings,
   getLeaguePoints,
   getManagerExpGain,
   getMatchCoinReward,
@@ -99,6 +101,10 @@ matchRouter.post(
     );
 
     validateStartingLineup(lineupRows);
+    const yourArcadeRatings = deriveArcadeTeamRatings(
+      lineupRows.map((player) => toPlayerCard(player)),
+      Number(context.team_overall)
+    );
 
     const [rankedRows] = await pool.query<RankedClubRow[]>(
       `
@@ -132,6 +138,37 @@ matchRouter.post(
     }
 
     const picked = candidates[Math.floor(Math.random() * candidates.length)];
+    const [opponentStarterRows] = await pool.query<StartingPlayerRow[]>(
+      `
+        SELECT
+          id,
+          name,
+          position,
+          rarity,
+          overall_rating,
+          level,
+          exp,
+          stamina,
+          pace,
+          shooting,
+          passing,
+          dribbling,
+          defending,
+          strength,
+          goalkeeping,
+          is_starting
+        FROM players
+        WHERE club_id = ? AND is_starting = TRUE
+      `,
+      [picked.row.club_id]
+    );
+    const opponentArcadeRatings = isValidStartingLineup(opponentStarterRows)
+      ? deriveArcadeTeamRatings(
+          opponentStarterRows.map((player) => toPlayerCard(player)),
+          Number(picked.row.team_overall)
+        )
+      : deriveArcadeRatingsFromOverall(Number(picked.row.team_overall));
+
     const matchSeed = crypto.randomUUID();
 
     res.status(200).json({
@@ -145,12 +182,14 @@ matchRouter.post(
         clubId: context.club_id,
         teamOverall: Number(context.team_overall),
         rank: userRank,
+        arcadeRatings: yourArcadeRatings,
       },
       opponent: {
         clubId: picked.row.club_id,
         name: picked.row.club_name,
         teamOverall: Number(picked.row.team_overall),
         rank: picked.rank,
+        arcadeRatings: opponentArcadeRatings,
       },
     });
   })
@@ -448,6 +487,14 @@ function validateStartingLineup(players: StartingPlayerRow[]): void {
   if (players.some((player) => Number(player.stamina) <= 0)) {
     throw new HttpError(400, "Starting lineup contains unavailable players with red stamina");
   }
+}
+
+function isValidStartingLineup(players: StartingPlayerRow[]): boolean {
+  return (
+    players.length === 11 &&
+    players.filter((player) => player.position === "GK").length >= 1 &&
+    !players.some((player) => Number(player.stamina) <= 0)
+  );
 }
 
 function validateMatchInvariants(input: {

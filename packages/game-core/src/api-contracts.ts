@@ -1,4 +1,4 @@
-import type { FormationCode, LeagueCode, MatchEndReason, MatchResult, Position, Rarity } from "./types";
+import type { ArcadeTeamRatings, FormationCode, LeagueCode, MatchEndReason, MatchResult, Position, Rarity } from "./types";
 
 export interface ApiManagerSummary {
   id: number;
@@ -150,12 +150,14 @@ export interface StartMatchResponse {
     clubId: number;
     teamOverall: number;
     rank: number;
+    arcadeRatings: ArcadeTeamRatings;
   };
   opponent: {
     clubId: number;
     name: string;
     teamOverall: number;
     rank: number;
+    arcadeRatings: ArcadeTeamRatings;
   };
 }
 

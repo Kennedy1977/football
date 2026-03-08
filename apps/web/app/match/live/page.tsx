@@ -22,6 +22,7 @@ export default function MatchLivePage() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mountedSimRef = useRef<MountedPhaserMatch | null>(null);
   const [simulation, setSimulation] = useState<MatchRuntimeResult | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
 
   const [submitMatch, submitState] = useSubmitMatchMutation();
 
@@ -55,6 +56,8 @@ export default function MatchLivePage() {
         <span className="label-pill">Opponent: {prep.opponentName}</span>
         <span className="label-pill">Rank: #{prep.opponentRank}</span>
         <span className="label-pill">Strength: {prep.yourTeamOverall} vs {prep.opponentTeamOverall}</span>
+        <span className="label-pill">Attack: {prep.yourArcadeRatings.attack} vs {prep.opponentArcadeRatings.attack}</span>
+        <span className="label-pill">Defense: {prep.yourArcadeRatings.defense} vs {prep.opponentArcadeRatings.defense}</span>
       </div>
 
       <div className="inline" style={{ marginBottom: 12 }}>
@@ -63,8 +66,11 @@ export default function MatchLivePage() {
           onClick={async () => {
             mountedSimRef.current?.destroy();
             mountedSimRef.current = null;
+            setSimulation(null);
+            setIsRunning(true);
 
             if (!containerRef.current) {
+              setIsRunning(false);
               return;
             }
 
@@ -74,8 +80,24 @@ export default function MatchLivePage() {
               containerRef.current,
               {
                 matchSeed: prep.matchSeed,
-                homeTeam: { name: "Your Team", strength: prep.yourTeamOverall },
-                awayTeam: { name: prep.opponentName, strength: prep.opponentTeamOverall },
+                homeTeam: {
+                  name: "Your Team",
+                  strength: prep.yourTeamOverall,
+                  attackRating: prep.yourArcadeRatings.attack,
+                  defenseRating: prep.yourArcadeRatings.defense,
+                  controlRating: prep.yourArcadeRatings.control,
+                  goalkeepingRating: prep.yourArcadeRatings.goalkeeping,
+                  staminaRating: prep.yourArcadeRatings.stamina,
+                },
+                awayTeam: {
+                  name: prep.opponentName,
+                  strength: prep.opponentTeamOverall,
+                  attackRating: prep.opponentArcadeRatings.attack,
+                  defenseRating: prep.opponentArcadeRatings.defense,
+                  controlRating: prep.opponentArcadeRatings.control,
+                  goalkeepingRating: prep.opponentArcadeRatings.goalkeeping,
+                  staminaRating: prep.opponentArcadeRatings.stamina,
+                },
               },
               {
                 width: 390,
@@ -83,19 +105,21 @@ export default function MatchLivePage() {
                 onResolved: (resolved) => {
                   setSimulation(resolved);
                   dispatch(setMatchEvents(resolved.events));
+                  setIsRunning(false);
                 },
               }
             );
 
             mountedSimRef.current = mounted;
           }}
+          disabled={isRunning}
         >
-          {simulation ? "Re-Simulate Match" : "Run Simulation"}
+          {isRunning ? "Match In Progress..." : simulation ? "Re-Simulate Match" : "Run Simulation"}
         </button>
 
         <button
           type="button"
-          disabled={!simulation || submitState.isLoading}
+          disabled={!simulation || isRunning || submitState.isLoading}
           onClick={async () => {
             if (!simulation) return;
 
@@ -124,6 +148,7 @@ export default function MatchLivePage() {
 
       <div ref={containerRef} className="match-sim-root" />
 
+      {isRunning ? <p className="feedback">Match running. Wait for full-time before submission.</p> : null}
       {simulation ? (
         <p className="feedback">
           Simulated: {simulation.homeGoals}-{simulation.awayGoals} ({simulation.result}) ending via {simulation.endReason}.

@@ -38,6 +38,14 @@ export default function MatchPrepPage() {
               <p className="stat-label">Strength</p>
               <p className="stat-value">{prep.yourTeamOverall} vs {prep.opponentTeamOverall}</p>
             </div>
+            <div className="stat-card">
+              <p className="stat-label">Attack</p>
+              <p className="stat-value">{prep.yourArcadeRatings.attack} vs {prep.opponentArcadeRatings.attack}</p>
+            </div>
+            <div className="stat-card">
+              <p className="stat-label">Defense</p>
+              <p className="stat-value">{prep.yourArcadeRatings.defense} vs {prep.opponentArcadeRatings.defense}</p>
+            </div>
           </div>
           <div className="inline" style={{ marginTop: 10 }}>
             <button

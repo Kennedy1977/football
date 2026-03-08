@@ -51,6 +51,14 @@ export interface ClubSummary {
   leagueCode: LeagueCode;
 }
 
+export interface ArcadeTeamRatings {
+  attack: number;
+  defense: number;
+  control: number;
+  goalkeeping: number;
+  stamina: number;
+}
+
 export type FormationCode = "4-4-2" | "4-3-3" | "4-5-1" | "4-2-3-1" | "3-5-2" | "5-3-2" | "4-2-4";
 
 export type LeagueCode =

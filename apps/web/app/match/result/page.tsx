@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useClaimPromotionRewardMutation } from "../../../src/state/apis/gameApi";
 import { readApiErrorMessage } from "../../../src/lib/api-error";
@@ -15,6 +16,23 @@ export default function MatchResultPage() {
   const prep = useSelector((state: RootState) => state.match.matchPrep);
   const result = useSelector((state: RootState) => state.match.lastSubmission);
   const [claimPromotion, promotionState] = useClaimPromotionRewardMutation();
+  const [stage, setStage] = useState(1);
+
+  useEffect(() => {
+    setStage(1);
+  }, [result?.goals.club, result?.goals.opponent, result?.result]);
+
+  useEffect(() => {
+    if (!result || stage >= 4) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setStage((value) => Math.min(4, value + 1));
+    }, 900);
+
+    return () => clearTimeout(timeout);
+  }, [result, stage]);
 
   if (!prep || !result) {
     return (
@@ -33,24 +51,42 @@ export default function MatchResultPage() {
   return (
     <main className="page-panel">
       <h2 className="page-title">Match Result</h2>
-      <p className="page-copy">Rewards and progression from the latest submitted match.</p>
+      <p className="page-copy">Rewards and progression are revealed in stages. Tap skip to show all immediately.</p>
 
-      <section className="grid cards" style={{ marginBottom: 12 }}>
-        <StatCard label="Opponent" value={prep.opponentName} />
-        <StatCard label="Result" value={result.result} tone={result.result === "WIN" ? "good" : result.result === "LOSS" ? "warn" : "neutral"} />
-        <StatCard label="Score" value={`${result.goals.club} - ${result.goals.opponent}`} />
-      </section>
+      <div className="inline" style={{ marginBottom: 10 }}>
+        <span className="label-pill">Stage {stage}/4</span>
+        {stage < 4 ? (
+          <button type="button" onClick={() => setStage(4)}>
+            Skip Reveal
+          </button>
+        ) : null}
+      </div>
 
-      <section className="grid cards">
-        <StatCard label="Coins Earned" value={String(result.rewards.coins)} tone="good" />
-        <StatCard label="League Points" value={String(result.rewards.points)} />
-        <StatCard label="Manager EXP" value={String(result.rewards.managerExp)} />
-        <StatCard label="Starter EXP" value={String(result.rewards.starterExp)} />
-        <StatCard label="Team Overall" value={String(result.teamOverall)} />
-        <StatCard label="Promotion" value={result.promotionEligible ? "Eligible" : "Not Yet"} tone={result.promotionEligible ? "good" : "neutral"} />
-      </section>
+      {stage >= 1 ? (
+        <section className="grid cards" style={{ marginBottom: 12 }}>
+          <StatCard label="Opponent" value={prep.opponentName} />
+          <StatCard label="Result" value={result.result} tone={result.result === "WIN" ? "good" : result.result === "LOSS" ? "warn" : "neutral"} />
+          <StatCard label="Score" value={`${result.goals.club} - ${result.goals.opponent}`} />
+        </section>
+      ) : null}
 
-      {result.promotionEligible ? (
+      {stage >= 2 ? (
+        <section className="grid cards">
+          <StatCard label="Coins Earned" value={String(result.rewards.coins)} tone="good" />
+          <StatCard label="League Points" value={String(result.rewards.points)} />
+          <StatCard label="Manager EXP" value={String(result.rewards.managerExp)} />
+        </section>
+      ) : null}
+
+      {stage >= 3 ? (
+        <section className="grid cards" style={{ marginTop: 12 }}>
+          <StatCard label="Starter EXP" value={String(result.rewards.starterExp)} />
+          <StatCard label="Team Overall" value={String(result.teamOverall)} />
+          <StatCard label="League Movement" value={result.promotionEligible ? "Promotion Ready" : "Stay In Current Tier"} tone={result.promotionEligible ? "good" : "neutral"} />
+        </section>
+      ) : null}
+
+      {stage >= 4 && result.promotionEligible ? (
         <section className="onboarding-card">
           <h3>Promotion Reward</h3>
           <p className="feedback">Threshold reached. Claim promotion reward to advance league tier.</p>
@@ -76,20 +112,40 @@ export default function MatchResultPage() {
         </section>
       ) : null}
 
-      <div className="inline" style={{ marginTop: 14 }}>
-        <button
-          type="button"
-          onClick={() => {
-            dispatch(clearMatchState());
-            router.push("/match/prep");
-          }}
-        >
-          Play Next Match
-        </button>
-        <Link href="/home" className="btn">
-          Back To Dashboard
-        </Link>
-      </div>
+      {stage >= 4 ? (
+        <div className="inline" style={{ marginTop: 14 }}>
+          <button
+            type="button"
+            onClick={() => {
+              dispatch(clearMatchState());
+              router.push("/match/prep");
+            }}
+          >
+            Play Next Match
+          </button>
+          <Link href="/home" className="btn">
+            Back To Dashboard
+          </Link>
+        </div>
+      ) : null}
+      {stage < 4 ? (
+        <div className="inline" style={{ marginTop: 14 }}>
+          <span className="feedback">Auto-revealing next stage...</span>
+        </div>
+      ) : null}
+
+      {stage < 4 ? (
+        <div className="inline" style={{ marginTop: 10 }}>
+          <button
+            type="button"
+            onClick={() => {
+              setStage((value) => Math.min(4, value + 1));
+            }}
+          >
+            Next Stage
+          </button>
+        </div>
+      ) : null}
     </main>
   );
 }

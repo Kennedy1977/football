@@ -1,5 +1,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type {
+  ArcadeTeamRatings,
   MatchChanceEvent,
   MatchResult,
   StartMatchResponse,
@@ -12,6 +13,8 @@ interface MatchPrepState {
   opponentName: string;
   yourTeamOverall: number;
   opponentTeamOverall: number;
+  yourArcadeRatings: ArcadeTeamRatings;
+  opponentArcadeRatings: ArcadeTeamRatings;
   yourRank: number;
   opponentRank: number;
 }
@@ -54,6 +57,8 @@ const matchSlice = createSlice({
         opponentName: action.payload.opponent.name,
         yourTeamOverall: action.payload.yourClub.teamOverall,
         opponentTeamOverall: action.payload.opponent.teamOverall,
+        yourArcadeRatings: action.payload.yourClub.arcadeRatings,
+        opponentArcadeRatings: action.payload.opponent.arcadeRatings,
         yourRank: action.payload.yourClub.rank,
         opponentRank: action.payload.opponent.rank,
       };
