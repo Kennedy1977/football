@@ -9,6 +9,7 @@
   "scripts": {
     "postinstall": "npm run build",
     "assets:card-frames": "node scripts/prepare-player-card-frames.mjs",
+    "assets:card-portraits": "node scripts/prepare-player-card-portraits.mjs",
     "build:meta": "node scripts/generate-build-meta.mjs",
     "prebuild": "npm run build:meta",
     "version:patch": "npm version patch --no-git-tag-version",
