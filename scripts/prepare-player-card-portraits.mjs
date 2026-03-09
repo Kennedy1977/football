@@ -257,10 +257,10 @@ async function buildFaceGridTiles(imagePath, sourceGrid, cellSize, sharp) {
 
   for (let row = 0; row < sourceGrid.rows; row += 1) {
     for (let col = 0; col < sourceGrid.columns; col += 1) {
-      const left = Math.floor(gridLeft + col * cellWidth + cellWidth * 0.09);
-      const top = Math.floor(gridTop + row * cellHeight + cellHeight * 0.03);
-      const width = Math.max(1, Math.floor(cellWidth * 0.82));
-      const height = Math.max(1, Math.floor(cellHeight * 0.9));
+      const left = Math.floor(gridLeft + col * cellWidth + cellWidth * 0.04);
+      const top = Math.floor(gridTop + row * cellHeight + cellHeight * 0.01);
+      const width = Math.max(1, Math.floor(cellWidth * 0.9));
+      const height = Math.max(1, Math.floor(cellHeight * 0.94));
       const rect = {
         left,
         top,
@@ -271,7 +271,8 @@ async function buildFaceGridTiles(imagePath, sourceGrid, cellSize, sharp) {
       let tile = await sharp(imagePath)
         .extract(rect)
         .resize(maskSize, maskSize, {
-          fit: "contain",
+          fit: "cover",
+          position: "centre",
           background: { r: 0, g: 0, b: 0, alpha: 0 },
         })
         .composite([{ input: maskSvg, blend: "dest-in" }])

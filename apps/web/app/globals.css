@@ -19,6 +19,50 @@
   --warn: #ffd34d;
   --bad: #ff667d;
   --shadow: 0 16px 40px rgba(1, 6, 16, 0.42);
+  --card-gradient-common:
+    radial-gradient(
+      circle at 48% 38%,
+      rgba(182, 237, 47, 1) 0%,
+      rgba(136, 206, 28, 0.95) 22%,
+      rgba(89, 181, 22, 0.92) 48%,
+      rgba(47, 132, 13, 1) 100%
+    );
+  --card-gradient-rare:
+    radial-gradient(
+      circle at 48% 38%,
+      rgba(77, 169, 248, 1) 0%,
+      rgba(49, 128, 228, 0.96) 24%,
+      rgba(27, 95, 211, 0.94) 50%,
+      rgba(18, 63, 156, 1) 100%
+    );
+  --card-gradient-epic:
+    radial-gradient(
+      circle at 48% 38%,
+      rgba(194, 107, 246, 1) 0%,
+      rgba(153, 80, 232, 0.96) 24%,
+      rgba(112, 58, 205, 0.94) 50%,
+      rgba(74, 30, 166, 1) 100%
+    );
+  --card-gradient-legendary:
+    radial-gradient(
+      circle at 48% 38%,
+      rgba(253, 230, 65, 1) 0%,
+      rgba(247, 203, 36, 0.97) 22%,
+      rgba(225, 168, 20, 0.95) 48%,
+      rgba(174, 104, 8, 1) 100%
+    );
+  --card-common-top: rgba(109, 187, 21, 1);
+  --card-common-middle: rgba(182, 237, 47, 1);
+  --card-common-bottom: rgba(47, 132, 13, 1);
+  --card-rare-top: rgba(21, 89, 202, 1);
+  --card-rare-middle: rgba(77, 169, 248, 1);
+  --card-rare-bottom: rgba(18, 63, 156, 1);
+  --card-epic-top: rgba(113, 59, 201, 1);
+  --card-epic-middle: rgba(194, 107, 246, 1);
+  --card-epic-bottom: rgba(74, 30, 166, 1);
+  --card-legendary-top: rgba(235, 178, 19, 1);
+  --card-legendary-middle: rgba(253, 230, 65, 1);
+  --card-legendary-bottom: rgba(174, 104, 8, 1);
 }
 
 * {
@@ -598,9 +642,154 @@ button[disabled] {
   border-radius: 50%;
   border: 1px solid rgba(214, 237, 255, 0.36);
   background-image: url("/assets/player-cards/faces-sprite.webp");
-  background-size: 1400% 900%;
+  background-size: 1200% 1000%;
   background-position: 0% 0%;
   box-shadow: 0 1px 4px rgba(2, 6, 16, 0.6);
+}
+
+.preview-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.preview-player-card {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  border-radius: 14px;
+  overflow: hidden;
+  isolation: isolate;
+  background-color: rgba(3, 16, 40, 0.95);
+  border: 1px solid rgba(180, 210, 240, 0.34);
+  box-shadow: 0 12px 26px rgba(2, 10, 24, 0.44);
+}
+
+.preview-player-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("/assets/player-cards/rarity-sprite.webp");
+  background-size: 200% 200%;
+  background-repeat: no-repeat;
+  background-position: 0% 0%;
+  z-index: 0;
+}
+
+.preview-player-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.2), transparent 54%),
+    linear-gradient(180deg, rgba(7, 18, 40, 0) 52%, rgba(5, 12, 29, 0.5) 72%, rgba(5, 12, 29, 0.82) 100%);
+  z-index: 1;
+}
+
+.preview-player-card.rarity-common::before {
+  background-position: 0% 0%;
+}
+
+.preview-player-card.rarity-rare::before {
+  background-position: 100% 0%;
+}
+
+.preview-player-card.rarity-epic::before {
+  background-position: 0% 100%;
+}
+
+.preview-player-card.rarity-legendary::before {
+  background-position: 100% 100%;
+}
+
+.preview-player-art {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: 16%;
+  bottom: 24%;
+  z-index: 2;
+}
+
+.preview-player-shirt {
+  position: absolute;
+  left: 50%;
+  bottom: -1%;
+  width: 88%;
+  height: 62%;
+  transform: translateX(-50%);
+  background-image: url("/assets/player-cards/shirts-sprite.webp");
+  background-size: 800% 600%;
+  background-repeat: no-repeat;
+  background-position: 0% 0%;
+}
+
+.preview-player-face {
+  position: absolute;
+  left: 50%;
+  top: 2%;
+  width: 66%;
+  aspect-ratio: 1 / 1;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background-image: url("/assets/player-cards/faces-sprite.webp");
+  background-size: 1200% 1000%;
+  background-repeat: no-repeat;
+  background-position: 0% 0%;
+  box-shadow: 0 3px 10px rgba(1, 6, 16, 0.42);
+}
+
+.preview-player-rating {
+  position: absolute;
+  right: 13%;
+  top: 8%;
+  width: 19%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  border: 2px solid rgba(227, 242, 255, 0.72);
+  background: rgba(8, 29, 62, 0.66);
+  color: #f4fbff;
+  font-size: 20px;
+  font-family: "Barlow Condensed", "Exo 2", sans-serif;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  z-index: 3;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.44);
+}
+
+.preview-player-name {
+  position: absolute;
+  left: 9%;
+  right: 9%;
+  bottom: 6%;
+  height: 15%;
+  border-radius: 11px;
+  border: 1px solid rgba(217, 236, 255, 0.62);
+  background: linear-gradient(180deg, rgba(27, 122, 224, 0.95), rgba(18, 83, 168, 0.95));
+  color: #f6fbff;
+  display: grid;
+  place-items: center;
+  font-family: "Barlow Condensed", "Exo 2", sans-serif;
+  font-size: clamp(18px, 2.1vw, 30px);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  z-index: 3;
+  text-shadow: 0 1px 2px rgba(3, 10, 24, 0.64);
+}
+
+.preview-player-meta {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 1.5%;
+  color: rgba(233, 244, 255, 0.94);
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  z-index: 3;
+  text-shadow: 0 1px 2px rgba(1, 8, 22, 0.68);
 }
 
 .player-overall {
