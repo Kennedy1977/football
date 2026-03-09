@@ -25,6 +25,21 @@ export interface MatchRuntimeConfig {
   rules?: Partial<MatchRuntimeRulesConfig>;
 }
 
+export type MatchChanceType = "CENTRAL_SHOT" | "ANGLED_SHOT" | "CLOSE_RANGE" | "ONE_ON_ONE";
+export type MatchTapQuality = "PERFECT" | "GOOD" | "POOR";
+
+export interface MatchChanceOutcome {
+  eventIndex: number;
+  second: number;
+  attackingSide: "HOME" | "AWAY";
+  chanceType: MatchChanceType;
+  tapQuality: MatchTapQuality;
+  tapped: boolean;
+  baseQuality: number;
+  scoreProbability: number;
+  scored: boolean;
+}
+
 export interface MatchRuntimeResult {
   matchSeed: string;
   result: MatchResult;
@@ -33,6 +48,7 @@ export interface MatchRuntimeResult {
   homeGoals: number;
   awayGoals: number;
   events: MatchChanceEvent[];
+  chanceOutcomes: MatchChanceOutcome[];
   summary: {
     scoreline: string;
     totalGoals: number;

@@ -1,6 +1,6 @@
 {
   "name": "football",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Football Manager Arcade MVP scaffold",
   "main": "server.js",
   "engines": {
@@ -8,6 +8,11 @@
   },
   "scripts": {
     "postinstall": "npm run build",
+    "build:meta": "node scripts/generate-build-meta.mjs",
+    "prebuild": "npm run build:meta",
+    "version:patch": "npm version patch --no-git-tag-version",
+    "version:minor": "npm version minor --no-git-tag-version",
+    "version:major": "npm version major --no-git-tag-version",
     "start": "NODE_ENV=production node server.js",
     "dev": "tsx watch server.ts",
     "build": "npm run build:web && npm run build:server",

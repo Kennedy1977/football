@@ -2,6 +2,7 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type {
   ArcadeTeamRatings,
   MatchChanceEvent,
+  MatchRuntimeResult,
   MatchResult,
   StartMatchResponse,
   SubmitMatchResponse,
@@ -24,6 +25,7 @@ interface MatchState {
   opponentClubId: number | null;
   matchPrep: MatchPrepState | null;
   events: MatchChanceEvent[];
+  runtimeResult: MatchRuntimeResult | null;
   result: MatchResult | null;
   lastSubmission: SubmitMatchResponse | null;
 }
@@ -33,6 +35,7 @@ const initialState: MatchState = {
   opponentClubId: null,
   matchPrep: null,
   events: [],
+  runtimeResult: null,
   result: null,
   lastSubmission: null,
 };
@@ -45,6 +48,7 @@ const matchSlice = createSlice({
       state.activeMatchSeed = action.payload.matchSeed;
       state.opponentClubId = action.payload.opponentClubId;
       state.events = [];
+      state.runtimeResult = null;
       state.result = null;
       state.lastSubmission = null;
     },
@@ -63,11 +67,15 @@ const matchSlice = createSlice({
         opponentRank: action.payload.opponent.rank,
       };
       state.events = [];
+      state.runtimeResult = null;
       state.result = null;
       state.lastSubmission = null;
     },
     setMatchEvents(state, action: PayloadAction<MatchChanceEvent[]>) {
       state.events = action.payload;
+    },
+    setMatchRuntimeResult(state, action: PayloadAction<MatchRuntimeResult | null>) {
+      state.runtimeResult = action.payload;
     },
     finishMatchState(state, action: PayloadAction<MatchResult>) {
       state.result = action.payload;
@@ -81,6 +89,7 @@ const matchSlice = createSlice({
       state.opponentClubId = null;
       state.matchPrep = null;
       state.events = [];
+      state.runtimeResult = null;
       state.result = null;
       state.lastSubmission = null;
     },
@@ -91,6 +100,7 @@ export const {
   startMatchState,
   setMatchPrep,
   setMatchEvents,
+  setMatchRuntimeResult,
   finishMatchState,
   setMatchSubmission,
   clearMatchState,

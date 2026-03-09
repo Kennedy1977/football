@@ -28,6 +28,11 @@ npm run build
 npm start
 ```
 
+Versioning and cache-bust:
+- Semantic version is from `package.json` (current `1.0.1`).
+- Build metadata file is generated at build time via `npm run build:meta`.
+- Version bump helpers: `npm run version:patch`, `npm run version:minor`, `npm run version:major`.
+
 This serves:
 - Next.js frontend on `/`
 - Express API on `/api`

@@ -15,8 +15,16 @@ export default function MatchResultPage() {
   const dispatch = useDispatch();
   const prep = useSelector((state: RootState) => state.match.matchPrep);
   const result = useSelector((state: RootState) => state.match.lastSubmission);
+  const runtimeResult = useSelector((state: RootState) => state.match.runtimeResult);
   const [claimPromotion, promotionState] = useClaimPromotionRewardMutation();
   const [stage, setStage] = useState(1);
+  const chanceOutcomes = runtimeResult?.chanceOutcomes || [];
+  const chanceCount = chanceOutcomes.length;
+  const convertedChances = chanceOutcomes.filter((entry) => entry.scored).length;
+  const conversionPct = chanceCount ? `${Math.round((convertedChances / chanceCount) * 100)}%` : "-";
+  const perfectTaps = chanceOutcomes.filter((entry) => entry.tapQuality === "PERFECT").length;
+  const goodTaps = chanceOutcomes.filter((entry) => entry.tapQuality === "GOOD").length;
+  const poorTaps = chanceOutcomes.filter((entry) => entry.tapQuality === "POOR").length;
 
   useEffect(() => {
     setStage(1);
@@ -83,6 +91,17 @@ export default function MatchResultPage() {
           <StatCard label="Starter EXP" value={String(result.rewards.starterExp)} />
           <StatCard label="Team Overall" value={String(result.teamOverall)} />
           <StatCard label="League Movement" value={result.promotionEligible ? "Promotion Ready" : "Stay In Current Tier"} tone={result.promotionEligible ? "good" : "neutral"} />
+        </section>
+      ) : null}
+
+      {stage >= 4 ? (
+        <section className="grid cards" style={{ marginTop: 12 }}>
+          <StatCard label="Chances" value={chanceCount ? String(chanceCount) : "-"} />
+          <StatCard label="Converted Chances" value={chanceCount ? String(convertedChances) : "-"} />
+          <StatCard label="Conversion Rate" value={conversionPct} tone={chanceCount ? "good" : "neutral"} />
+          <StatCard label="Perfect Taps" value={chanceCount ? String(perfectTaps) : "-"} />
+          <StatCard label="Good Taps" value={chanceCount ? String(goodTaps) : "-"} />
+          <StatCard label="Poor Taps" value={chanceCount ? String(poorTaps) : "-"} tone={poorTaps > perfectTaps ? "warn" : "neutral"} />
         </section>
       ) : null}
 

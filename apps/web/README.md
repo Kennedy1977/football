@@ -36,6 +36,11 @@ Required auth env:
 - `CLERK_SECRET_KEY` (required by API runtime for verified Clerk sessions)
 - If these are missing in production, app runs in fallback mode (no Clerk widgets/route protection) instead of crashing.
 
+Build metadata:
+- Version is read from root `package.json` (semantic version).
+- Build timestamp and cache-bust token are generated on each build into `apps/web/src/lib/build-meta.ts`.
+- URL is normalized with `?v={major-minor-patch}-{timestamp}` and footer shows version + copyright.
+
 ## Phaser Match Simulation
 
 Implemented starter module:
@@ -55,6 +60,7 @@ Runtime flow:
 - Phaser emits `MatchRuntimeResult` via callback
 - Timing-bar window size and speed are now stat-driven from `match/start` arcade ratings.
 - Tap quality now influences whether each chance is converted/saved, with result normalization before submit.
+- Submission payload includes `chanceOutcomes` metadata for replay/debug auditing.
 
 Minimal usage:
 

@@ -8,7 +8,7 @@ import type { MatchRuntimeResult, SubmitMatchRequest } from "../../../../../pack
 import { useSubmitMatchMutation } from "../../../src/state/apis/gameApi";
 import { readApiErrorMessage } from "../../../src/lib/api-error";
 import type { RootState } from "../../../src/state/store";
-import { setMatchEvents, setMatchSubmission } from "../../../src/state/slices/matchSlice";
+import { setMatchEvents, setMatchRuntimeResult, setMatchSubmission } from "../../../src/state/slices/matchSlice";
 
 type MountedPhaserMatch = {
   destroy: () => void;
@@ -68,6 +68,7 @@ export default function MatchLivePage() {
             mountedSimRef.current = null;
             setSimulation(null);
             setIsRunning(true);
+            dispatch(setMatchRuntimeResult(null));
 
             if (!containerRef.current) {
               setIsRunning(false);
@@ -105,6 +106,7 @@ export default function MatchLivePage() {
                 onResolved: (resolved) => {
                   setSimulation(resolved);
                   dispatch(setMatchEvents(resolved.events));
+                  dispatch(setMatchRuntimeResult(resolved));
                   setIsRunning(false);
                 },
               }
@@ -132,6 +134,7 @@ export default function MatchLivePage() {
               endReason: simulation.endReason,
               simulationPayload: {
                 events: simulation.events,
+                chanceOutcomes: simulation.chanceOutcomes,
                 result: simulation.result,
                 summary: simulation.summary,
               },

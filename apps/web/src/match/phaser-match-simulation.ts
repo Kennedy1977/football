@@ -6,7 +6,13 @@ import {
   MAX_TOTAL_GOALS,
 } from "../../../../packages/game-core/src/constants";
 import { simulateMatch } from "../../../../packages/game-core/src/engine/simulateMatch";
-import type { MatchRuntimeConfig, MatchRuntimeResult } from "../../../../packages/game-core/src/phaser-contracts";
+import type {
+  MatchChanceOutcome,
+  MatchChanceType,
+  MatchRuntimeConfig,
+  MatchRuntimeResult,
+  MatchTapQuality,
+} from "../../../../packages/game-core/src/phaser-contracts";
 import type { MatchChanceEvent, MatchSimulationOutput } from "../../../../packages/game-core/src/types";
 
 export interface PhaserMatchOptions {
@@ -122,6 +128,7 @@ class MatchSimulationScene extends Phaser.Scene {
   private homeGoals = 0;
   private awayGoals = 0;
   private resolvedEvents: MatchChanceEvent[] = [];
+  private chanceOutcomes: MatchChanceOutcome[] = [];
   private resolvingChance = false;
   private finished = false;
 
@@ -262,7 +269,7 @@ class MatchSimulationScene extends Phaser.Scene {
 
     this.commentaryText.setText(transitionText);
     this.playTimingMinigame(event, eventIndex, chanceType, (tapQuality, tapped) => {
-      const resolvedScored = resolveChanceOutcome({
+      const resolvedOutcome = resolveChanceOutcome({
         seed: this.matchSeed,
         event,
         eventIndex,
@@ -271,8 +278,19 @@ class MatchSimulationScene extends Phaser.Scene {
         tapped,
         teams: this.teams,
       });
-      const resolvedEvent = { ...event, scored: resolvedScored };
+      const resolvedEvent = { ...event, scored: resolvedOutcome.scored };
       this.resolvedEvents.push(resolvedEvent);
+      this.chanceOutcomes.push({
+        eventIndex,
+        second: event.second,
+        attackingSide: event.attackingSide,
+        chanceType,
+        tapQuality,
+        tapped,
+        baseQuality: event.quality,
+        scoreProbability: resolvedOutcome.scoreProbability,
+        scored: resolvedOutcome.scored,
+      });
 
       this.applyEventOutcome(resolvedEvent, chanceType, tapQuality, tapped);
       this.eventCursor += 1;
@@ -438,6 +456,7 @@ class MatchSimulationScene extends Phaser.Scene {
     const finalResult = finalizeRuntimeResult(
       this.matchSeed,
       this.resolvedEvents,
+      this.chanceOutcomes,
       this.simulation.durationSeconds,
       this.baseRuntimeResult
     );
@@ -467,8 +486,8 @@ function formatMatchClock(seconds: number): string {
   return `${mins}:${secs}`;
 }
 
-type ChanceType = "CENTRAL_SHOT" | "ANGLED_SHOT" | "CLOSE_RANGE" | "ONE_ON_ONE";
-type TapQuality = "PERFECT" | "GOOD" | "POOR";
+type ChanceType = MatchChanceType;
+type TapQuality = MatchTapQuality;
 
 function pickChanceType(seed: string, eventIndex: number, quality: number): ChanceType {
   const unit = hashUnit(`${seed}:${eventIndex}:chance:${quality.toFixed(4)}`);
@@ -569,7 +588,7 @@ function resolveChanceOutcome(options: {
   tapQuality: TapQuality;
   tapped: boolean;
   teams: { home: RuntimeTeam; away: RuntimeTeam };
-}): boolean {
+}): { scored: boolean; scoreProbability: number } {
   const { event, chanceType, tapQuality, tapped, teams } = options;
   const attacking = event.attackingSide === "HOME" ? teams.home : teams.away;
   const defending = event.attackingSide === "HOME" ? teams.away : teams.home;
@@ -589,7 +608,10 @@ function resolveChanceOutcome(options: {
     baseFromEngine + statEdge + staminaEdge + qualityEdge + chanceTypeEdge + userEdge
   );
   const roll = hashUnit(`${options.seed}:${options.eventIndex}:resolve:${tapQuality}:${tapped ? 1 : 0}`);
-  return roll <= scoreProbability;
+  return {
+    scored: roll <= scoreProbability,
+    scoreProbability: Number(scoreProbability.toFixed(4)),
+  };
 }
 
 function chanceTypeDifficulty(type: ChanceType): number {
@@ -656,6 +678,7 @@ function shouldStopEarly(homeGoals: number, awayGoals: number): boolean {
 function finalizeRuntimeResult(
   matchSeed: string,
   resolvedEvents: MatchChanceEvent[],
+  chanceOutcomes: MatchChanceOutcome[],
   maxDurationSeconds: number,
   fallback: MatchRuntimeResult
 ): MatchRuntimeResult {
@@ -698,6 +721,7 @@ function finalizeRuntimeResult(
     homeGoals,
     awayGoals,
     events: resolvedEvents,
+    chanceOutcomes,
     summary: {
       scoreline: `${homeGoals}-${awayGoals}`,
       totalGoals: homeGoals + awayGoals,
@@ -751,6 +775,7 @@ function toRuntimeResult(matchSeed: string, output: MatchSimulationOutput): Matc
     homeGoals: output.homeGoals,
     awayGoals: output.awayGoals,
     events: output.events,
+    chanceOutcomes: [],
     summary: {
       scoreline: `${output.homeGoals}-${output.awayGoals}`,
       totalGoals: output.homeGoals + output.awayGoals,
