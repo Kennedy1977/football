@@ -1,4 +1,4 @@
-import { SignIn } from "@clerk/nextjs";
+import { ClerkFailed, ClerkLoaded, ClerkLoading, SignIn } from "@clerk/nextjs";
 
 export default function SignInPage() {
   if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
@@ -16,7 +16,17 @@ export default function SignInPage() {
     <main className="page-panel">
       <h2 className="page-title">Sign In</h2>
       <p className="page-copy">Use email/password or social login to continue.</p>
-      <SignIn routing="path" path="/sign-in" signUpUrl="/sign-up" />
+      <ClerkLoading>
+        <p className="feedback">Loading sign-in form...</p>
+      </ClerkLoading>
+      <ClerkFailed>
+        <p className="feedback error">
+          Clerk failed to load. Verify `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, and allowed domain in Clerk.
+        </p>
+      </ClerkFailed>
+      <ClerkLoaded>
+        <SignIn routing="path" path="/sign-in" signUpUrl="/sign-up" />
+      </ClerkLoaded>
     </main>
   );
 }

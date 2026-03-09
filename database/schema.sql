@@ -154,6 +154,7 @@ CREATE TABLE IF NOT EXISTS matches (
   CONSTRAINT fk_matches_club FOREIGN KEY (club_id) REFERENCES clubs(id),
   CONSTRAINT fk_matches_opp FOREIGN KEY (opponent_club_id) REFERENCES clubs(id),
   CONSTRAINT fk_matches_tier FOREIGN KEY (league_tier_id) REFERENCES league_tiers(id),
+  UNIQUE KEY uq_matches_club_seed (club_id, simulation_seed),
   INDEX idx_matches_club_created (club_id, created_at DESC)
 );
 

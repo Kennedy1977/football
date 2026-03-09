@@ -32,6 +32,12 @@ Implemented endpoints:
 Match start payload note:
 - `POST /api/match/start` now includes `arcadeRatings` (attack/defense/control/goalkeeping/stamina) for both clubs so Phaser timing bars can be stat-driven.
 
+Match submit payload note:
+- `POST /api/match/submit` now validates and sanitizes `simulationPayload` (events + chanceOutcomes) before storing to DB.
+- Replay safeguard: duplicate submissions with the same `matchSeed` for the same club are rejected.
+- Recommended DB migration for hard enforcement:
+  - `database/migrations/20260309_add_unique_match_seed_per_club.sql`
+
 Auth uses Clerk:
 - If `CLERK_SECRET_KEY` is configured, Express mounts Clerk middleware and reads authenticated user id from Clerk session/cookies.
 - For local scripts/dev fallback, API still accepts `x-clerk-user-id` header.

@@ -16,9 +16,10 @@ const authProxy: NextMiddleware = clerkConfigured ? (clerkProxy as unknown as Ne
 
 const proxy: NextMiddleware = (req, evt) => {
   const isApiRequest = req.nextUrl.pathname.startsWith("/api") || req.nextUrl.pathname.startsWith("/trpc");
+  const isAuthPage = req.nextUrl.pathname.startsWith("/sign-in") || req.nextUrl.pathname.startsWith("/sign-up");
   const shouldVersionQuery = req.method === "GET" && !isApiRequest;
 
-  if (shouldVersionQuery) {
+  if (shouldVersionQuery && !isAuthPage) {
     const currentVersion = req.nextUrl.searchParams.get("v");
     if (currentVersion !== APP_CACHE_BUST) {
       const nextUrl = req.nextUrl.clone();

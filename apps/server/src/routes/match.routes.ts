@@ -19,6 +19,7 @@ import {
   getStarterExpGain,
   recoverStaminaSkippedMatch,
 } from "../../../../packages/game-core/src/formulas";
+import type { MatchChanceType, MatchTapQuality } from "../../../../packages/game-core/src/phaser-contracts";
 import type { LeagueCode, MatchEndReason, MatchResult, PlayerCard } from "../../../../packages/game-core/src/types";
 import { pool } from "../config/db";
 import { requireAccountId } from "../lib/auth";
@@ -26,6 +27,8 @@ import { HttpError } from "../lib/errors";
 import { asyncHandler } from "../middleware/async-handler";
 
 export const matchRouter = Router();
+const MAX_SIMULATION_PAYLOAD_CHANCE_EVENTS = 64;
+const MAX_SIMULATION_PAYLOAD_BYTES = 120_000;
 
 interface MatchContextRow extends RowDataPacket {
   club_id: number;
@@ -67,6 +70,10 @@ interface StartingPlayerRow extends RowDataPacket {
 
 interface OpponentMembershipRow extends RowDataPacket {
   league_tier_id: number;
+}
+
+interface ExistingMatchRow extends RowDataPacket {
+  id: number;
 }
 
 matchRouter.post(
@@ -212,11 +219,26 @@ matchRouter.post(
       MATCH_DURATION_SECONDS
     );
     const endReason = readEndReason(req.body?.endReason);
-    const simulationPayload = req.body?.simulationPayload ?? null;
+    const result: MatchResult = clubGoals > opponentGoals ? "WIN" : clubGoals < opponentGoals ? "LOSS" : "DRAW";
+    const simulationPayload = sanitizeSimulationPayload(req.body?.simulationPayload, {
+      result,
+      clubGoals,
+      opponentGoals,
+      durationSeconds,
+      endReason,
+    });
 
     validateMatchInvariants({ clubGoals, opponentGoals, durationSeconds, endReason });
 
-    const result: MatchResult = clubGoals > opponentGoals ? "WIN" : clubGoals < opponentGoals ? "LOSS" : "DRAW";
+    const [existingMatchRows] = await pool.query<ExistingMatchRow[]>(
+      "SELECT id FROM matches WHERE club_id = ? AND simulation_seed = ? LIMIT 1",
+      [context.club_id, matchSeed]
+    );
+
+    if (existingMatchRows.length) {
+      throw new HttpError(409, "Match already submitted for this seed");
+    }
+
     const pointsAwarded = getLeaguePoints(result);
     const coinReward = getMatchCoinReward(result, clubGoals);
     const managerExpGain = getManagerExpGain(result);
@@ -302,7 +324,7 @@ matchRouter.post(
           starterExpGain,
           32.5,
           matchSeed,
-          JSON.stringify(simulationPayload),
+          serializeSimulationPayload(simulationPayload),
         ]
       );
 
@@ -597,6 +619,250 @@ function readEndReason(value: unknown): MatchEndReason {
     throw new HttpError(400, "Invalid endReason");
   }
   return value;
+}
+
+function sanitizeSimulationPayload(
+  value: unknown,
+  context: {
+    result: MatchResult;
+    clubGoals: number;
+    opponentGoals: number;
+    durationSeconds: number;
+    endReason: MatchEndReason;
+  }
+): Record<string, unknown> | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new HttpError(400, "simulationPayload must be an object when provided");
+  }
+
+  const source = value as Record<string, unknown>;
+  const events = source.events !== undefined ? sanitizeEventArray(source.events, context.durationSeconds) : undefined;
+  const chanceOutcomes =
+    source.chanceOutcomes !== undefined
+      ? sanitizeChanceOutcomeArray(source.chanceOutcomes, context.durationSeconds)
+      : undefined;
+
+  if (events && chanceOutcomes && events.length !== chanceOutcomes.length) {
+    throw new HttpError(400, "simulationPayload.events and simulationPayload.chanceOutcomes length mismatch");
+  }
+
+  if (chanceOutcomes) {
+    let homeScored = 0;
+    let awayScored = 0;
+    let lastSecond = 0;
+
+    for (const outcome of chanceOutcomes) {
+      if (outcome.scored) {
+        if (outcome.attackingSide === "HOME") homeScored += 1;
+        else awayScored += 1;
+      }
+      if (outcome.second > lastSecond) {
+        lastSecond = outcome.second;
+      }
+    }
+
+    if (homeScored !== context.clubGoals || awayScored !== context.opponentGoals) {
+      throw new HttpError(400, "simulationPayload chance outcomes do not match submitted score");
+    }
+
+    if (context.endReason === "TIMER_EXPIRED" && lastSecond > MATCH_DURATION_SECONDS) {
+      throw new HttpError(400, "simulationPayload contains chance timestamps beyond full-time");
+    }
+  }
+
+  if (source.result !== undefined && source.result !== context.result) {
+    throw new HttpError(400, "simulationPayload.result does not match submitted result");
+  }
+
+  if (source.summary !== undefined) {
+    if (typeof source.summary !== "object" || source.summary === null || Array.isArray(source.summary)) {
+      throw new HttpError(400, "simulationPayload.summary must be an object");
+    }
+  }
+
+  return {
+    events,
+    chanceOutcomes,
+    result: context.result,
+    summary: {
+      scoreline: `${context.clubGoals}-${context.opponentGoals}`,
+      totalGoals: context.clubGoals + context.opponentGoals,
+      endReason: context.endReason,
+      durationSeconds: context.durationSeconds,
+    },
+  };
+}
+
+function serializeSimulationPayload(payload: Record<string, unknown> | null): string {
+  const serialized = JSON.stringify(payload);
+
+  if (serialized.length > MAX_SIMULATION_PAYLOAD_BYTES) {
+    throw new HttpError(400, "simulationPayload exceeds maximum allowed size");
+  }
+
+  return serialized;
+}
+
+function sanitizeEventArray(value: unknown, durationSeconds: number): Array<{
+  second: number;
+  attackingSide: "HOME" | "AWAY";
+  quality: number;
+  scored: boolean;
+}> {
+  if (!Array.isArray(value)) {
+    throw new HttpError(400, "simulationPayload.events must be an array");
+  }
+
+  if (value.length > MAX_SIMULATION_PAYLOAD_CHANCE_EVENTS) {
+    throw new HttpError(400, "simulationPayload.events exceeds maximum entries");
+  }
+
+  const sanitized = value.map((entry, index) => {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      throw new HttpError(400, `simulationPayload.events[${index}] must be an object`);
+    }
+
+    const row = entry as Record<string, unknown>;
+    const second = readBoundedInt(row.second, `simulationPayload.events[${index}].second`, 1, durationSeconds);
+    const attackingSide = readAttackingSide(row.attackingSide, `simulationPayload.events[${index}].attackingSide`);
+    const quality = readProbability(row.quality, `simulationPayload.events[${index}].quality`);
+
+    if (typeof row.scored !== "boolean") {
+      throw new HttpError(400, `simulationPayload.events[${index}].scored must be boolean`);
+    }
+
+    return {
+      second,
+      attackingSide,
+      quality,
+      scored: row.scored,
+    };
+  });
+
+  ensureNonDecreasingSeconds(
+    sanitized.map((entry) => entry.second),
+    "simulationPayload.events"
+  );
+
+  return sanitized;
+}
+
+function sanitizeChanceOutcomeArray(value: unknown, durationSeconds: number): Array<{
+  eventIndex: number;
+  second: number;
+  attackingSide: "HOME" | "AWAY";
+  chanceType: MatchChanceType;
+  tapQuality: MatchTapQuality;
+  tapped: boolean;
+  baseQuality: number;
+  scoreProbability: number;
+  scored: boolean;
+}> {
+  if (!Array.isArray(value)) {
+    throw new HttpError(400, "simulationPayload.chanceOutcomes must be an array");
+  }
+
+  if (value.length > MAX_SIMULATION_PAYLOAD_CHANCE_EVENTS) {
+    throw new HttpError(400, "simulationPayload.chanceOutcomes exceeds maximum entries");
+  }
+
+  const sanitized = value.map((entry, index) => {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      throw new HttpError(400, `simulationPayload.chanceOutcomes[${index}] must be an object`);
+    }
+
+    const row = entry as Record<string, unknown>;
+    const eventIndex = readBoundedInt(
+      row.eventIndex,
+      `simulationPayload.chanceOutcomes[${index}].eventIndex`,
+      0,
+      500
+    );
+    const second = readBoundedInt(row.second, `simulationPayload.chanceOutcomes[${index}].second`, 1, durationSeconds);
+    const attackingSide = readAttackingSide(
+      row.attackingSide,
+      `simulationPayload.chanceOutcomes[${index}].attackingSide`
+    );
+    const chanceType = readChanceType(row.chanceType, `simulationPayload.chanceOutcomes[${index}].chanceType`);
+    const tapQuality = readTapQuality(row.tapQuality, `simulationPayload.chanceOutcomes[${index}].tapQuality`);
+    const baseQuality = readProbability(row.baseQuality, `simulationPayload.chanceOutcomes[${index}].baseQuality`);
+    const scoreProbability = readProbability(
+      row.scoreProbability,
+      `simulationPayload.chanceOutcomes[${index}].scoreProbability`
+    );
+
+    if (typeof row.tapped !== "boolean") {
+      throw new HttpError(400, `simulationPayload.chanceOutcomes[${index}].tapped must be boolean`);
+    }
+
+    if (typeof row.scored !== "boolean") {
+      throw new HttpError(400, `simulationPayload.chanceOutcomes[${index}].scored must be boolean`);
+    }
+
+    return {
+      eventIndex,
+      second,
+      attackingSide,
+      chanceType,
+      tapQuality,
+      tapped: row.tapped,
+      baseQuality,
+      scoreProbability,
+      scored: row.scored,
+    };
+  });
+
+  ensureNonDecreasingSeconds(
+    sanitized.map((entry) => entry.second),
+    "simulationPayload.chanceOutcomes"
+  );
+
+  return sanitized;
+}
+
+function ensureNonDecreasingSeconds(values: number[], field: string): void {
+  for (let i = 1; i < values.length; i += 1) {
+    if (values[i] < values[i - 1]) {
+      throw new HttpError(400, `${field} must be ordered by second ascending`);
+    }
+  }
+}
+
+function readAttackingSide(value: unknown, field: string): "HOME" | "AWAY" {
+  if (value !== "HOME" && value !== "AWAY") {
+    throw new HttpError(400, `${field} must be HOME or AWAY`);
+  }
+
+  return value;
+}
+
+function readProbability(value: unknown, field: string): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) {
+    throw new HttpError(400, `${field} must be a number between 0 and 1`);
+  }
+
+  return Number(parsed.toFixed(4));
+}
+
+function readChanceType(value: unknown, field: string): MatchChanceType {
+  if (value === "CENTRAL_SHOT" || value === "ANGLED_SHOT" || value === "CLOSE_RANGE" || value === "ONE_ON_ONE") {
+    return value;
+  }
+
+  throw new HttpError(400, `${field} is invalid`);
+}
+
+function readTapQuality(value: unknown, field: string): MatchTapQuality {
+  if (value === "PERFECT" || value === "GOOD" || value === "POOR") {
+    return value;
+  }
+
+  throw new HttpError(400, `${field} is invalid`);
 }
 
 async function unlockFormation(

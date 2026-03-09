@@ -1,4 +1,4 @@
-import { SignUp } from "@clerk/nextjs";
+import { ClerkFailed, ClerkLoaded, ClerkLoading, SignUp } from "@clerk/nextjs";
 
 export default function SignUpPage() {
   if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
@@ -16,7 +16,17 @@ export default function SignUpPage() {
     <main className="page-panel">
       <h2 className="page-title">Create Account</h2>
       <p className="page-copy">Create your account first, then build your manager and club.</p>
-      <SignUp routing="path" path="/sign-up" signInUrl="/sign-in" />
+      <ClerkLoading>
+        <p className="feedback">Loading sign-up form...</p>
+      </ClerkLoading>
+      <ClerkFailed>
+        <p className="feedback error">
+          Clerk failed to load. Verify `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, and allowed domain in Clerk.
+        </p>
+      </ClerkFailed>
+      <ClerkLoaded>
+        <SignUp routing="path" path="/sign-up" signInUrl="/sign-in" />
+      </ClerkLoaded>
     </main>
   );
 }

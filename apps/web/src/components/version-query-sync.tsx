@@ -12,6 +12,10 @@ export function VersionQuerySync() {
       return;
     }
 
+    if (pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up")) {
+      return;
+    }
+
     const url = new URL(window.location.href);
     const currentVersion = url.searchParams.get("v");
     if (currentVersion === APP_CACHE_BUST) {
