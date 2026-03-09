@@ -1,7 +1,10 @@
 import { ClerkFailed, ClerkLoaded, ClerkLoading, SignUp } from "@clerk/nextjs";
+import { ClerkDiagnostics } from "../../../src/components/clerk-diagnostics";
 
 export default function SignUpPage() {
-  if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
+  if (!publishableKey) {
     return (
       <main className="page-panel">
         <h2 className="page-title">Create Account</h2>
@@ -19,6 +22,7 @@ export default function SignUpPage() {
       <ClerkLoading>
         <p className="feedback">Loading sign-up form...</p>
       </ClerkLoading>
+      <ClerkDiagnostics publishableKey={publishableKey} />
       <ClerkFailed>
         <p className="feedback error">
           Clerk failed to load. Verify `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, and allowed domain in Clerk.

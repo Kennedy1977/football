@@ -39,7 +39,7 @@ Match submit payload note:
   - `database/migrations/20260309_add_unique_match_seed_per_club.sql`
 
 Auth uses Clerk:
-- If `CLERK_SECRET_KEY` is configured, Express mounts Clerk middleware and reads authenticated user id from Clerk session/cookies.
+- If `CLERK_SECRET_KEY` and publishable key are configured (`CLERK_PUBLISHABLE_KEY` or `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`), Express mounts Clerk middleware and reads authenticated user id from Clerk session/cookies.
 - For local scripts/dev fallback, API still accepts `x-clerk-user-id` header.
 
 First sign-in flow:

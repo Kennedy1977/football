@@ -6,6 +6,8 @@ import { errorHandler, notFoundHandler } from "./middleware/error-handler";
 import { createApiRouter } from "./routes";
 
 const app = express();
+const clerkSecretKey = process.env.CLERK_SECRET_KEY;
+const clerkPublishableKey = process.env.CLERK_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 app.set("trust proxy", 1);
 app.use(express.json());
@@ -25,8 +27,15 @@ app.get("/health", async (_req, res) => {
   }
 });
 
-if (process.env.CLERK_SECRET_KEY) {
-  app.use(clerkMiddleware());
+if (clerkSecretKey && clerkPublishableKey) {
+  app.use(
+    clerkMiddleware({
+      secretKey: clerkSecretKey,
+      publishableKey: clerkPublishableKey,
+    })
+  );
+} else if (clerkSecretKey && !clerkPublishableKey) {
+  console.warn("CLERK_SECRET_KEY is set but publishable key is missing. Skipping Clerk middleware.");
 }
 app.use("/api", createApiRouter());
 app.use(notFoundHandler);

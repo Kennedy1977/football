@@ -28,6 +28,8 @@ async function start() {
   await nextApp.prepare();
 
   const server = express();
+  const clerkSecretKey = process.env.CLERK_SECRET_KEY;
+  const clerkPublishableKey = process.env.CLERK_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
   server.set("trust proxy", 1);
   server.use(express.json());
 
@@ -46,8 +48,16 @@ async function start() {
     }
   });
 
-  if (process.env.CLERK_SECRET_KEY) {
-    server.use("/api", clerkMiddleware());
+  if (clerkSecretKey && clerkPublishableKey) {
+    server.use(
+      "/api",
+      clerkMiddleware({
+        secretKey: clerkSecretKey,
+        publishableKey: clerkPublishableKey,
+      })
+    );
+  } else if (clerkSecretKey && !clerkPublishableKey) {
+    console.warn("CLERK_SECRET_KEY is set but publishable key is missing. Skipping Clerk middleware.");
   }
   server.use("/api", createApiRouter());
   server.use("/api", notFoundHandler);
