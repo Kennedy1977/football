@@ -51,10 +51,11 @@ export default function LeaguePage() {
               <tr>
                 <th>Rank</th>
                 <th>Club</th>
-                <th>P</th>
+                <th>MP</th>
                 <th>W</th>
                 <th>D</th>
                 <th>L</th>
+                <th>Pts</th>
                 <th>GD</th>
                 <th>GF</th>
               </tr>
@@ -64,10 +65,11 @@ export default function LeaguePage() {
                 <tr key={row.clubId} className={row.rank === data.userRank ? "table-row-highlight" : ""}>
                   <td>{row.rank}</td>
                   <td>{row.clubName}{row.rank === data.userRank ? " (You)" : ""}</td>
-                  <td>{row.points}</td>
+                  <td>{row.matchesPlayed}</td>
                   <td>{row.wins}</td>
                   <td>{row.draws}</td>
                   <td>{row.losses}</td>
+                  <td>{row.points}</td>
                   <td>{row.goalDifference}</td>
                   <td>{row.goalsFor}</td>
                 </tr>

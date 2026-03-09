@@ -240,11 +240,17 @@ matchRouter.post(
     }
 
     const pointsAwarded = getLeaguePoints(result);
+    const opponentResult: MatchResult = result === "WIN" ? "LOSS" : result === "LOSS" ? "WIN" : "DRAW";
+    const opponentPointsAwarded = getLeaguePoints(opponentResult);
     const coinReward = getMatchCoinReward(result, clubGoals);
     const managerExpGain = getManagerExpGain(result);
     const starterExpGain = getStarterExpGain(result);
 
     if (opponentClubId) {
+      if (opponentClubId === context.club_id) {
+        throw new HttpError(400, "Submitted opponent cannot be current club");
+      }
+
       const [opponentRows] = await pool.query<OpponentMembershipRow[]>(
         "SELECT league_tier_id FROM league_memberships WHERE club_id = ? LIMIT 1",
         [opponentClubId]
@@ -375,6 +381,34 @@ matchRouter.post(
           context.club_id,
         ]
       );
+
+      if (opponentClubId) {
+        await connection.execute<ResultSetHeader>(
+          `
+            UPDATE league_memberships
+            SET
+              matches_played = matches_played + 1,
+              wins = wins + ?,
+              draws = draws + ?,
+              losses = losses + ?,
+              goals_for = goals_for + ?,
+              goals_against = goals_against + ?,
+              goal_difference = goal_difference + ?,
+              points = points + ?
+            WHERE club_id = ?
+          `,
+          [
+            opponentResult === "WIN" ? 1 : 0,
+            opponentResult === "DRAW" ? 1 : 0,
+            opponentResult === "LOSS" ? 1 : 0,
+            opponentGoals,
+            clubGoals,
+            opponentGoals - clubGoals,
+            opponentPointsAwarded,
+            opponentClubId,
+          ]
+        );
+      }
 
       await connection.execute<ResultSetHeader>(
         "UPDATE managers SET exp = exp + ?, total_wins = total_wins + ? WHERE id = ?",

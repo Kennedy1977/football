@@ -312,6 +312,7 @@ export interface LeagueTableResponse {
     rank: number;
     clubId: number;
     clubName: string;
+    matchesPlayed: number;
     points: number;
     wins: number;
     draws: number;

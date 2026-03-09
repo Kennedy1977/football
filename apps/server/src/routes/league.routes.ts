@@ -17,6 +17,7 @@ interface MembershipRow extends RowDataPacket {
 interface TableRow extends RowDataPacket {
   club_id: number;
   club_name: string;
+  matches_played: number;
   points: number;
   wins: number;
   draws: number;
@@ -56,6 +57,7 @@ leagueRouter.get(
         SELECT
           lm.club_id,
           c.club_name,
+          lm.matches_played,
           lm.points,
           lm.wins,
           lm.draws,
@@ -74,6 +76,7 @@ leagueRouter.get(
       rank: index + 1,
       clubId: row.club_id,
       clubName: row.club_name,
+      matchesPlayed: row.matches_played,
       points: row.points,
       wins: row.wins,
       draws: row.draws,
