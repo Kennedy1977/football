@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { useStartMatchMutation } from "../../../src/state/apis/gameApi";
+import { ProgressRow } from "../../../src/components/progress-row";
 import { readApiErrorMessage } from "../../../src/lib/api-error";
 import type { RootState } from "../../../src/state/store";
 import { setMatchPrep } from "../../../src/state/slices/matchSlice";
@@ -14,13 +15,13 @@ export default function MatchPrepPage() {
   const [startMatch, startState] = useStartMatchMutation();
 
   return (
-    <main className="page-panel">
-      <h2 className="page-title">Play Match</h2>
-      <p className="page-copy">Find an eligible league opponent, then launch live simulation.</p>
+    <main className="page-panel page-panel-portrait">
+      <h2 className="page-title">Match Day</h2>
+      <p className="page-copy">3-minute arcade simulation with server-validated result.</p>
 
       {prep ? (
-        <section className="onboarding-card">
-          <h3>Current Opponent</h3>
+        <section className="onboarding-card section-pad">
+          <h3>Pre-Match</h3>
           <div className="grid cards">
             <div className="stat-card">
               <p className="stat-label">Opponent</p>
@@ -47,6 +48,23 @@ export default function MatchPrepPage() {
               <p className="stat-value">{prep.yourArcadeRatings.defense} vs {prep.opponentArcadeRatings.defense}</p>
             </div>
           </div>
+          <div className="progress-stack" style={{ marginTop: 10 }}>
+            <ProgressRow
+              label="Formation Fit"
+              value={Math.max(0, Math.min(100, 50 + (prep.yourTeamOverall - prep.opponentTeamOverall) * 2))}
+              tone="cyan"
+            />
+            <ProgressRow
+              label="Stamina Edge"
+              value={Math.max(0, Math.min(100, 50 + (prep.yourArcadeRatings.stamina - prep.opponentArcadeRatings.stamina) * 4))}
+              tone="green"
+            />
+            <ProgressRow
+              label="Momentum"
+              value={Math.max(0, Math.min(100, 50 + (prep.yourArcadeRatings.control - prep.opponentArcadeRatings.control) * 4))}
+              tone="gold"
+            />
+          </div>
           <div className="inline" style={{ marginTop: 10 }}>
             <button
               type="button"
@@ -60,7 +78,7 @@ export default function MatchPrepPage() {
         </section>
       ) : null}
 
-      <section className="onboarding-card">
+      <section className="onboarding-card section-pad">
         <h3>Find Opponent</h3>
         <p className="feedback">Server validates lineup and stamina before generating matchup.</p>
         <div className="inline">

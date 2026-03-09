@@ -8,6 +8,7 @@ import {
   useCreateManagerMutation,
   useGetDashboardSummaryQuery,
 } from "../../src/state/apis/gameApi";
+import { ProgressRow } from "../../src/components/progress-row";
 import { isAccountMissingError, readApiErrorMessage } from "../../src/lib/api-error";
 
 export default function StartPage() {
@@ -49,9 +50,11 @@ export default function StartPage() {
   }, [data?.onboardingComplete, hasClub, router]);
 
   return (
-    <main className="page-panel">
-      <h2 className="page-title">Start Game</h2>
-      <p className="page-copy">Create your manager, then create your club to unlock dashboard, squad, league, and match flow.</p>
+    <main className="page-panel page-panel-portrait">
+      <section className="hero-panel">
+        <h2 className="page-title">Kickoff Setup</h2>
+        <p className="page-copy">Create your manager, then your club to unlock all modules.</p>
+      </section>
 
       <div className="inline" style={{ marginBottom: 10 }}>
         <span className="label-pill">Manager: {hasManager ? "Created" : "Missing"}</span>
@@ -60,6 +63,19 @@ export default function StartPage() {
           Refresh Status
         </button>
       </div>
+
+      <section className="onboarding-card section-pad">
+        <h3>Setup Progress</h3>
+        <div className="progress-stack">
+          <ProgressRow label="Manager Profile" value={hasManager ? 100 : 30} valueText={hasManager ? "Ready" : "Required"} />
+          <ProgressRow
+            label="Club Identity"
+            value={hasClub ? 100 : hasManager ? 55 : 0}
+            valueText={hasClub ? "Ready" : "Pending"}
+            tone="green"
+          />
+        </div>
+      </section>
 
       {isLoading ? <p className="feedback">Loading account state...</p> : null}
 
@@ -70,7 +86,7 @@ export default function StartPage() {
       ) : null}
 
       {needsManagerSetup ? (
-        <section className="onboarding-card">
+        <section className="onboarding-card section-pad">
           <h3>Create Manager</h3>
           <form
             className="form-grid"
@@ -155,7 +171,7 @@ export default function StartPage() {
       ) : null}
 
       {hasManager && !hasClub ? (
-        <section className="onboarding-card">
+        <section className="onboarding-card section-pad">
           <h3>Create Club</h3>
           <form
             className="form-grid"
@@ -222,7 +238,7 @@ export default function StartPage() {
       ) : null}
 
       {data?.onboardingComplete && hasClub ? (
-        <section className="onboarding-card">
+        <section className="onboarding-card section-pad">
           <h3>Club Ready</h3>
           <p className="feedback">Your manager and club are ready. Continue to dashboard.</p>
           <div className="inline">

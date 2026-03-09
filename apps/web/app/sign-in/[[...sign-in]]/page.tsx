@@ -13,7 +13,7 @@ export default function SignInPage() {
   }
 
   return (
-    <main className="page-panel">
+    <main className="page-panel page-panel-portrait">
       <h2 className="page-title">Sign In</h2>
       <p className="page-copy">Use email/password or social login to continue.</p>
       <ClerkLoading>
@@ -25,7 +25,9 @@ export default function SignInPage() {
         </p>
       </ClerkFailed>
       <ClerkLoaded>
-        <SignIn routing="path" path="/sign-in" signUpUrl="/sign-up" />
+        <div className="clerk-card-wrap">
+          <SignIn routing="path" path="/sign-in" signUpUrl="/sign-up" />
+        </div>
       </ClerkLoaded>
     </main>
   );

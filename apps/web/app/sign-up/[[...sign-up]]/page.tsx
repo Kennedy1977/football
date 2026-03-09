@@ -13,7 +13,7 @@ export default function SignUpPage() {
   }
 
   return (
-    <main className="page-panel">
+    <main className="page-panel page-panel-portrait">
       <h2 className="page-title">Create Account</h2>
       <p className="page-copy">Create your account first, then build your manager and club.</p>
       <ClerkLoading>
@@ -25,7 +25,9 @@ export default function SignUpPage() {
         </p>
       </ClerkFailed>
       <ClerkLoaded>
-        <SignUp routing="path" path="/sign-up" signInUrl="/sign-in" />
+        <div className="clerk-card-wrap">
+          <SignUp routing="path" path="/sign-up" signInUrl="/sign-in" />
+        </div>
       </ClerkLoaded>
     </main>
   );

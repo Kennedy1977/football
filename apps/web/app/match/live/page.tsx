@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { MatchRuntimeResult, SubmitMatchRequest } from "../../../../../packages/game-core/src";
+import { ProgressRow } from "../../../src/components/progress-row";
 import { useSubmitMatchMutation } from "../../../src/state/apis/gameApi";
 import { readApiErrorMessage } from "../../../src/lib/api-error";
 import type { RootState } from "../../../src/state/store";
@@ -35,7 +36,7 @@ export default function MatchLivePage() {
 
   if (!prep) {
     return (
-      <main className="page-panel">
+      <main className="page-panel page-panel-portrait">
         <h2 className="page-title">Match Live</h2>
         <p className="feedback error">No active match prep found. Start from match prep first.</p>
         <div className="inline">
@@ -48,19 +49,32 @@ export default function MatchLivePage() {
   }
 
   return (
-    <main className="page-panel">
+    <main className="page-panel page-panel-portrait">
       <h2 className="page-title">Match Live</h2>
-      <p className="page-copy">Phaser mini-sim powered by shared match engine, then validated via `/api/match/submit`.</p>
+      <p className="page-copy">Run the arcade simulation, then submit the validated final score.</p>
 
-      <div className="inline" style={{ marginBottom: 12 }}>
-        <span className="label-pill">Opponent: {prep.opponentName}</span>
-        <span className="label-pill">Rank: #{prep.opponentRank}</span>
-        <span className="label-pill">Strength: {prep.yourTeamOverall} vs {prep.opponentTeamOverall}</span>
-        <span className="label-pill">Attack: {prep.yourArcadeRatings.attack} vs {prep.opponentArcadeRatings.attack}</span>
-        <span className="label-pill">Defense: {prep.yourArcadeRatings.defense} vs {prep.opponentArcadeRatings.defense}</span>
-      </div>
+      <section className="onboarding-card section-pad">
+        <h3>Live Setup</h3>
+        <div className="inline" style={{ marginBottom: 8 }}>
+          <span className="label-pill">Opponent: {prep.opponentName}</span>
+          <span className="label-pill">Rank: #{prep.opponentRank}</span>
+        </div>
+        <div className="progress-stack compact">
+          <ProgressRow label="Team Strength" value={prep.yourTeamOverall} valueText={`${prep.yourTeamOverall}`} tone="cyan" />
+          <ProgressRow
+            label="Attack Matchup"
+            value={Math.max(0, Math.min(100, 50 + (prep.yourArcadeRatings.attack - prep.opponentArcadeRatings.defense) * 5))}
+            tone="green"
+          />
+          <ProgressRow
+            label="Defensive Matchup"
+            value={Math.max(0, Math.min(100, 50 + (prep.yourArcadeRatings.defense - prep.opponentArcadeRatings.attack) * 5))}
+            tone="gold"
+          />
+        </div>
+      </section>
 
-      <div className="inline" style={{ marginBottom: 12 }}>
+      <div className="inline" style={{ marginBottom: 12, marginTop: 12 }}>
         <button
           type="button"
           onClick={async () => {
@@ -149,7 +163,9 @@ export default function MatchLivePage() {
         </button>
       </div>
 
-      <div ref={containerRef} className="match-sim-root" />
+      <div className="match-sim-shell">
+        <div ref={containerRef} className="match-sim-root" />
+      </div>
 
       {isRunning ? <p className="feedback">Match running. Wait for full-time before submission.</p> : null}
       {simulation ? (

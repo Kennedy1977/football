@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useClaimPromotionRewardMutation } from "../../../src/state/apis/gameApi";
+import { ProgressRow } from "../../../src/components/progress-row";
 import { readApiErrorMessage } from "../../../src/lib/api-error";
 import type { RootState } from "../../../src/state/store";
 import { clearMatchState } from "../../../src/state/slices/matchSlice";
@@ -44,7 +45,7 @@ export default function MatchResultPage() {
 
   if (!prep || !result) {
     return (
-      <main className="page-panel">
+      <main className="page-panel page-panel-portrait">
         <h2 className="page-title">Match Result</h2>
         <p className="feedback error">No submitted match result found. Complete a live match first.</p>
         <div className="inline">
@@ -57,9 +58,9 @@ export default function MatchResultPage() {
   }
 
   return (
-    <main className="page-panel">
-      <h2 className="page-title">Match Result</h2>
-      <p className="page-copy">Rewards and progression are revealed in stages. Tap skip to show all immediately.</p>
+    <main className="page-panel page-panel-portrait">
+      <h2 className="page-title">Full Time</h2>
+      <p className="page-copy">Rewards, stamina impact and league movement are revealed in stages.</p>
 
       <div className="inline" style={{ marginBottom: 10 }}>
         <span className="label-pill">Stage {stage}/4</span>
@@ -79,29 +80,49 @@ export default function MatchResultPage() {
       ) : null}
 
       {stage >= 2 ? (
-        <section className="grid cards">
-          <StatCard label="Coins Earned" value={String(result.rewards.coins)} tone="good" />
-          <StatCard label="League Points" value={String(result.rewards.points)} />
-          <StatCard label="Manager EXP" value={String(result.rewards.managerExp)} />
+        <section className="onboarding-card section-pad">
+          <h3>Rewards</h3>
+          <div className="progress-stack">
+            <ProgressRow label="Coins" value={Math.min(100, (result.rewards.coins / 300) * 100)} valueText={`+${result.rewards.coins}`} tone="gold" />
+            <ProgressRow
+              label="Manager XP"
+              value={Math.min(100, result.rewards.managerExp)}
+              valueText={`+${result.rewards.managerExp}`}
+              tone="cyan"
+            />
+            <ProgressRow
+              label="Starter XP"
+              value={Math.min(100, result.rewards.starterExp * 5)}
+              valueText={`+${result.rewards.starterExp}`}
+              tone="violet"
+            />
+          </div>
+          <div className="grid cards" style={{ marginTop: 10 }}>
+            <StatCard label="League Points" value={String(result.rewards.points)} />
+            <StatCard label="Team Overall" value={String(result.teamOverall)} />
+            <StatCard label="Stamina Used" value={`-${Math.max(0, 100 - Math.round(result.teamOverall))}%`} tone="warn" />
+          </div>
         </section>
       ) : null}
 
       {stage >= 3 ? (
         <section className="grid cards" style={{ marginTop: 12 }}>
-          <StatCard label="Starter EXP" value={String(result.rewards.starterExp)} />
-          <StatCard label="Team Overall" value={String(result.teamOverall)} />
-          <StatCard label="League Movement" value={result.promotionEligible ? "Promotion Ready" : "Stay In Current Tier"} tone={result.promotionEligible ? "good" : "neutral"} />
+          <StatCard label="Chances" value={chanceCount ? String(chanceCount) : "-"} />
+          <StatCard label="Converted" value={chanceCount ? String(convertedChances) : "-"} />
+          <StatCard label="Conversion Rate" value={conversionPct} tone={chanceCount ? "good" : "neutral"} />
+          <StatCard label="Perfect Taps" value={chanceCount ? String(perfectTaps) : "-"} />
+          <StatCard label="Good Taps" value={chanceCount ? String(goodTaps) : "-"} />
+          <StatCard label="Poor Taps" value={chanceCount ? String(poorTaps) : "-"} tone={poorTaps > perfectTaps ? "warn" : "neutral"} />
         </section>
       ) : null}
 
       {stage >= 4 ? (
         <section className="grid cards" style={{ marginTop: 12 }}>
-          <StatCard label="Chances" value={chanceCount ? String(chanceCount) : "-"} />
-          <StatCard label="Converted Chances" value={chanceCount ? String(convertedChances) : "-"} />
-          <StatCard label="Conversion Rate" value={conversionPct} tone={chanceCount ? "good" : "neutral"} />
-          <StatCard label="Perfect Taps" value={chanceCount ? String(perfectTaps) : "-"} />
-          <StatCard label="Good Taps" value={chanceCount ? String(goodTaps) : "-"} />
-          <StatCard label="Poor Taps" value={chanceCount ? String(poorTaps) : "-"} tone={poorTaps > perfectTaps ? "warn" : "neutral"} />
+          <StatCard label="Coins Earned" value={String(result.rewards.coins)} tone="good" />
+          <StatCard label="League Points" value={String(result.rewards.points)} />
+          <StatCard label="Manager EXP" value={String(result.rewards.managerExp)} />
+          <StatCard label="League Movement" value={result.promotionEligible ? "Promotion Ready" : "Stay In Current Tier"} tone={result.promotionEligible ? "good" : "neutral"} />
+          <StatCard label="Starter EXP" value={String(result.rewards.starterExp)} />
         </section>
       ) : null}
 
