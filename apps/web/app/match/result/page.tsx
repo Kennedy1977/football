@@ -105,6 +105,38 @@ export default function MatchResultPage() {
         </section>
       ) : null}
 
+      {stage >= 4 && chanceCount > 0 ? (
+        <section className="onboarding-card">
+          <h3>Replay Timeline</h3>
+          <div className="table-wrap" style={{ marginTop: 8 }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Side</th>
+                  <th>Chance</th>
+                  <th>Tap</th>
+                  <th>Prob</th>
+                  <th>Outcome</th>
+                </tr>
+              </thead>
+              <tbody>
+                {chanceOutcomes.map((entry) => (
+                  <tr key={`${entry.eventIndex}-${entry.second}`}>
+                    <td>{formatMatchClock(entry.second)}</td>
+                    <td>{entry.attackingSide === "HOME" ? "You" : "Opponent"}</td>
+                    <td>{readChanceTypeLabel(entry.chanceType)}</td>
+                    <td>{entry.tapped ? entry.tapQuality : "NO TAP"}</td>
+                    <td>{Math.round(entry.scoreProbability * 100)}%</td>
+                    <td>{entry.scored ? "GOAL" : "SAVED"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
       {stage >= 4 && result.promotionEligible ? (
         <section className="onboarding-card">
           <h3>Promotion Reward</h3>
@@ -167,4 +199,29 @@ export default function MatchResultPage() {
       ) : null}
     </main>
   );
+}
+
+function formatMatchClock(seconds: number): string {
+  const mins = Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, "0");
+  const secs = Math.floor(seconds % 60)
+    .toString()
+    .padStart(2, "0");
+  return `${mins}:${secs}`;
+}
+
+function readChanceTypeLabel(type: string): string {
+  switch (type) {
+    case "CENTRAL_SHOT":
+      return "Central Shot";
+    case "ANGLED_SHOT":
+      return "Angled Shot";
+    case "CLOSE_RANGE":
+      return "Close-Range";
+    case "ONE_ON_ONE":
+      return "One-on-One";
+    default:
+      return type;
+  }
 }
