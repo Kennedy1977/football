@@ -29,6 +29,7 @@ import { asyncHandler } from "../middleware/async-handler";
 export const matchRouter = Router();
 const MAX_SIMULATION_PAYLOAD_CHANCE_EVENTS = 64;
 const MAX_SIMULATION_PAYLOAD_BYTES = 120_000;
+const DISABLED_EARLY_FINISH_GOAL_LEAD = 99;
 
 interface MatchContextRow extends RowDataPacket {
   club_id: number;
@@ -183,7 +184,7 @@ matchRouter.post(
       rules: {
         maxDurationSeconds: MATCH_DURATION_SECONDS,
         maxTotalGoals: MAX_TOTAL_GOALS,
-        earlyFinishGoalLead: 3,
+        earlyFinishGoalLead: DISABLED_EARLY_FINISH_GOAL_LEAD,
       },
       yourClub: {
         clubId: context.club_id,
@@ -560,7 +561,6 @@ function validateMatchInvariants(input: {
   endReason: MatchEndReason;
 }): void {
   const totalGoals = input.clubGoals + input.opponentGoals;
-  const lead = Math.abs(input.clubGoals - input.opponentGoals);
 
   if (totalGoals > MAX_TOTAL_GOALS) {
     throw new HttpError(400, "Total goals exceeds v1 maximum");
@@ -570,19 +570,11 @@ function validateMatchInvariants(input: {
     throw new HttpError(400, "Duration exceeds v1 match limit");
   }
 
-  if (totalGoals === MAX_TOTAL_GOALS && lead >= 3) {
-    throw new HttpError(400, "Invalid scoreline: match should have ended earlier on 3-goal lead");
-  }
-
-  if (totalGoals === MAX_TOTAL_GOALS && lead < 3 && input.endReason !== "TEN_TOTAL_GOALS") {
+  if (totalGoals === MAX_TOTAL_GOALS && input.endReason !== "TEN_TOTAL_GOALS") {
     throw new HttpError(400, "endReason must be TEN_TOTAL_GOALS when max goals cap is reached");
   }
 
-  if (lead >= 3 && totalGoals < MAX_TOTAL_GOALS && input.endReason !== "THREE_GOAL_LEAD") {
-    throw new HttpError(400, "endReason must be THREE_GOAL_LEAD when a 3-goal lead occurs");
-  }
-
-  if (lead < 3 && totalGoals < MAX_TOTAL_GOALS && input.endReason !== "TIMER_EXPIRED") {
+  if (totalGoals < MAX_TOTAL_GOALS && input.endReason !== "TIMER_EXPIRED") {
     throw new HttpError(400, "endReason must be TIMER_EXPIRED when no early stop condition happened");
   }
 
@@ -649,7 +641,7 @@ function readBoundedInt(value: unknown, field: string, min: number, max: number)
 }
 
 function readEndReason(value: unknown): MatchEndReason {
-  if (value !== "THREE_GOAL_LEAD" && value !== "TEN_TOTAL_GOALS" && value !== "TIMER_EXPIRED") {
+  if (value !== "TEN_TOTAL_GOALS" && value !== "TIMER_EXPIRED") {
     throw new HttpError(400, "Invalid endReason");
   }
   return value;

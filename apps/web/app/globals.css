@@ -1515,14 +1515,58 @@ button[disabled] {
   border-radius: 14px;
   overflow: hidden;
   background: rgba(3, 17, 40, 0.85);
+  width: 100%;
 }
 
 .match-sim-root {
   border: 0;
   border-radius: 0;
   overflow: hidden;
-  width: 390px;
-  max-width: 100%;
+  width: 100%;
+  min-height: clamp(560px, calc(100dvh - 200px), 980px);
+}
+
+.match-kickoff-pitch {
+  position: relative;
+  margin-bottom: 10px;
+  border: 1px solid rgba(212, 235, 252, 0.46);
+  border-radius: 12px;
+  overflow: hidden;
+  min-height: clamp(380px, calc(100dvh - 360px), 700px);
+  background-image: url("/assets/pitch/vertical-pitch.svg");
+  background-size: cover;
+  background-position: center;
+  box-shadow: inset 0 0 0 1px rgba(48, 117, 193, 0.36);
+}
+
+.match-kickoff-meta {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  z-index: 2;
+}
+
+.match-kickoff-button {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 156px;
+  min-height: 54px;
+  border-radius: 999px;
+  font-size: 24px;
+  font-family: "Barlow Condensed", "Exo 2", sans-serif;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  z-index: 2;
+  box-shadow:
+    0 10px 24px rgba(1, 8, 20, 0.5),
+    0 0 0 3px rgba(92, 212, 255, 0.22);
 }
 
 .feedback {
@@ -1582,6 +1626,14 @@ button[disabled] {
 
   .lineup-summary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .match-sim-root {
+    min-height: clamp(520px, calc(100dvh - 180px), 840px);
+  }
+
+  .match-kickoff-pitch {
+    min-height: clamp(340px, calc(100dvh - 330px), 560px);
   }
 
   .lineup-slot {

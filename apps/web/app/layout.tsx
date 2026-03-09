@@ -4,7 +4,7 @@ import { AppNav } from "../src/components/app-nav";
 import { AuthControls } from "../src/components/auth-controls";
 import { AuthSessionSync } from "../src/components/auth-session-sync";
 import { BuildFooter } from "../src/components/build-footer";
-import { VersionQuerySync } from "../src/components/version-query-sync";
+import { ContextMenuGuard } from "../src/components/context-menu-guard";
 import { StoreProvider } from "../src/state/store-provider";
 import "./globals.css";
 
@@ -18,7 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const appShell = (
     <StoreProvider>
       {clerkConfigured ? <AuthSessionSync /> : null}
-      <VersionQuerySync />
+      <ContextMenuGuard />
       <div className="app-shell">
         <header className="app-header">
           <h1 className="app-title">Football Manager Arcade</h1>

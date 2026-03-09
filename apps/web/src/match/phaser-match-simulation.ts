@@ -1,6 +1,5 @@
 import * as Phaser from "phaser";
 import {
-  EARLY_FINISH_GOAL_LEAD,
   MATCH_DURATION_SECONDS,
   MAX_EVENT_GAP_SECONDS,
   MAX_TOTAL_GOALS,
@@ -93,6 +92,7 @@ const TOP_FORMATION: FormationNode[] = [
   { x: 0.42, y: 0.49, role: "ATT" },
   { x: 0.58, y: 0.49, role: "ATT" },
 ];
+const DISABLED_EARLY_FINISH_GOAL_LEAD = 99;
 
 export function mountPhaserMatchSimulation(
   container: HTMLElement,
@@ -187,6 +187,9 @@ class MatchSimulationScene extends Phaser.Scene {
 
   private ballShadow!: Phaser.GameObjects.Ellipse;
   private ball!: Phaser.GameObjects.Container;
+  private ambientAnimating = false;
+  private possessionSide: Side = "HOME";
+  private lastPossessor: PitchPlayer | null = null;
 
   constructor(options: {
     simulation: MatchSimulationOutput;
@@ -227,6 +230,10 @@ class MatchSimulationScene extends Phaser.Scene {
     this.buildHud();
     this.createTeams();
     this.createBall();
+    this.lastPossessor = this.homePlayers.find((player) => player.role === "MID") ?? this.homePlayers[0] ?? null;
+    if (this.lastPossessor) {
+      this.setBallPosition(this.lastPossessor.baseX, this.lastPossessor.baseY - 10, 0);
+    }
 
     this.commentaryText = this.add
       .text(width / 2, height - 46, "Kick off!", {
@@ -509,6 +516,10 @@ class MatchSimulationScene extends Phaser.Scene {
     this.elapsed += 1;
     this.timerText.setText(formatMatchClock(this.elapsed));
 
+    if (this.ambientAnimating) {
+      return;
+    }
+
     while (this.eventCursor < this.simulation.events.length) {
       const event = this.simulation.events[this.eventCursor];
       if (event.second > this.elapsed || this.resolvingChance) {
@@ -524,31 +535,106 @@ class MatchSimulationScene extends Phaser.Scene {
   }
 
   private animateAmbientMovement() {
-    if (this.resolvingChance || this.finished) {
+    if (this.resolvingChance || this.finished || this.ambientAnimating) {
       return;
     }
 
-    const outfieldPlayers = [...this.homePlayers, ...this.awayPlayers].filter((player) => player.role !== "GK");
-    for (const player of outfieldPlayers) {
-      if (Math.random() > 0.4) {
-        continue;
-      }
+    this.ambientAnimating = true;
+    void this.runAmbientPossessionPhase().finally(() => {
+      this.ambientAnimating = false;
+    });
+  }
 
-      const targetX = player.baseX + Phaser.Math.Between(-6, 6);
-      const targetY = player.baseY + Phaser.Math.Between(-4, 4);
-
-      this.tweens.add({
-        targets: player.container,
-        x: targetX,
-        y: targetY,
-        duration: 620,
-        ease: "Sine.easeInOut",
-        yoyo: true,
-        onUpdate: () => {
-          player.container.setDepth(500 + player.container.y);
-        },
-      });
+  private async runAmbientPossessionPhase(): Promise<void> {
+    const sideSwapRoll = hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:swap`);
+    if (sideSwapRoll < 0.22) {
+      this.possessionSide = this.possessionSide === "HOME" ? "AWAY" : "HOME";
+      this.lastPossessor = null;
     }
+
+    const possessionPlayers = this.getSidePlayers(this.possessionSide).filter((player) => player.role !== "GK");
+    if (possessionPlayers.length < 2) {
+      return;
+    }
+
+    const passer =
+      this.lastPossessor && this.lastPossessor.side === this.possessionSide && this.lastPossessor.role !== "GK"
+        ? this.lastPossessor
+        : possessionPlayers[Math.floor(hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:passer`) * possessionPlayers.length)];
+
+    const receiverOptions = possessionPlayers
+      .filter((player) => player !== passer)
+      .sort(
+        (a, b) =>
+          Phaser.Math.Distance.Between(a.baseX, a.baseY, passer.baseX, passer.baseY) -
+          Phaser.Math.Distance.Between(b.baseX, b.baseY, passer.baseX, passer.baseY)
+      );
+
+    if (!receiverOptions.length) {
+      return;
+    }
+
+    const receiverPickIndex = Math.floor(
+      hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:receiver`) * Math.min(receiverOptions.length, 4)
+    );
+    const receiver = receiverOptions[receiverPickIndex] ?? receiverOptions[0];
+
+    const forwardDir = this.possessionSide === "HOME" ? -1 : 1;
+    const receiverTargetX = Phaser.Math.Clamp(
+      receiver.baseX + this.pickSignedOffset(this.elapsed + 23, 26),
+      this.pitchLeft + 20,
+      this.pitchLeft + this.pitchWidth - 20
+    );
+    const receiverTargetY = Phaser.Math.Clamp(
+      receiver.baseY + forwardDir * Phaser.Math.Between(10, 24),
+      this.pitchTop + 26,
+      this.pitchTop + this.pitchHeight - 26
+    );
+    const passerTargetX = Phaser.Math.Clamp(
+      passer.baseX + this.pickSignedOffset(this.elapsed + 29, 12),
+      this.pitchLeft + 20,
+      this.pitchLeft + this.pitchWidth - 20
+    );
+    const passerTargetY = Phaser.Math.Clamp(
+      passer.baseY + forwardDir * Phaser.Math.Between(4, 12),
+      this.pitchTop + 26,
+      this.pitchTop + this.pitchHeight - 26
+    );
+
+    const support = this.pickSupportPair(this.possessionSide, receiver, this.elapsed).filter((player) => player !== passer);
+    const pressure = this.pickNearestDefenders(this.possessionSide === "HOME" ? "AWAY" : "HOME", receiver, 2);
+
+    await Promise.all([
+      this.tweenPlayerTo(passer, passerTargetX, passerTargetY, 260),
+      this.tweenPlayerTo(receiver, receiverTargetX, receiverTargetY, 340),
+      ...support.map((player, idx) =>
+        this.tweenPlayerTo(
+          player,
+          Phaser.Math.Clamp(player.baseX + this.pickSignedOffset(this.elapsed + idx + 41, 16), this.pitchLeft + 20, this.pitchLeft + this.pitchWidth - 20),
+          Phaser.Math.Clamp(player.baseY + forwardDir * Phaser.Math.Between(6, 16), this.pitchTop + 26, this.pitchTop + this.pitchHeight - 26),
+          320
+        )
+      ),
+      ...pressure.map((player, idx) =>
+        this.tweenPlayerTo(
+          player,
+          Phaser.Math.Clamp(player.baseX + Phaser.Math.Clamp(receiverTargetX - player.baseX, -18, 18), this.pitchLeft + 20, this.pitchLeft + this.pitchWidth - 20),
+          Phaser.Math.Clamp(player.baseY - forwardDir * (10 + idx * 8), this.pitchTop + 26, this.pitchTop + this.pitchHeight - 26),
+          320
+        )
+      ),
+    ]);
+
+    await this.moveBallTo(receiverTargetX, receiverTargetY - 8, 340, 10);
+    this.lastPossessor = receiver;
+
+    if (hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:commentary`) < 0.25) {
+      const sideName = this.possessionSide === "HOME" ? this.ui.homeName : this.ui.awayName;
+      this.commentaryText.setText(`${sideName} keep the ball moving`);
+    }
+
+    const resetPlayers = [passer, receiver, ...support, ...pressure];
+    await Promise.all(resetPlayers.map((player) => this.tweenPlayerTo(player, player.baseX, player.baseY, 240)));
   }
 
   private startChanceEvent(event: MatchChanceEvent, eventIndex: number) {
@@ -918,6 +1004,26 @@ class MatchSimulationScene extends Phaser.Scene {
 
     const idx = Math.floor(hashUnit(`${this.matchSeed}:${eventIndex}:${side}:support`) * Math.min(options.length, 3));
     return options[idx] ?? options[0];
+  }
+
+  private pickSupportPair(side: Side, attacker: PitchPlayer, eventIndex: number): PitchPlayer[] {
+    const options = this.getSidePlayers(side)
+      .filter((player) => player.role !== "GK" && player !== attacker)
+      .sort(
+        (a, b) =>
+          Phaser.Math.Distance.Between(a.baseX, a.baseY, attacker.baseX, attacker.baseY) -
+          Phaser.Math.Distance.Between(b.baseX, b.baseY, attacker.baseX, attacker.baseY)
+      );
+
+    if (!options.length) {
+      return [];
+    }
+
+    const maxSupport = Math.min(options.length, 2);
+    const firstIndex = Math.floor(hashUnit(`${this.matchSeed}:${eventIndex}:${side}:support:1`) * maxSupport);
+    const first = options[firstIndex] ?? options[0];
+    const second = options.find((player) => player !== first);
+    return second ? [first, second] : [first];
   }
 
   private pickNearestDefenders(side: Side, attacker: PitchPlayer, count: number): PitchPlayer[] {
@@ -1296,9 +1402,8 @@ function tapInfluence(attackingSide: "HOME" | "AWAY", tapQuality: TapQuality, ta
 }
 
 function shouldStopEarly(homeGoals: number, awayGoals: number): boolean {
-  const lead = Math.abs(homeGoals - awayGoals);
   const totalGoals = homeGoals + awayGoals;
-  return lead >= EARLY_FINISH_GOAL_LEAD || totalGoals >= MAX_TOTAL_GOALS;
+  return totalGoals >= MAX_TOTAL_GOALS;
 }
 
 function finalizeRuntimeResult(
@@ -1322,14 +1427,7 @@ function finalizeRuntimeResult(
       }
     }
 
-    const lead = Math.abs(homeGoals - awayGoals);
     const totalGoals = homeGoals + awayGoals;
-
-    if (lead >= EARLY_FINISH_GOAL_LEAD) {
-      durationSeconds = event.second;
-      endReason = "THREE_GOAL_LEAD";
-      break;
-    }
 
     if (totalGoals >= MAX_TOTAL_GOALS) {
       durationSeconds = event.second;
@@ -1358,7 +1456,6 @@ function finalizeRuntimeResult(
 }
 
 function isValidRuntimeResult(result: MatchRuntimeResult): boolean {
-  const lead = Math.abs(result.homeGoals - result.awayGoals);
   const totalGoals = result.homeGoals + result.awayGoals;
 
   if (result.durationSeconds < 1 || result.durationSeconds > MATCH_DURATION_SECONDS) {
@@ -1369,19 +1466,11 @@ function isValidRuntimeResult(result: MatchRuntimeResult): boolean {
     return false;
   }
 
-  if (totalGoals === MAX_TOTAL_GOALS && lead >= EARLY_FINISH_GOAL_LEAD) {
+  if (totalGoals === MAX_TOTAL_GOALS && result.endReason !== "TEN_TOTAL_GOALS") {
     return false;
   }
 
-  if (totalGoals === MAX_TOTAL_GOALS && lead < EARLY_FINISH_GOAL_LEAD && result.endReason !== "TEN_TOTAL_GOALS") {
-    return false;
-  }
-
-  if (lead >= EARLY_FINISH_GOAL_LEAD && totalGoals < MAX_TOTAL_GOALS && result.endReason !== "THREE_GOAL_LEAD") {
-    return false;
-  }
-
-  if (lead < EARLY_FINISH_GOAL_LEAD && totalGoals < MAX_TOTAL_GOALS && result.endReason !== "TIMER_EXPIRED") {
+  if (totalGoals < MAX_TOTAL_GOALS && result.endReason !== "TIMER_EXPIRED") {
     return false;
   }
 
@@ -1417,7 +1506,7 @@ export function buildMatchRuntimeConfig(config: MatchRuntimeConfig): ResolvedRun
     rules: {
       durationSeconds: config.rules?.durationSeconds ?? MATCH_DURATION_SECONDS,
       maxTotalGoals: config.rules?.maxTotalGoals ?? MAX_TOTAL_GOALS,
-      earlyFinishGoalLead: config.rules?.earlyFinishGoalLead ?? EARLY_FINISH_GOAL_LEAD,
+      earlyFinishGoalLead: config.rules?.earlyFinishGoalLead ?? DISABLED_EARLY_FINISH_GOAL_LEAD,
       maxChanceGapSeconds: config.rules?.maxChanceGapSeconds ?? MAX_EVENT_GAP_SECONDS,
     },
   };

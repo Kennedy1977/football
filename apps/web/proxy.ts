@@ -1,6 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse, type NextMiddleware } from "next/server";
-import { APP_CACHE_BUST } from "./src/lib/build-meta";
 
 const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
 const clerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY);
@@ -14,21 +13,18 @@ const clerkProxy = clerkMiddleware(async (auth, req) => {
 const noAuthProxy: NextMiddleware = () => NextResponse.next();
 const authProxy: NextMiddleware = clerkConfigured ? (clerkProxy as unknown as NextMiddleware) : noAuthProxy;
 
-const proxy: NextMiddleware = (req, evt) => {
+const proxy: NextMiddleware = async (req, evt) => {
   const isApiRequest = req.nextUrl.pathname.startsWith("/api") || req.nextUrl.pathname.startsWith("/trpc");
-  const isAuthPage = req.nextUrl.pathname.startsWith("/sign-in") || req.nextUrl.pathname.startsWith("/sign-up");
-  const shouldVersionQuery = req.method === "GET" && !isApiRequest;
+  const response = await authProxy(req, evt);
 
-  if (shouldVersionQuery && !isAuthPage) {
-    const currentVersion = req.nextUrl.searchParams.get("v");
-    if (currentVersion !== APP_CACHE_BUST) {
-      const nextUrl = req.nextUrl.clone();
-      nextUrl.searchParams.set("v", APP_CACHE_BUST);
-      return NextResponse.redirect(nextUrl);
-    }
+  // Prevent browser/CDN from serving cached RSC payload as full page document.
+  if (req.method === "GET" && !isApiRequest && response) {
+    response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Expires", "0");
   }
 
-  return authProxy(req, evt);
+  return response;
 };
 
 export default proxy;

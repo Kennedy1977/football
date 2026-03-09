@@ -1,5 +1,4 @@
 import {
-  EARLY_FINISH_GOAL_LEAD,
   MATCH_DURATION_SECONDS,
   MAX_EVENT_GAP_SECONDS,
   MAX_TOTAL_GOALS,
@@ -41,11 +40,6 @@ export function simulateMatch(input: MatchSimulationInput): MatchSimulationOutpu
     events.push({ second, attackingSide, quality, scored });
 
     const totalGoals = homeGoals + awayGoals;
-    const goalLead = Math.abs(homeGoals - awayGoals);
-    if (goalLead >= EARLY_FINISH_GOAL_LEAD) {
-      return finalize(homeGoals, awayGoals, second, events, "THREE_GOAL_LEAD");
-    }
-
     if (totalGoals >= MAX_TOTAL_GOALS) {
       return finalize(homeGoals, awayGoals, second, events, "TEN_TOTAL_GOALS");
     }
