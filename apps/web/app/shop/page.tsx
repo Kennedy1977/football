@@ -7,6 +7,7 @@ import {
   usePurchasePackMutation,
 } from "../../src/state/apis/gameApi";
 import { ProgressRow } from "../../src/components/progress-row";
+import { toRarityFrame } from "../../src/lib/rarity-frame";
 
 export default function ShopPage() {
   const { data, isLoading, error, refetch } = useGetPacksQuery();
@@ -91,7 +92,7 @@ export default function ShopPage() {
           <h3>Pack Opened</h3>
           <div className="player-grid">
             {lastRewards.map((reward) => (
-              <article key={reward.rewardId} className="player-card">
+              <article key={reward.rewardId} className={`player-card rarity-${toRarityFrame(reward.rarity)}`}>
                 <div className="player-card-head">
                   <div>
                     <h3>{reward.playerName}</h3>

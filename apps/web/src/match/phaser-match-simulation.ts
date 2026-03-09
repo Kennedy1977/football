@@ -53,6 +53,47 @@ interface ResolvedRuntimeConfig {
   };
 }
 
+type Side = "HOME" | "AWAY";
+type Role = "GK" | "DEF" | "MID" | "ATT";
+
+type ChanceType = MatchChanceType;
+type TapQuality = MatchTapQuality;
+
+interface FormationNode {
+  x: number;
+  y: number;
+  role: Role;
+}
+
+interface PitchPlayer {
+  side: Side;
+  role: Role;
+  container: Phaser.GameObjects.Container;
+  baseX: number;
+  baseY: number;
+}
+
+interface MinigameActorSet {
+  layer: Phaser.GameObjects.Container;
+  shooter: Phaser.GameObjects.Container;
+  keeper: Phaser.GameObjects.Container;
+  ball: Phaser.GameObjects.Container;
+}
+
+const TOP_FORMATION: FormationNode[] = [
+  { x: 0.5, y: 0.07, role: "GK" },
+  { x: 0.14, y: 0.19, role: "DEF" },
+  { x: 0.36, y: 0.19, role: "DEF" },
+  { x: 0.64, y: 0.19, role: "DEF" },
+  { x: 0.86, y: 0.19, role: "DEF" },
+  { x: 0.14, y: 0.35, role: "MID" },
+  { x: 0.36, y: 0.35, role: "MID" },
+  { x: 0.64, y: 0.35, role: "MID" },
+  { x: 0.86, y: 0.35, role: "MID" },
+  { x: 0.42, y: 0.49, role: "ATT" },
+  { x: 0.58, y: 0.49, role: "ATT" },
+];
+
 export function mountPhaserMatchSimulation(
   container: HTMLElement,
   config: MatchRuntimeConfig,
@@ -75,7 +116,7 @@ export function mountPhaserMatchSimulation(
     parent: container,
     width: options.width ?? 390,
     height: options.height ?? 780,
-    backgroundColor: options.backgroundColor ?? "#0b1a2f",
+    backgroundColor: options.backgroundColor ?? "#081428",
     scene: new MatchSimulationScene({
       simulation,
       baseRuntimeResult: runtimeResult,
@@ -84,8 +125,8 @@ export function mountPhaserMatchSimulation(
       ui: {
         homeName: runtimeConfig.homeTeam.name,
         awayName: runtimeConfig.awayTeam.name,
-        homeColor: options.homeColor ?? 0x3b82f6,
-        awayColor: options.awayColor ?? 0xef4444,
+        homeColor: options.homeColor ?? 0x2f8ef0,
+        awayColor: options.awayColor ?? 0xd72638,
       },
       teams: {
         home: runtimeConfig.homeTeam,
@@ -132,11 +173,20 @@ class MatchSimulationScene extends Phaser.Scene {
   private resolvingChance = false;
   private finished = false;
 
+  private pitchTop = 0;
+  private pitchLeft = 0;
+  private pitchWidth = 0;
+  private pitchHeight = 0;
+
   private timerText!: Phaser.GameObjects.Text;
   private scoreText!: Phaser.GameObjects.Text;
   private commentaryText!: Phaser.GameObjects.Text;
-  private homeMarker!: Phaser.GameObjects.Arc;
-  private awayMarker!: Phaser.GameObjects.Arc;
+
+  private homePlayers: PitchPlayer[] = [];
+  private awayPlayers: PitchPlayer[] = [];
+
+  private ballShadow!: Phaser.GameObjects.Ellipse;
+  private ball!: Phaser.GameObjects.Container;
 
   constructor(options: {
     simulation: MatchSimulationOutput;
@@ -167,72 +217,283 @@ class MatchSimulationScene extends Phaser.Scene {
 
   create() {
     const { width, height } = this.cameras.main;
-    const pitchTop = 140;
-    const pitchHeight = height - 220;
 
-    this.drawPitch(width, pitchTop, pitchHeight);
-    this.buildHud(width);
+    this.pitchTop = 126;
+    this.pitchLeft = 20;
+    this.pitchWidth = width - 40;
+    this.pitchHeight = height - 230;
 
-    this.homeMarker = this.add.circle(width * 0.32, pitchTop + pitchHeight * 0.5, 12, this.ui.homeColor, 1);
-    this.awayMarker = this.add.circle(width * 0.68, pitchTop + pitchHeight * 0.5, 12, this.ui.awayColor, 1);
+    this.drawVerticalPitch();
+    this.buildHud();
+    this.createTeams();
+    this.createBall();
 
     this.commentaryText = this.add
-      .text(width / 2, height - 52, "Kick off!", {
-        fontFamily: "Arial",
-        fontSize: "18px",
-        color: "#f8fafc",
+      .text(width / 2, height - 46, "Kick off!", {
+        fontFamily: "Barlow Condensed, Arial",
+        fontSize: "28px",
+        color: "#e6f3ff",
+        fontStyle: "bold",
         align: "center",
       })
-      .setOrigin(0.5, 0.5);
+      .setOrigin(0.5, 0.5)
+      .setDepth(2000);
 
     this.time.addEvent({
       delay: this.secondDurationMs,
       loop: true,
       callback: () => this.tickSecond(),
     });
+
+    this.time.addEvent({
+      delay: 1200,
+      loop: true,
+      callback: () => this.animateAmbientMovement(),
+    });
   }
 
-  private drawPitch(width: number, pitchTop: number, pitchHeight: number) {
-    const centerX = width / 2;
+  private drawVerticalPitch() {
+    const x = this.pitchLeft;
+    const y = this.pitchTop;
+    const w = this.pitchWidth;
+    const h = this.pitchHeight;
+    const centerX = x + w / 2;
+    const centerY = y + h / 2;
+
     const pitch = this.add.graphics();
 
-    pitch.fillStyle(0x166534, 1);
-    pitch.fillRoundedRect(24, pitchTop, width - 48, pitchHeight, 18);
+    pitch.fillStyle(0x2f6e1f, 1);
+    pitch.fillRoundedRect(x, y, w, h, 18);
 
-    pitch.lineStyle(3, 0xe2e8f0, 1);
-    pitch.strokeRoundedRect(24, pitchTop, width - 48, pitchHeight, 18);
-    pitch.lineBetween(centerX, pitchTop + 8, centerX, pitchTop + pitchHeight - 8);
-    pitch.strokeCircle(centerX, pitchTop + pitchHeight / 2, 52);
+    const stripeCount = 12;
+    const stripeHeight = h / stripeCount;
+    for (let i = 0; i < stripeCount; i += 1) {
+      pitch.fillStyle(i % 2 === 0 ? 0x66b53b : 0x5aa330, 0.95);
+      pitch.fillRect(x + 2, y + i * stripeHeight, w - 4, stripeHeight + 1);
+    }
 
-    pitch.strokeRect(40, pitchTop + pitchHeight * 0.28, 64, pitchHeight * 0.44);
-    pitch.strokeRect(width - 104, pitchTop + pitchHeight * 0.28, 64, pitchHeight * 0.44);
+    pitch.lineStyle(4, 0xf8fafc, 1);
+    pitch.strokeRoundedRect(x, y, w, h, 18);
+
+    pitch.lineStyle(4, 0xf8fafc, 1);
+    for (let i = 0; i < 9; i += 1) {
+      const segW = w / 18;
+      const segX = x + i * segW * 2;
+      pitch.lineBetween(segX, centerY, segX + segW, centerY);
+    }
+
+    pitch.strokeCircle(centerX, centerY, 74);
+
+    const penaltyW = w * 0.68;
+    const penaltyH = h * 0.14;
+    const sixW = w * 0.35;
+    const sixH = h * 0.06;
+
+    pitch.strokeRect(centerX - penaltyW / 2, y, penaltyW, penaltyH);
+    pitch.strokeRect(centerX - sixW / 2, y, sixW, sixH);
+
+    pitch.beginPath();
+    pitch.arc(centerX, y + penaltyH, 42, Phaser.Math.DegToRad(20), Phaser.Math.DegToRad(160), false);
+    pitch.strokePath();
+
+    pitch.strokeRect(centerX - penaltyW / 2, y + h - penaltyH, penaltyW, penaltyH);
+    pitch.strokeRect(centerX - sixW / 2, y + h - sixH, sixW, sixH);
+
+    pitch.beginPath();
+    pitch.arc(centerX, y + h - penaltyH, 42, Phaser.Math.DegToRad(200), Phaser.Math.DegToRad(340), false);
+    pitch.strokePath();
+
+    pitch.fillStyle(0xf8fafc, 1);
+    pitch.fillCircle(centerX, y + penaltyH - 28, 5);
+    pitch.fillCircle(centerX, y + h - penaltyH + 28, 5);
+
+    this.drawGoal(true);
+    this.drawGoal(false);
   }
 
-  private buildHud(width: number) {
+  private drawGoal(top: boolean) {
+    const x = this.pitchLeft;
+    const y = this.pitchTop;
+    const w = this.pitchWidth;
+    const h = this.pitchHeight;
+    const centerX = x + w / 2;
+    const goalW = w * 0.32;
+    const goalDepth = 16;
+
+    const g = this.add.graphics();
+
+    if (top) {
+      const gy = y - 2;
+      g.lineStyle(3, 0xdbeafe, 1);
+      g.strokeRect(centerX - goalW / 2, gy - goalDepth, goalW, goalDepth);
+      g.lineStyle(1, 0xdbeafe, 0.7);
+      for (let i = 0; i <= 8; i += 1) {
+        const gx = centerX - goalW / 2 + (goalW / 8) * i;
+        g.lineBetween(gx, gy - goalDepth, gx, gy);
+      }
+      for (let i = 1; i <= 3; i += 1) {
+        const gyLine = gy - (goalDepth / 4) * i;
+        g.lineBetween(centerX - goalW / 2, gyLine, centerX + goalW / 2, gyLine);
+      }
+      return;
+    }
+
+    const gy = y + h + 2;
+    g.lineStyle(3, 0xdbeafe, 1);
+    g.strokeRect(centerX - goalW / 2, gy, goalW, goalDepth);
+    g.lineStyle(1, 0xdbeafe, 0.7);
+    for (let i = 0; i <= 8; i += 1) {
+      const gx = centerX - goalW / 2 + (goalW / 8) * i;
+      g.lineBetween(gx, gy, gx, gy + goalDepth);
+    }
+    for (let i = 1; i <= 3; i += 1) {
+      const gyLine = gy + (goalDepth / 4) * i;
+      g.lineBetween(centerX - goalW / 2, gyLine, centerX + goalW / 2, gyLine);
+    }
+  }
+
+  private buildHud() {
+    const centerX = this.cameras.main.width / 2;
+
     this.add
-      .text(width / 2, 38, "MATCH LIVE", {
-        fontFamily: "Arial",
-        fontSize: "26px",
+      .text(centerX, 34, "MATCH LIVE", {
+        fontFamily: "Barlow Condensed, Arial",
+        fontSize: "42px",
         color: "#f8fafc",
         fontStyle: "bold",
       })
       .setOrigin(0.5, 0.5);
 
     this.timerText = this.add
-      .text(width / 2, 78, formatMatchClock(0), {
+      .text(centerX, 70, formatMatchClock(0), {
         fontFamily: "Courier New",
-        fontSize: "22px",
-        color: "#a5f3fc",
+        fontSize: "24px",
+        color: "#99f6e4",
+        fontStyle: "bold",
       })
       .setOrigin(0.5, 0.5);
 
     this.scoreText = this.add
-      .text(width / 2, 112, `${this.ui.homeName} 0 - 0 ${this.ui.awayName}`, {
-        fontFamily: "Arial",
-        fontSize: "20px",
+      .text(centerX, 102, `${this.ui.homeName} 0 - 0 ${this.ui.awayName}`, {
+        fontFamily: "Barlow Condensed, Arial",
+        fontSize: "26px",
         color: "#f8fafc",
+        fontStyle: "bold",
       })
       .setOrigin(0.5, 0.5);
+  }
+
+  private createTeams() {
+    this.homePlayers = this.createTeam(
+      "HOME",
+      TOP_FORMATION.map((node) => ({ ...node, y: 1 - node.y })),
+      this.ui.homeColor,
+      0xf4d03f,
+      "up"
+    );
+
+    this.awayPlayers = this.createTeam("AWAY", TOP_FORMATION, this.ui.awayColor, 0x2ecc71, "down");
+  }
+
+  private createTeam(
+    side: Side,
+    formation: FormationNode[],
+    kitColor: number,
+    goalkeeperColor: number,
+    facing: "up" | "down"
+  ): PitchPlayer[] {
+    const players: PitchPlayer[] = [];
+
+    for (const node of formation) {
+      const x = this.pitchLeft + this.pitchWidth * node.x;
+      const y = this.pitchTop + this.pitchHeight * node.y;
+      const color = node.role === "GK" ? goalkeeperColor : kitColor;
+      const container = this.createPitchAvatar(x, y, color, facing);
+
+      players.push({
+        side,
+        role: node.role,
+        container,
+        baseX: x,
+        baseY: y,
+      });
+    }
+
+    return players;
+  }
+
+  private createPitchAvatar(
+    x: number,
+    y: number,
+    kitColor: number,
+    facing: "up" | "down"
+  ): Phaser.GameObjects.Container {
+    const container = this.add.container(x, y);
+
+    const shadow = this.add.ellipse(0, 14, 28, 10, 0x000000, 0.28);
+    const body = this.add.ellipse(0, -2, 26, 25, kitColor, 1).setStrokeStyle(2, darkenColor(kitColor, 0.35), 0.95);
+    const shorts = this.add.rectangle(0, 9, 20, 9, 0x1f2937, 1);
+    const leftLeg = this.add.rectangle(-6, 17, 6, 12, 0xf4c183, 1);
+    const rightLeg = this.add.rectangle(6, 17, 6, 12, 0xf4c183, 1);
+    const leftSock = this.add.rectangle(-6, 22, 7, 5, 0x113d9f, 1);
+    const rightSock = this.add.rectangle(6, 22, 7, 5, 0x113d9f, 1);
+    const head = this.add.circle(0, -17, 9, 0xf8c99e, 1).setStrokeStyle(1, 0x6c4426, 0.9);
+    const hair = this.add.ellipse(0, -20, 16, 8, 0x5e3b24, 1);
+
+    const parts: Phaser.GameObjects.GameObject[] = [
+      shadow,
+      leftLeg,
+      rightLeg,
+      leftSock,
+      rightSock,
+      shorts,
+      body,
+      head,
+      hair,
+    ];
+
+    if (facing === "down") {
+      const eyeLeft = this.add.circle(-3.3, -16, 1, 0x0f172a, 1);
+      const eyeRight = this.add.circle(3.3, -16, 1, 0x0f172a, 1);
+      const smile = this.add.arc(0, -13, 3.2, 5, 175, false, 0x000000, 0).setStrokeStyle(1.2, 0x7c2d12, 1);
+      parts.push(eyeLeft, eyeRight, smile);
+    } else {
+      const nape = this.add.rectangle(0, -9.5, 6, 4, 0xf8c99e, 1);
+      parts.push(nape);
+    }
+
+    container.add(parts);
+    container.setScale(0.74);
+    container.setDepth(500 + y);
+    return container;
+  }
+
+  private createBall() {
+    const startX = this.pitchLeft + this.pitchWidth / 2;
+    const startY = this.pitchTop + this.pitchHeight / 2;
+
+    this.ballShadow = this.add.ellipse(startX, startY + 8, 14, 6, 0x000000, 0.24).setDepth(700 + startY);
+
+    const shell = this.add.circle(0, 0, 7, 0xffffff, 1).setStrokeStyle(1, 0x0f172a, 1);
+    const patchA = this.add.circle(0, -1, 1.8, 0x0f172a, 1);
+    const patchB = this.add.circle(3, 2, 1.6, 0x0f172a, 1);
+    const patchC = this.add.circle(-3.2, 2, 1.3, 0x0f172a, 1);
+
+    this.ball = this.add.container(startX, startY, [shell, patchA, patchB, patchC]);
+    this.ball.setDepth(800 + startY);
+  }
+
+  private setBallPosition(x: number, y: number, loft = 0) {
+    const clampedLoft = Math.max(0, loft);
+    this.ball.setPosition(x, y - clampedLoft);
+    this.ball.setScale(1 + clampedLoft * 0.01);
+    this.ball.setDepth(800 + y - clampedLoft);
+
+    const shadowScale = clamp(0.55, 1, 1 - clampedLoft * 0.02);
+    this.ballShadow.setPosition(x, y + 8);
+    this.ballShadow.setScale(shadowScale, shadowScale);
+    this.ballShadow.setAlpha(0.24 * shadowScale);
+    this.ballShadow.setDepth(700 + y);
   }
 
   private tickSecond() {
@@ -250,7 +511,9 @@ class MatchSimulationScene extends Phaser.Scene {
 
     while (this.eventCursor < this.simulation.events.length) {
       const event = this.simulation.events[this.eventCursor];
-      if (event.second > this.elapsed || this.resolvingChance) break;
+      if (event.second > this.elapsed || this.resolvingChance) {
+        break;
+      }
       this.startChanceEvent(event, this.eventCursor);
       return;
     }
@@ -260,15 +523,49 @@ class MatchSimulationScene extends Phaser.Scene {
     }
   }
 
+  private animateAmbientMovement() {
+    if (this.resolvingChance || this.finished) {
+      return;
+    }
+
+    const outfieldPlayers = [...this.homePlayers, ...this.awayPlayers].filter((player) => player.role !== "GK");
+    for (const player of outfieldPlayers) {
+      if (Math.random() > 0.4) {
+        continue;
+      }
+
+      const targetX = player.baseX + Phaser.Math.Between(-6, 6);
+      const targetY = player.baseY + Phaser.Math.Between(-4, 4);
+
+      this.tweens.add({
+        targets: player.container,
+        x: targetX,
+        y: targetY,
+        duration: 620,
+        ease: "Sine.easeInOut",
+        yoyo: true,
+        onUpdate: () => {
+          player.container.setDepth(500 + player.container.y);
+        },
+      });
+    }
+  }
+
   private startChanceEvent(event: MatchChanceEvent, eventIndex: number) {
     this.resolvingChance = true;
     const chanceType = pickChanceType(this.matchSeed, eventIndex, event.quality);
     const display = chanceTypeDisplayName(chanceType);
     const yourAction = event.attackingSide === "HOME" ? "Shoot" : "Save";
-    const transitionText = `${display} - ${yourAction}`;
 
-    this.commentaryText.setText(transitionText);
-    this.playTimingMinigame(event, eventIndex, chanceType, (tapQuality, tapped) => {
+    this.commentaryText.setText(`${display} - ${yourAction}`);
+
+    void this.resolveChanceEvent(event, eventIndex, chanceType);
+  }
+
+  private async resolveChanceEvent(event: MatchChanceEvent, eventIndex: number, chanceType: ChanceType) {
+    try {
+      const { tapQuality, tapped } = await this.playTimingMinigame(event, eventIndex, chanceType);
+
       const resolvedOutcome = resolveChanceOutcome({
         seed: this.matchSeed,
         event,
@@ -278,6 +575,7 @@ class MatchSimulationScene extends Phaser.Scene {
         tapped,
         teams: this.teams,
       });
+
       const resolvedEvent = { ...event, scored: resolvedOutcome.scored };
       this.resolvedEvents.push(resolvedEvent);
       this.chanceOutcomes.push({
@@ -292,7 +590,13 @@ class MatchSimulationScene extends Phaser.Scene {
         scored: resolvedOutcome.scored,
       });
 
+      await this.animateChanceOnPitch(event, eventIndex, resolvedOutcome.scored, chanceType);
       this.applyEventOutcome(resolvedEvent, chanceType, tapQuality, tapped);
+    } catch {
+      const fallback = { ...event };
+      this.resolvedEvents.push(fallback);
+      this.applyEventOutcome(fallback, chanceType, "POOR", false);
+    } finally {
       this.eventCursor += 1;
       this.resolvingChance = false;
 
@@ -304,114 +608,402 @@ class MatchSimulationScene extends Phaser.Scene {
       if (this.elapsed >= this.simulation.durationSeconds) {
         this.finishMatch();
       }
-    });
+    }
   }
 
   private playTimingMinigame(
     event: MatchChanceEvent,
     eventIndex: number,
-    chanceType: ChanceType,
-    onDone: (quality: TapQuality, tapped: boolean) => void
-  ) {
-    const { width, height } = this.cameras.main;
-    const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x020617, 0.58);
-    const panel = this.add.rectangle(width / 2, height / 2, width - 40, 210, 0x0f294f, 0.95).setStrokeStyle(2, 0xa5b4fc, 0.9);
-    const title = this.add
-      .text(width / 2, height / 2 - 74, chanceTypeDisplayName(chanceType), {
-        fontFamily: "Arial",
-        fontSize: "20px",
-        color: "#f8fafc",
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5);
+    chanceType: ChanceType
+  ): Promise<{ tapQuality: TapQuality; tapped: boolean }> {
+    return new Promise((resolve) => {
+      const { width, height } = this.cameras.main;
+      const tuning = computeMinigameTuning(event, chanceType, this.teams);
 
-    const roleLabel = event.attackingSide === "HOME" ? "Attack: tap to shoot" : "Defend: tap to save";
-    const subtitle = this.add
-      .text(width / 2, height / 2 - 46, roleLabel, {
-        fontFamily: "Arial",
-        fontSize: "14px",
-        color: "#bfdbfe",
-      })
-      .setOrigin(0.5);
+      const layer = this.add.container(0, 0).setDepth(4500);
+      const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x020a14, 0.68);
+      layer.add(dim);
 
-    const trackLeft = 64;
-    const trackRight = width - 64;
-    const trackWidth = trackRight - trackLeft;
-    const barY = height / 2 + 10;
+      const pitch = this.add.graphics();
+      drawMinigameField(pitch, width, height, event.attackingSide);
+      layer.add(pitch);
 
-    const track = this.add.rectangle(width / 2, barY, trackWidth, 16, 0x1f2937, 1).setStrokeStyle(1, 0x94a3b8, 0.8);
+      const actors = this.createMinigameActors(layer, event.attackingSide);
 
-    const tuning = computeMinigameTuning(event, chanceType, this.teams);
-    const zoneWidth = tuning.zoneWidth;
-    const zoneMargin = 14;
-    const zoneStartRandom = hashUnit(`${this.matchSeed}:${eventIndex}:zone`);
-    const zoneStart = trackLeft + zoneMargin + zoneStartRandom * Math.max(1, trackWidth - zoneWidth - zoneMargin * 2);
-    const zone = this.add.rectangle(zoneStart + zoneWidth / 2, barY, zoneWidth, 16, 0x22c55e, 0.78);
-    const marker = this.add.circle(trackLeft, barY, 8, 0xf8fafc, 1);
+      const title = this.add
+        .text(width / 2, 58, chanceTypeDisplayName(chanceType), {
+          fontFamily: "Barlow Condensed, Arial",
+          fontSize: "42px",
+          color: "#f8fafc",
+          fontStyle: "bold",
+        })
+        .setOrigin(0.5);
+      layer.add(title);
 
-    const markerDuration = tuning.markerDurationMs;
-    const moveTween = this.tweens.add({
-      targets: marker,
-      x: trackRight,
-      duration: markerDuration,
-      ease: "Sine.easeInOut",
-      yoyo: true,
-      repeat: -1,
-    });
+      const prompt = this.add
+        .text(
+          width / 2,
+          height - 120,
+          event.attackingSide === "HOME" ? "Tap to shoot!" : "Save the shot!",
+          {
+            fontFamily: "Barlow Condensed, Arial",
+            fontSize: "52px",
+            color: "#f8fafc",
+            fontStyle: "bold",
+          }
+        )
+        .setOrigin(0.5);
+      layer.add(prompt);
 
-    const hint = this.add
-      .text(width / 2, height / 2 + 48, tuning.hint, {
-        fontFamily: "Arial",
-        fontSize: "13px",
-        color: "#e2e8f0",
-      })
-      .setOrigin(0.5);
+      const trackLeft = 46;
+      const trackWidth = width - 92;
+      const trackTop = height - 196;
+      const trackHeight = 40;
+      const innerPad = 5;
+      const innerX = trackLeft + innerPad;
+      const innerY = trackTop + innerPad;
+      const innerW = trackWidth - innerPad * 2;
+      const innerH = trackHeight - innerPad * 2;
 
-    let completed = false;
+      const bar = this.add.graphics();
+      bar.fillStyle(0xffffff, 0.95);
+      bar.fillRoundedRect(trackLeft - 2, trackTop - 2, trackWidth + 4, trackHeight + 4, 18);
+      bar.fillStyle(0x0d2b26, 1);
+      bar.fillRoundedRect(trackLeft, trackTop, trackWidth, trackHeight, 16);
 
-    const complete = (tapped: boolean) => {
-      if (completed) return;
-      completed = true;
+      const zoneWidth = clamp(56, Math.max(80, innerW - 40), tuning.zoneWidth);
+      const zoneStartRandom = hashUnit(`${this.matchSeed}:${eventIndex}:zone`);
+      const zoneStart = innerX + zoneStartRandom * Math.max(1, innerW - zoneWidth);
+      const zoneEnd = zoneStart + zoneWidth;
 
-      this.input.off("pointerdown", pointerHandler);
-      moveTween.stop();
+      bar.fillStyle(0xef4444, 1);
+      bar.fillRoundedRect(innerX, innerY, zoneStart - innerX, innerH, 12);
+      bar.fillStyle(0x84cc16, 1);
+      bar.fillRoundedRect(zoneStart, innerY, zoneWidth, innerH, 12);
+      bar.fillStyle(0xef4444, 1);
+      bar.fillRoundedRect(zoneEnd, innerY, innerX + innerW - zoneEnd, innerH, 12);
 
-      const tapQuality = readTapQuality(marker.x, zoneStart, zoneStart + zoneWidth);
-      hint.setText(outcomeHintForTap(tapQuality, tapped));
+      layer.add(bar);
 
-      this.time.delayedCall(550, () => {
-        dim.destroy();
-        panel.destroy();
-        title.destroy();
-        subtitle.destroy();
-        track.destroy();
-        zone.destroy();
-        marker.destroy();
-        hint.destroy();
-        onDone(tapQuality, tapped);
+      const marker = this.add.circle(innerX, innerY + innerH / 2, 10, 0xffffff, 1).setStrokeStyle(2, 0x0f172a, 1);
+      layer.add(marker);
+
+      const hint = this.add
+        .text(width / 2, trackTop - 24, tuning.hint, {
+          fontFamily: "Exo 2, Arial",
+          fontSize: "18px",
+          color: "#e2e8f0",
+        })
+        .setOrigin(0.5);
+      layer.add(hint);
+
+      const moveTween = this.tweens.add({
+        targets: marker,
+        x: innerX + innerW,
+        duration: tuning.markerDurationMs,
+        ease: "Sine.easeInOut",
+        yoyo: true,
+        repeat: -1,
       });
-    };
 
-    const pointerHandler = () => complete(true);
-    this.input.on("pointerdown", pointerHandler);
-    this.time.delayedCall(1900, () => complete(false));
+      let completed = false;
+
+      const complete = (tapped: boolean) => {
+        if (completed) {
+          return;
+        }
+        completed = true;
+
+        this.input.off("pointerdown", pointerHandler);
+        moveTween.stop();
+
+        const tapQuality = readTapQuality(marker.x, zoneStart, zoneEnd);
+        hint.setText(outcomeHintForTap(tapQuality, tapped));
+
+        const goalCenterX = width / 2;
+        const goalHalfSpan = 74;
+        const markerNorm = (marker.x - innerX) / Math.max(1, innerW);
+        const shotTargetX = goalCenterX - goalHalfSpan + goalHalfSpan * 2 * markerNorm;
+
+        void this.animateMinigamePreview(actors, event.attackingSide, shotTargetX).then(() => {
+          this.time.delayedCall(220, () => {
+            layer.destroy(true);
+            resolve({ tapQuality, tapped });
+          });
+        });
+      };
+
+      const pointerHandler = () => complete(true);
+
+      this.input.on("pointerdown", pointerHandler);
+      this.time.delayedCall(1900, () => complete(false));
+    });
   }
 
-  private applyEventOutcome(event: MatchChanceEvent, chanceType: ChanceType, tapQuality: TapQuality, tapped: boolean) {
-    const marker = event.attackingSide === "HOME" ? this.homeMarker : this.awayMarker;
-    const sideName = event.attackingSide === "HOME" ? this.ui.homeName : this.ui.awayName;
+  private createMinigameActors(layer: Phaser.GameObjects.Container, attackingSide: Side): MinigameActorSet {
+    const { width, height } = this.cameras.main;
+
+    if (attackingSide === "HOME") {
+      const shooter = this.createMinigameAvatar(width / 2, height - 310, this.ui.homeColor, "up", 1.28);
+      const keeper = this.createMinigameAvatar(width / 2, 132, 0xf4d03f, "down", 1.05);
+      const ball = this.createMiniBall(width / 2 + 24, height - 292, 1.3);
+      layer.add([shooter, keeper, ball]);
+      return { layer, shooter, keeper, ball };
+    }
+
+    const shooter = this.createMinigameAvatar(width / 2, 180, this.ui.awayColor, "down", 1.02);
+    const keeper = this.createMinigameAvatar(width / 2, height - 274, 0x2ecc71, "up", 1.36);
+    const ball = this.createMiniBall(width / 2, 212, 1.18);
+    layer.add([shooter, keeper, ball]);
+    return { layer, shooter, keeper, ball };
+  }
+
+  private createMinigameAvatar(
+    x: number,
+    y: number,
+    kitColor: number,
+    facing: "up" | "down",
+    scale: number
+  ): Phaser.GameObjects.Container {
+    const avatar = this.createPitchAvatar(x, y, kitColor, facing);
+    avatar.setScale(scale);
+    avatar.setDepth(5000 + y);
+    return avatar;
+  }
+
+  private createMiniBall(x: number, y: number, scale: number): Phaser.GameObjects.Container {
+    const shell = this.add.circle(0, 0, 10, 0xffffff, 1).setStrokeStyle(2, 0x0f172a, 1);
+    const patchA = this.add.circle(0, -1, 2.6, 0x111827, 1);
+    const patchB = this.add.circle(4, 3, 2.2, 0x111827, 1);
+    const patchC = this.add.circle(-4, 3, 2.2, 0x111827, 1);
+    return this.add.container(x, y, [shell, patchA, patchB, patchC]).setScale(scale);
+  }
+
+  private animateMinigamePreview(actors: MinigameActorSet, attackingSide: Side, targetX: number): Promise<void> {
+    const { width, height } = this.cameras.main;
+
+    const ballStartX = actors.ball.x;
+    const ballStartY = actors.ball.y;
+    const goalY = attackingSide === "HOME" ? 136 : height - 286;
+    const keeperDiveY = attackingSide === "HOME" ? 140 : height - 270;
+
+    return new Promise((resolve) => {
+      this.tweens.add({
+        targets: actors.keeper,
+        x: Phaser.Math.Clamp(targetX, width / 2 - 72, width / 2 + 72),
+        y: keeperDiveY,
+        duration: 280,
+        ease: "Quad.Out",
+      });
+
+      this.tweens.addCounter({
+        from: 0,
+        to: 1,
+        duration: 480,
+        ease: "Sine.easeInOut",
+        onUpdate: (tween) => {
+          const t = Number(tween.getValue() ?? 0);
+          const nx = Phaser.Math.Linear(ballStartX, targetX, t);
+          const ny = Phaser.Math.Linear(ballStartY, goalY, t);
+          const arc = Math.sin(Math.PI * t) * 36;
+          actors.ball.setPosition(nx, ny - arc);
+        },
+        onComplete: () => resolve(),
+      });
+    });
+  }
+
+  private async animateChanceOnPitch(
+    event: MatchChanceEvent,
+    eventIndex: number,
+    scored: boolean,
+    chanceType: ChanceType
+  ) {
+    const attackingSide = event.attackingSide;
+    const defendingSide: Side = attackingSide === "HOME" ? "AWAY" : "HOME";
+    const attackDir = attackingSide === "HOME" ? -1 : 1;
+
+    const attacker = this.pickAttacker(attackingSide, chanceType, eventIndex);
+    const support = this.pickSupport(attackingSide, attacker, eventIndex);
+    const defenders = this.pickNearestDefenders(defendingSide, attacker, 2);
+    const goalkeeper = this.getGoalkeeper(defendingSide);
+
+    const attackX = attacker.baseX + this.pickSignedOffset(eventIndex + 3, 18);
+    const attackY = attacker.baseY + attackDir * (chanceType === "ONE_ON_ONE" ? 56 : 42);
+
+    await this.moveBallTo(attacker.baseX, attacker.baseY - 8, 280, 14);
+
+    await Promise.all([
+      this.tweenPlayerTo(attacker, attackX, attackY, 380),
+      support ? this.tweenPlayerTo(support, support.baseX + this.pickSignedOffset(eventIndex + 7, 12), support.baseY + attackDir * 24, 380) : Promise.resolve(),
+      ...defenders.map((defender, index) =>
+        this.tweenPlayerTo(
+          defender,
+          defender.baseX + Phaser.Math.Clamp(attackX - defender.baseX, -26, 26),
+          defender.baseY - attackDir * (16 + index * 8),
+          420
+        )
+      ),
+    ]);
+
+    await this.moveBallTo(attackX, attackY - 10, 300, 12);
 
     this.tweens.add({
-      targets: marker,
-      scale: 1.6,
-      duration: 200,
+      targets: attacker.container,
+      scaleX: attacker.container.scaleX * 1.04,
+      scaleY: attacker.container.scaleY * 0.96,
+      duration: 90,
       yoyo: true,
       ease: "Quad.Out",
     });
 
+    const shotX = this.pickShotTargetX(eventIndex, attackingSide);
+    const goalY = attackingSide === "HOME" ? this.pitchTop + 16 : this.pitchTop + this.pitchHeight - 16;
+
+    if (scored) {
+      await Promise.all([
+        this.moveBallTo(shotX, goalY, 540, 26),
+        this.tweenPlayerTo(
+          goalkeeper,
+          goalkeeper.baseX + Phaser.Math.Clamp(shotX - goalkeeper.baseX, -48, 48),
+          goalkeeper.baseY + (attackingSide === "HOME" ? 8 : -8),
+          380
+        ),
+      ]);
+    } else {
+      const saveX = goalkeeper.baseX + Phaser.Math.Clamp(shotX - goalkeeper.baseX, -42, 42);
+      const saveY = goalkeeper.baseY + (attackingSide === "HOME" ? 12 : -12);
+
+      await Promise.all([
+        this.tweenPlayerTo(goalkeeper, saveX, saveY, 360),
+        this.moveBallTo(saveX, saveY - 10, 440, 22),
+      ]);
+
+      await this.moveBallTo(saveX + this.pickSignedOffset(eventIndex + 15, 14), saveY + (attackingSide === "HOME" ? 20 : -20), 230, 7);
+    }
+
+    const resetPlayers = [attacker, support, ...defenders, goalkeeper].filter((player): player is PitchPlayer => Boolean(player));
+
+    await Promise.all(resetPlayers.map((player) => this.tweenPlayerTo(player, player.baseX, player.baseY, 300)));
+    await this.moveBallTo(this.pitchLeft + this.pitchWidth / 2, this.pitchTop + this.pitchHeight / 2, 280, 8);
+  }
+
+  private pickAttacker(side: Side, chanceType: ChanceType, eventIndex: number): PitchPlayer {
+    const players = this.getSidePlayers(side).filter((player) => player.role !== "GK");
+    const priority = chanceType === "CLOSE_RANGE" || chanceType === "ONE_ON_ONE" ? ["ATT", "MID", "DEF"] : ["MID", "ATT", "DEF"];
+
+    for (const role of priority) {
+      const byRole = players.filter((player) => player.role === role);
+      if (!byRole.length) {
+        continue;
+      }
+      const pick = Math.floor(hashUnit(`${this.matchSeed}:${eventIndex}:${side}:attacker:${role}`) * byRole.length);
+      return byRole[pick];
+    }
+
+    return players[0];
+  }
+
+  private pickSupport(side: Side, attacker: PitchPlayer, eventIndex: number): PitchPlayer | null {
+    const options = this.getSidePlayers(side)
+      .filter((player) => player.role !== "GK" && player !== attacker)
+      .sort((a, b) =>
+        Phaser.Math.Distance.Between(a.baseX, a.baseY, attacker.baseX, attacker.baseY) -
+        Phaser.Math.Distance.Between(b.baseX, b.baseY, attacker.baseX, attacker.baseY)
+      );
+
+    if (!options.length) {
+      return null;
+    }
+
+    const idx = Math.floor(hashUnit(`${this.matchSeed}:${eventIndex}:${side}:support`) * Math.min(options.length, 3));
+    return options[idx] ?? options[0];
+  }
+
+  private pickNearestDefenders(side: Side, attacker: PitchPlayer, count: number): PitchPlayer[] {
+    const defenders = this.getSidePlayers(side)
+      .filter((player) => player.role !== "GK")
+      .sort((a, b) =>
+        Phaser.Math.Distance.Between(a.baseX, a.baseY, attacker.baseX, attacker.baseY) -
+        Phaser.Math.Distance.Between(b.baseX, b.baseY, attacker.baseX, attacker.baseY)
+      );
+
+    return defenders.slice(0, count);
+  }
+
+  private getGoalkeeper(side: Side): PitchPlayer {
+    return this.getSidePlayers(side).find((player) => player.role === "GK") ?? this.getSidePlayers(side)[0];
+  }
+
+  private getSidePlayers(side: Side): PitchPlayer[] {
+    return side === "HOME" ? this.homePlayers : this.awayPlayers;
+  }
+
+  private pickShotTargetX(eventIndex: number, side: Side): number {
+    const center = this.pitchLeft + this.pitchWidth / 2;
+    const spread = this.pitchWidth * 0.22;
+    const unit = hashUnit(`${this.matchSeed}:${eventIndex}:${side}:shot-target`);
+    return center - spread + spread * 2 * unit;
+  }
+
+  private pickSignedOffset(seedOffset: number, maxAbs: number): number {
+    const unit = hashUnit(`${this.matchSeed}:${this.eventCursor}:${seedOffset}`);
+    return (unit * 2 - 1) * maxAbs;
+  }
+
+  private tweenPlayerTo(player: PitchPlayer, x: number, y: number, duration: number): Promise<void> {
+    return new Promise((resolve) => {
+      this.tweens.add({
+        targets: player.container,
+        x,
+        y,
+        duration,
+        ease: "Sine.easeInOut",
+        onUpdate: () => {
+          player.container.setDepth(500 + player.container.y);
+        },
+        onComplete: () => {
+          player.container.setDepth(500 + player.container.y);
+          resolve();
+        },
+      });
+    });
+  }
+
+  private moveBallTo(x: number, y: number, duration: number, arcHeight = 0): Promise<void> {
+    const startX = this.ball.x;
+    const startY = this.ball.y;
+
+    return new Promise((resolve) => {
+      this.tweens.addCounter({
+        from: 0,
+        to: 1,
+        duration,
+        ease: "Sine.easeInOut",
+        onUpdate: (tween) => {
+          const t = Number(tween.getValue() ?? 0);
+          const nx = Phaser.Math.Linear(startX, x, t);
+          const ny = Phaser.Math.Linear(startY, y, t);
+          const loft = arcHeight > 0 ? Math.sin(Math.PI * t) * arcHeight : 0;
+          this.setBallPosition(nx, ny, loft);
+        },
+        onComplete: () => {
+          this.setBallPosition(x, y, 0);
+          resolve();
+        },
+      });
+    });
+  }
+
+  private applyEventOutcome(event: MatchChanceEvent, chanceType: ChanceType, tapQuality: TapQuality, tapped: boolean) {
+    const sideName = event.attackingSide === "HOME" ? this.ui.homeName : this.ui.awayName;
+
     if (event.scored) {
-      if (event.attackingSide === "HOME") this.homeGoals += 1;
-      else this.awayGoals += 1;
+      if (event.attackingSide === "HOME") {
+        this.homeGoals += 1;
+      } else {
+        this.awayGoals += 1;
+      }
 
       this.scoreText.setText(`${this.ui.homeName} ${this.homeGoals} - ${this.awayGoals} ${this.ui.awayName}`);
       this.commentaryText.setText(
@@ -421,26 +1013,28 @@ class MatchSimulationScene extends Phaser.Scene {
       return;
     }
 
-    this.commentaryText.setText(`${chanceTypeDisplayName(chanceType)}: ${sideName} denied (${tapQuality}${tapped ? "" : ", auto"})`);
+    this.commentaryText.setText(
+      `${chanceTypeDisplayName(chanceType)}: ${sideName} denied (${tapQuality}${tapped ? "" : ", auto"})`
+    );
   }
 
   private flashGoalBanner(sideName: string) {
     const { width } = this.cameras.main;
 
-    const banner = this.add
-      .rectangle(width / 2, 112, width - 64, 44, 0x92400e, 0.94)
-      .setStrokeStyle(2, 0xf8fafc, 1);
-
+    const banner = this.add.rectangle(width / 2, 102, width - 44, 46, 0x8d2c24, 0.95).setStrokeStyle(2, 0xf8fafc, 1);
     const text = this.add
-      .text(width / 2, 112, `GOAL - ${sideName}`, {
-        fontFamily: "Arial",
-        fontSize: "20px",
+      .text(width / 2, 102, `GOAL - ${sideName}`, {
+        fontFamily: "Barlow Condensed, Arial",
+        fontSize: "34px",
         color: "#f8fafc",
         fontStyle: "bold",
       })
       .setOrigin(0.5, 0.5);
 
-    this.time.delayedCall(700, () => {
+    banner.setDepth(2600);
+    text.setDepth(2601);
+
+    this.time.delayedCall(760, () => {
       banner.destroy();
       text.destroy();
     });
@@ -464,14 +1058,55 @@ class MatchSimulationScene extends Phaser.Scene {
     this.timerText.setText(formatMatchClock(Math.min(finalResult.durationSeconds, MATCH_DURATION_SECONDS)));
     this.scoreText.setText(`${this.ui.homeName} ${finalResult.homeGoals} - ${finalResult.awayGoals} ${this.ui.awayName}`);
 
-    this.commentaryText.setText(
-      `FINAL: ${finalResult.result} (${finalResult.endReason.replaceAll("_", " ")})`
-    );
-
-    this.homeMarker.setFillStyle(this.ui.homeColor, 0.85);
-    this.awayMarker.setFillStyle(this.ui.awayColor, 0.85);
+    this.commentaryText.setText(`FINAL: ${finalResult.result} (${finalResult.endReason.replaceAll("_", " ")})`);
 
     this.onFinished(finalResult);
+  }
+}
+
+function drawMinigameField(graphics: Phaser.GameObjects.Graphics, width: number, height: number, attackingSide: Side) {
+  graphics.fillStyle(0x4f9632, 1);
+  graphics.fillRect(0, 0, width, height);
+
+  const stripeCount = 8;
+  const stripeHeight = height / stripeCount;
+  for (let i = 0; i < stripeCount; i += 1) {
+    graphics.fillStyle(i % 2 === 0 ? 0x73ba4a : 0x66ad41, 0.9);
+    graphics.fillRect(0, i * stripeHeight, width, stripeHeight + 1);
+  }
+
+  graphics.lineStyle(5, 0xf8fafc, 1);
+  if (attackingSide === "HOME") {
+    graphics.strokeRect(42, 82, width - 84, 126);
+    graphics.strokeRect(84, 82, width - 168, 58);
+    graphics.beginPath();
+    graphics.arc(width / 2, 210, 56, Phaser.Math.DegToRad(20), Phaser.Math.DegToRad(160), false);
+    graphics.strokePath();
+
+    graphics.strokeRect(width / 2 - 80, 30, 160, 44);
+    drawNet(graphics, width / 2 - 80, 30, 160, 44);
+    return;
+  }
+
+  graphics.strokeRect(42, height - 210, width - 84, 126);
+  graphics.strokeRect(84, height - 140, width - 168, 58);
+  graphics.beginPath();
+  graphics.arc(width / 2, height - 210, 56, Phaser.Math.DegToRad(200), Phaser.Math.DegToRad(340), false);
+  graphics.strokePath();
+
+  graphics.strokeRect(width / 2 - 80, height - 74, 160, 44);
+  drawNet(graphics, width / 2 - 80, height - 74, 160, 44);
+}
+
+function drawNet(graphics: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number) {
+  graphics.lineStyle(1.2, 0xf8fafc, 0.72);
+  for (let i = 0; i <= 10; i += 1) {
+    const px = x + (w / 10) * i;
+    graphics.lineBetween(px, y, px, y + h);
+  }
+  for (let i = 1; i <= 5; i += 1) {
+    const py = y + (h / 6) * i;
+    graphics.lineBetween(x, py, x + w, py);
   }
 }
 
@@ -485,9 +1120,6 @@ function formatMatchClock(seconds: number): string {
     .padStart(2, "0");
   return `${mins}:${secs}`;
 }
-
-type ChanceType = MatchChanceType;
-type TapQuality = MatchTapQuality;
 
 function pickChanceType(seed: string, eventIndex: number, quality: number): ChanceType {
   const unit = hashUnit(`${seed}:${eventIndex}:chance:${quality.toFixed(4)}`);
@@ -562,12 +1194,8 @@ function computeMinigameTuning(
   const difficultyFromType = chanceTypeDifficulty(chanceType);
   const difficulty = clamp01(0.52 - roleAdjustedEdge + (1 - event.quality) * 0.35 + difficultyFromType);
 
-  const zoneWidth = clamp(
-    46,
-    150,
-    90 + roleAdjustedEdge * 130 + event.quality * 20 - difficultyFromType * 24
-  );
-  const markerDurationMs = Phaser.Math.Linear(680, 1450, 1 - difficulty);
+  const zoneWidth = clamp(54, 150, 90 + roleAdjustedEdge * 130 + event.quality * 20 - difficultyFromType * 24);
+  const markerDurationMs = Phaser.Math.Linear(700, 1500, 1 - difficulty);
   const hint =
     event.attackingSide === "HOME"
       ? `Attack window ${Math.round(zoneWidth)}px • tap to shoot`
@@ -604,9 +1232,7 @@ function resolveChanceOutcome(options: {
   const qualityEdge = clampSigned((event.quality - 0.4) * 0.45, 0.16);
   const userEdge = tapInfluence(event.attackingSide, tapQuality, tapped);
 
-  const scoreProbability = clamp01(
-    baseFromEngine + statEdge + staminaEdge + qualityEdge + chanceTypeEdge + userEdge
-  );
+  const scoreProbability = clamp01(baseFromEngine + statEdge + staminaEdge + qualityEdge + chanceTypeEdge + userEdge);
   const roll = hashUnit(`${options.seed}:${options.eventIndex}:resolve:${tapQuality}:${tapped ? 1 : 0}`);
   return {
     scored: roll <= scoreProbability,
@@ -808,4 +1434,17 @@ function resolveRuntimeTeam(team: MatchRuntimeConfig["homeTeam"]): RuntimeTeam {
     staminaRating: team.staminaRating ?? 100,
     momentumBias: team.momentumBias,
   };
+}
+
+function darkenColor(input: number, ratio: number): number {
+  const r = (input >> 16) & 0xff;
+  const g = (input >> 8) & 0xff;
+  const b = input & 0xff;
+
+  const factor = clamp(0, 1, 1 - ratio);
+  const nr = Math.floor(r * factor);
+  const ng = Math.floor(g * factor);
+  const nb = Math.floor(b * factor);
+
+  return (nr << 16) | (ng << 8) | nb;
 }

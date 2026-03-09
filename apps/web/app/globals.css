@@ -454,18 +454,80 @@ button[disabled] {
 }
 
 .player-card {
-  border: 1px solid var(--line-soft);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(161, 184, 207, 0.54);
   border-radius: 12px;
   padding: 10px;
-  background: linear-gradient(160deg, rgba(12, 45, 88, 0.86), rgba(7, 31, 66, 0.9));
+  background-color: rgba(8, 29, 61, 0.92);
+  isolation: isolate;
+}
+
+.player-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("/assets/player-cards/rarity-sprite.webp");
+  background-size: 200% 200%;
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  opacity: 0.92;
+  z-index: 0;
+}
+
+.player-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 26% 14%, rgba(255, 255, 255, 0.22), transparent 42%),
+    linear-gradient(180deg, rgba(4, 14, 34, 0.14) 0%, rgba(3, 11, 27, 0.74) 72%, rgba(3, 11, 27, 0.9) 100%);
+  z-index: 1;
+}
+
+.player-card > * {
+  position: relative;
+  z-index: 2;
+}
+
+.player-card.rarity-common::before {
+  background-position: 0% 0%;
+}
+
+.player-card.rarity-rare::before {
+  background-position: 100% 0%;
+}
+
+.player-card.rarity-epic::before {
+  background-position: 0% 100%;
+}
+
+.player-card.rarity-legendary::before {
+  background-position: 100% 100%;
+}
+
+.player-card.rarity-common {
+  border-color: rgba(146, 224, 100, 0.75);
+}
+
+.player-card.rarity-rare {
+  border-color: rgba(89, 157, 255, 0.8);
+}
+
+.player-card.rarity-epic {
+  border-color: rgba(173, 112, 255, 0.82);
+}
+
+.player-card.rarity-legendary {
+  border-color: rgba(255, 203, 67, 0.86);
 }
 
 .player-card.is-starting {
-  border-color: rgba(105, 226, 155, 0.68);
+  box-shadow: inset 0 0 0 2px rgba(105, 226, 155, 0.66);
 }
 
 .player-card.is-bench {
-  border-color: rgba(255, 211, 77, 0.62);
+  box-shadow: inset 0 0 0 2px rgba(255, 211, 77, 0.6);
 }
 
 .player-card-head {
@@ -485,19 +547,22 @@ button[disabled] {
 .player-card-head p {
   margin: 3px 0 0;
   font-size: 12px;
-  color: var(--muted);
+  color: #d9e7ff;
+  text-shadow: 0 1px 2px rgba(2, 8, 24, 0.7);
 }
 
 .player-overall {
   min-width: 44px;
   text-align: center;
-  border: 1px solid var(--line-soft);
+  border: 1px solid rgba(219, 234, 254, 0.65);
   border-radius: 10px;
   padding: 7px 8px;
   font-family: "Barlow Condensed", "Exo 2", sans-serif;
   font-size: 22px;
   font-weight: 800;
-  background: rgba(8, 26, 56, 0.86);
+  background: rgba(6, 17, 36, 0.66);
+  color: #f8fbff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
 }
 
 .pack-grid {

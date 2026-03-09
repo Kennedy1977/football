@@ -41,6 +41,18 @@ Build metadata:
 - Build timestamp and cache-bust token are generated on each build into `apps/web/src/lib/build-meta.ts`.
 - URL is normalized with `?v={major-minor-patch}-{timestamp}` and footer shows version + copyright.
 
+Player card rarity frames:
+- Player cards use a 2x2 rarity sprite (`common`, `rare`, `epic`, `legendary`) at:
+  - `apps/web/public/assets/player-cards/rarity-sprite.webp`
+- Generate sprite + split WebP files from your source image:
+
+```bash
+npm run assets:card-frames
+```
+
+Default source path:
+- `assets/player-card-frames-source.png`
+
 ## Phaser Match Simulation
 
 Implemented starter module:

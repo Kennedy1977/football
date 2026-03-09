@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useGetSquadQuery, useSellPlayerMutation } from "../../src/state/apis/gameApi";
 import { ProgressRow } from "../../src/components/progress-row";
+import { toRarityFrame } from "../../src/lib/rarity-frame";
 
 export default function SquadPage() {
   const { data, isLoading, error, refetch } = useGetSquadQuery();
@@ -56,7 +57,7 @@ export default function SquadPage() {
           {data.players.map((player) => (
             <article
               key={player.id}
-              className={`player-card ${player.isStarting ? "is-starting" : ""} ${player.isBench ? "is-bench" : ""}`}
+              className={`player-card rarity-${toRarityFrame(player.rarity)} ${player.isStarting ? "is-starting" : ""} ${player.isBench ? "is-bench" : ""}`}
             >
               <div className="player-card-head">
                 <div>
