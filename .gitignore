@@ -4,3 +4,4 @@ npm-debug.log*
 .env
 dist/
 apps/web/.next/
+config.txt

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { useUser } from "@clerk/nextjs";
 import {
   useCreateClubMutation,
   useCreateManagerMutation,
@@ -13,11 +12,11 @@ import { isAccountMissingError, readApiErrorMessage } from "../../src/lib/api-er
 
 export default function StartPage() {
   const router = useRouter();
-  const { user } = useUser();
   const { data, error, isLoading, refetch } = useGetDashboardSummaryQuery();
   const [createManager, createManagerState] = useCreateManagerMutation();
   const [createClub, createClubState] = useCreateClubMutation();
 
+  const [email, setEmail] = useState("manager@example.com");
   const [managerName, setManagerName] = useState("Manager");
   const [managerAge, setManagerAge] = useState("30");
   const [managerGender, setManagerGender] = useState("");
@@ -25,7 +24,6 @@ export default function StartPage() {
   const [clubName, setClubName] = useState("City FC");
   const [city, setCity] = useState("Manchester");
   const [stadiumName, setStadiumName] = useState("City Arena");
-  const sessionEmail = user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress;
 
   const dashboardErrorMessage = readApiErrorMessage(error);
 
@@ -79,12 +77,13 @@ export default function StartPage() {
             onSubmit={async (event) => {
               event.preventDefault();
 
-              if (!sessionEmail) {
+              const normalizedEmail = email.trim();
+              if (!normalizedEmail) {
                 return;
               }
 
               await createManager({
-                email: sessionEmail,
+                email: normalizedEmail,
                 name: managerName.trim(),
                 age: managerAge ? Number(managerAge) : undefined,
                 gender: managerGender.trim() || undefined,
@@ -94,8 +93,14 @@ export default function StartPage() {
             }}
           >
             <label className="field">
-              <span>Account Email</span>
-              <input className="input" type="text" value={sessionEmail || "Unavailable from auth session"} readOnly />
+              <span>Email</span>
+              <input
+                className="input"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+              />
             </label>
 
             <label className="field">
@@ -136,14 +141,11 @@ export default function StartPage() {
             </div>
 
             <div className="inline">
-              <button type="submit" disabled={createManagerState.isLoading || !sessionEmail}>
+              <button type="submit" disabled={createManagerState.isLoading || !email.trim()}>
                 {createManagerState.isLoading ? "Creating..." : "Create Manager"}
               </button>
             </div>
 
-            {!sessionEmail ? (
-              <p className="feedback error">No account email found from Clerk session. Re-sign in and try again.</p>
-            ) : null}
             {createManagerState.isError ? (
               <p className="feedback error">{readApiErrorMessage(createManagerState.error) || "Manager creation failed."}</p>
             ) : null}

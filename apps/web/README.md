@@ -34,6 +34,7 @@ npm run web:dev
 Required auth env:
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
 - `CLERK_SECRET_KEY` (required by API runtime for verified Clerk sessions)
+- If these are missing in production, app runs in fallback mode (no Clerk widgets/route protection) instead of crashing.
 
 ## Phaser Match Simulation
 
@@ -53,6 +54,7 @@ Runtime flow:
 - Phaser runs portrait match + chance timing bars
 - Phaser emits `MatchRuntimeResult` via callback
 - Timing-bar window size and speed are now stat-driven from `match/start` arcade ratings.
+- Tap quality now influences whether each chance is converted/saved, with result normalization before submit.
 
 Minimal usage:
 

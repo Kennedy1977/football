@@ -62,7 +62,7 @@ export function mountPhaserMatchSimulation(
     awayMomentumBias: runtimeConfig.awayTeam.momentumBias ?? 0,
   });
 
-  const runtimeResult = toRuntimeResult(runtimeConfig.matchSeed, simulation);
+  let runtimeResult = toRuntimeResult(runtimeConfig.matchSeed, simulation);
 
   const game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -72,7 +72,7 @@ export function mountPhaserMatchSimulation(
     backgroundColor: options.backgroundColor ?? "#0b1a2f",
     scene: new MatchSimulationScene({
       simulation,
-      runtimeResult,
+      baseRuntimeResult: runtimeResult,
       matchSeed: runtimeConfig.matchSeed,
       secondDurationMs: options.secondDurationMs ?? 1000,
       ui: {
@@ -85,7 +85,8 @@ export function mountPhaserMatchSimulation(
         home: runtimeConfig.homeTeam,
         away: runtimeConfig.awayTeam,
       },
-      onFinished: (finalResult) => {
+      onFinished: (finalResult: MatchRuntimeResult) => {
+        runtimeResult = finalResult;
         options.onResolved?.(finalResult);
       },
     }),
@@ -101,7 +102,7 @@ export function mountPhaserMatchSimulation(
 
 class MatchSimulationScene extends Phaser.Scene {
   private readonly simulation: MatchSimulationOutput;
-  private readonly runtimeResult: MatchRuntimeResult;
+  private readonly baseRuntimeResult: MatchRuntimeResult;
   private readonly matchSeed: string;
   private readonly ui: {
     homeName: string;
@@ -120,6 +121,7 @@ class MatchSimulationScene extends Phaser.Scene {
   private eventCursor = 0;
   private homeGoals = 0;
   private awayGoals = 0;
+  private resolvedEvents: MatchChanceEvent[] = [];
   private resolvingChance = false;
   private finished = false;
 
@@ -131,7 +133,7 @@ class MatchSimulationScene extends Phaser.Scene {
 
   constructor(options: {
     simulation: MatchSimulationOutput;
-    runtimeResult: MatchRuntimeResult;
+    baseRuntimeResult: MatchRuntimeResult;
     matchSeed: string;
     ui: {
       homeName: string;
@@ -148,7 +150,7 @@ class MatchSimulationScene extends Phaser.Scene {
   }) {
     super("match-simulation-scene");
     this.simulation = options.simulation;
-    this.runtimeResult = options.runtimeResult;
+    this.baseRuntimeResult = options.baseRuntimeResult;
     this.matchSeed = options.matchSeed;
     this.ui = options.ui;
     this.teams = options.teams;
@@ -260,9 +262,27 @@ class MatchSimulationScene extends Phaser.Scene {
 
     this.commentaryText.setText(transitionText);
     this.playTimingMinigame(event, eventIndex, chanceType, (tapQuality, tapped) => {
-      this.applyEventOutcome(event, chanceType, tapQuality, tapped);
+      const resolvedScored = resolveChanceOutcome({
+        seed: this.matchSeed,
+        event,
+        eventIndex,
+        chanceType,
+        tapQuality,
+        tapped,
+        teams: this.teams,
+      });
+      const resolvedEvent = { ...event, scored: resolvedScored };
+      this.resolvedEvents.push(resolvedEvent);
+
+      this.applyEventOutcome(resolvedEvent, chanceType, tapQuality, tapped);
       this.eventCursor += 1;
       this.resolvingChance = false;
+
+      if (shouldStopEarly(this.homeGoals, this.awayGoals)) {
+        this.finishMatch();
+        return;
+      }
+
       if (this.elapsed >= this.simulation.durationSeconds) {
         this.finishMatch();
       }
@@ -415,17 +435,24 @@ class MatchSimulationScene extends Phaser.Scene {
 
     this.finished = true;
 
-    this.timerText.setText(formatMatchClock(Math.min(this.simulation.durationSeconds, MATCH_DURATION_SECONDS)));
-    this.scoreText.setText(`${this.ui.homeName} ${this.simulation.homeGoals} - ${this.simulation.awayGoals} ${this.ui.awayName}`);
+    const finalResult = finalizeRuntimeResult(
+      this.matchSeed,
+      this.resolvedEvents,
+      this.simulation.durationSeconds,
+      this.baseRuntimeResult
+    );
+
+    this.timerText.setText(formatMatchClock(Math.min(finalResult.durationSeconds, MATCH_DURATION_SECONDS)));
+    this.scoreText.setText(`${this.ui.homeName} ${finalResult.homeGoals} - ${finalResult.awayGoals} ${this.ui.awayName}`);
 
     this.commentaryText.setText(
-      `FINAL: ${this.simulation.result} (${this.simulation.endReason.replaceAll("_", " ")})`
+      `FINAL: ${finalResult.result} (${finalResult.endReason.replaceAll("_", " ")})`
     );
 
     this.homeMarker.setFillStyle(this.ui.homeColor, 0.85);
     this.awayMarker.setFillStyle(this.ui.awayColor, 0.85);
 
-    this.onFinished(this.runtimeResult);
+    this.onFinished(finalResult);
   }
 }
 
@@ -534,6 +561,37 @@ function computeMinigameTuning(
   };
 }
 
+function resolveChanceOutcome(options: {
+  seed: string;
+  event: MatchChanceEvent;
+  eventIndex: number;
+  chanceType: ChanceType;
+  tapQuality: TapQuality;
+  tapped: boolean;
+  teams: { home: RuntimeTeam; away: RuntimeTeam };
+}): boolean {
+  const { event, chanceType, tapQuality, tapped, teams } = options;
+  const attacking = event.attackingSide === "HOME" ? teams.home : teams.away;
+  const defending = event.attackingSide === "HOME" ? teams.away : teams.home;
+
+  const attackPower = attacking.attackRating * 0.55 + attacking.controlRating * 0.3 + attacking.strength * 0.15;
+  const defensePower =
+    defending.defenseRating * 0.45 + defending.goalkeepingRating * 0.4 + defending.strength * 0.15;
+
+  const statEdge = clampSigned((attackPower - defensePower) / 120, 0.22);
+  const staminaEdge = clampSigned((attacking.staminaRating - defending.staminaRating) / 180, 0.12);
+  const baseFromEngine = event.scored ? 0.62 : 0.34;
+  const chanceTypeEdge = chanceType === "CLOSE_RANGE" ? 0.05 : chanceType === "ONE_ON_ONE" ? 0.03 : 0;
+  const qualityEdge = clampSigned((event.quality - 0.4) * 0.45, 0.16);
+  const userEdge = tapInfluence(event.attackingSide, tapQuality, tapped);
+
+  const scoreProbability = clamp01(
+    baseFromEngine + statEdge + staminaEdge + qualityEdge + chanceTypeEdge + userEdge
+  );
+  const roll = hashUnit(`${options.seed}:${options.eventIndex}:resolve:${tapQuality}:${tapped ? 1 : 0}`);
+  return roll <= scoreProbability;
+}
+
 function chanceTypeDifficulty(type: ChanceType): number {
   switch (type) {
     case "CENTRAL_SHOT":
@@ -571,6 +629,117 @@ function clamp(min: number, max: number, value: number): number {
 
 function clampSigned(value: number, maxAbs: number): number {
   return Math.min(maxAbs, Math.max(-maxAbs, value));
+}
+
+function tapInfluence(attackingSide: "HOME" | "AWAY", tapQuality: TapQuality, tapped: boolean): number {
+  if (!tapped) {
+    return attackingSide === "HOME" ? -0.18 : 0.18;
+  }
+
+  if (attackingSide === "HOME") {
+    if (tapQuality === "PERFECT") return 0.18;
+    if (tapQuality === "GOOD") return 0.08;
+    return -0.1;
+  }
+
+  if (tapQuality === "PERFECT") return -0.2;
+  if (tapQuality === "GOOD") return -0.1;
+  return 0.09;
+}
+
+function shouldStopEarly(homeGoals: number, awayGoals: number): boolean {
+  const lead = Math.abs(homeGoals - awayGoals);
+  const totalGoals = homeGoals + awayGoals;
+  return lead >= EARLY_FINISH_GOAL_LEAD || totalGoals >= MAX_TOTAL_GOALS;
+}
+
+function finalizeRuntimeResult(
+  matchSeed: string,
+  resolvedEvents: MatchChanceEvent[],
+  maxDurationSeconds: number,
+  fallback: MatchRuntimeResult
+): MatchRuntimeResult {
+  let homeGoals = 0;
+  let awayGoals = 0;
+  let durationSeconds = maxDurationSeconds;
+  let endReason: MatchRuntimeResult["endReason"] = "TIMER_EXPIRED";
+
+  for (const event of resolvedEvents) {
+    if (event.scored) {
+      if (event.attackingSide === "HOME") {
+        homeGoals += 1;
+      } else {
+        awayGoals += 1;
+      }
+    }
+
+    const lead = Math.abs(homeGoals - awayGoals);
+    const totalGoals = homeGoals + awayGoals;
+
+    if (lead >= EARLY_FINISH_GOAL_LEAD) {
+      durationSeconds = event.second;
+      endReason = "THREE_GOAL_LEAD";
+      break;
+    }
+
+    if (totalGoals >= MAX_TOTAL_GOALS) {
+      durationSeconds = event.second;
+      endReason = "TEN_TOTAL_GOALS";
+      break;
+    }
+  }
+
+  const result = homeGoals > awayGoals ? "WIN" : homeGoals < awayGoals ? "LOSS" : "DRAW";
+  const candidate: MatchRuntimeResult = {
+    matchSeed,
+    result,
+    endReason,
+    durationSeconds,
+    homeGoals,
+    awayGoals,
+    events: resolvedEvents,
+    summary: {
+      scoreline: `${homeGoals}-${awayGoals}`,
+      totalGoals: homeGoals + awayGoals,
+    },
+  };
+
+  return isValidRuntimeResult(candidate) ? candidate : fallback;
+}
+
+function isValidRuntimeResult(result: MatchRuntimeResult): boolean {
+  const lead = Math.abs(result.homeGoals - result.awayGoals);
+  const totalGoals = result.homeGoals + result.awayGoals;
+
+  if (result.durationSeconds < 1 || result.durationSeconds > MATCH_DURATION_SECONDS) {
+    return false;
+  }
+
+  if (totalGoals > MAX_TOTAL_GOALS) {
+    return false;
+  }
+
+  if (totalGoals === MAX_TOTAL_GOALS && lead >= EARLY_FINISH_GOAL_LEAD) {
+    return false;
+  }
+
+  if (totalGoals === MAX_TOTAL_GOALS && lead < EARLY_FINISH_GOAL_LEAD && result.endReason !== "TEN_TOTAL_GOALS") {
+    return false;
+  }
+
+  if (lead >= EARLY_FINISH_GOAL_LEAD && totalGoals < MAX_TOTAL_GOALS && result.endReason !== "THREE_GOAL_LEAD") {
+    return false;
+  }
+
+  if (lead < EARLY_FINISH_GOAL_LEAD && totalGoals < MAX_TOTAL_GOALS && result.endReason !== "TIMER_EXPIRED") {
+    return false;
+  }
+
+  if (result.endReason === "TIMER_EXPIRED" && result.durationSeconds !== MATCH_DURATION_SECONDS) {
+    return false;
+  }
+
+  return true;
 }
 
 function toRuntimeResult(matchSeed: string, output: MatchSimulationOutput): MatchRuntimeResult {
