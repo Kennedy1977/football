@@ -659,7 +659,8 @@ function normalizeStarterOrderForFormation(startingIds: number[], players: Squad
   for (const slot of slots) {
     const options = candidateIds
       .map((id) => playerMap.get(id))
-      .filter((player): player is SquadPlayer => Boolean(player) && !used.has(player.id));
+      .filter((player): player is SquadPlayer => Boolean(player))
+      .filter((player) => !used.has(player.id));
 
     if (!options.length) {
       break;
