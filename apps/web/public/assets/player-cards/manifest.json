@@ -1,0 +1,31 @@
+{
+  "source": "tmp/ChatGPT Image Mar 9, 2026, 11_46_56 AM.png",
+  "generatedAt": "2026-03-09T13:03:14.640Z",
+  "sprite": "apps/web/public/assets/player-cards/rarity-sprite.webp",
+  "frameSize": {
+    "width": 512,
+    "height": 768
+  },
+  "frames": [
+    {
+      "rarity": "common",
+      "file": "apps/web/public/assets/player-cards/common.webp",
+      "spritePosition": "0% 0%"
+    },
+    {
+      "rarity": "rare",
+      "file": "apps/web/public/assets/player-cards/rare.webp",
+      "spritePosition": "100% 0%"
+    },
+    {
+      "rarity": "epic",
+      "file": "apps/web/public/assets/player-cards/epic.webp",
+      "spritePosition": "0% 100%"
+    },
+    {
+      "rarity": "legendary",
+      "file": "apps/web/public/assets/player-cards/legendary.webp",
+      "spritePosition": "100% 100%"
+    }
+  ]
+}

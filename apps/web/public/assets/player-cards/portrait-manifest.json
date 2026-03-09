@@ -1,0 +1,22 @@
+{
+  "generatedAt": "2026-03-09T13:03:37.196Z",
+  "sources": {
+    "shirts": "tmp/shirts.png",
+    "faces1": "tmp/faces-1.png",
+    "faces2": "tmp/faces-2.png"
+  },
+  "shirts": {
+    "file": "apps/web/public/assets/player-cards/shirts-sprite.webp",
+    "count": 48,
+    "columns": 8,
+    "rows": 6,
+    "cellSize": 192
+  },
+  "faces": {
+    "file": "apps/web/public/assets/player-cards/faces-sprite.webp",
+    "count": 126,
+    "columns": 14,
+    "rows": 9,
+    "cellSize": 192
+  }
+}
