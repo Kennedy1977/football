@@ -1,0 +1,35 @@
+<svg width="720" height="1200" viewBox="0 0 720 1200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="pitchGradient" x1="360" y1="0" x2="360" y2="1200" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3DAF3A"/>
+      <stop offset="1" stop-color="#247D2B"/>
+    </linearGradient>
+    <pattern id="stripes" width="720" height="160" patternUnits="userSpaceOnUse">
+      <rect width="720" height="80" fill="rgba(255,255,255,0.08)"/>
+      <rect y="80" width="720" height="80" fill="rgba(0,0,0,0.08)"/>
+    </pattern>
+  </defs>
+
+  <rect width="720" height="1200" fill="url(#pitchGradient)"/>
+  <rect width="720" height="1200" fill="url(#stripes)"/>
+
+  <rect x="26" y="26" width="668" height="1148" rx="2" stroke="white" stroke-width="8"/>
+  <line x1="26" y1="600" x2="694" y2="600" stroke="white" stroke-width="8"/>
+  <circle cx="360" cy="600" r="94" stroke="white" stroke-width="8"/>
+  <circle cx="360" cy="600" r="8" fill="white"/>
+
+  <rect x="180" y="26" width="360" height="172" stroke="white" stroke-width="8"/>
+  <rect x="260" y="26" width="200" height="84" stroke="white" stroke-width="8"/>
+  <circle cx="360" cy="164" r="8" fill="white"/>
+  <path d="M290 198C290 158.235 322.235 126 362 126C401.765 126 434 158.235 434 198" stroke="white" stroke-width="8" fill="none"/>
+
+  <rect x="180" y="1002" width="360" height="172" stroke="white" stroke-width="8"/>
+  <rect x="260" y="1090" width="200" height="84" stroke="white" stroke-width="8"/>
+  <circle cx="360" cy="1038" r="8" fill="white"/>
+  <path d="M290 1002C290 1041.77 322.235 1074 362 1074C401.765 1074 434 1041.77 434 1002" stroke="white" stroke-width="8" fill="none"/>
+
+  <path d="M26 76C53.6142 76 76 53.6142 76 26" stroke="white" stroke-width="8" fill="none"/>
+  <path d="M694 76C666.386 76 644 53.6142 644 26" stroke="white" stroke-width="8" fill="none"/>
+  <path d="M26 1124C53.6142 1124 76 1146.39 76 1174" stroke="white" stroke-width="8" fill="none"/>
+  <path d="M694 1124C666.386 1124 644 1146.39 644 1174" stroke="white" stroke-width="8" fill="none"/>
+</svg>
