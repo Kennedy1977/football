@@ -43,7 +43,7 @@ export default function PlayerCardsPreviewPage() {
 
           return (
             <article key={player.id} className={`player-card rarity-${toRarityFrame(player.rarity)}`}>
-              <div className="player-card-head">
+              <div className="player-card-head has-avatar">
                 <div className="player-avatar" aria-hidden>
                   <span className="player-avatar-shirt" style={shirtStyle} />
                   <span className="player-avatar-face" style={faceStyle} />
