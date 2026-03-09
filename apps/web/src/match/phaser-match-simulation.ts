@@ -54,6 +54,8 @@ interface ResolvedRuntimeConfig {
 
 type Side = "HOME" | "AWAY";
 type Role = "GK" | "DEF" | "MID" | "ATT";
+type Lane = -1 | 0 | 1;
+type AmbientAction = "PASS" | "DRIBBLE" | "THROUGH_BALL" | "RECYCLE";
 
 type ChanceType = MatchChanceType;
 type TapQuality = MatchTapQuality;
@@ -191,6 +193,7 @@ class MatchSimulationScene extends Phaser.Scene {
   private possessionSide: Side = "HOME";
   private lastPossessor: PitchPlayer | null = null;
   private possessionProgress = 0.12;
+  private possessionLane: Lane = 0;
 
   constructor(options: {
     simulation: MatchSimulationOutput;
@@ -559,124 +562,276 @@ class MatchSimulationScene extends Phaser.Scene {
       this.possessionSide = attackingSide;
       this.possessionProgress = 0.14;
       this.lastPossessor = null;
+      this.possessionLane = 0;
     } else {
       const progressStep = 0.08 + hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:step`) * 0.14;
       this.possessionProgress = clamp(0.08, 0.96, this.possessionProgress + progressStep);
     }
 
-    const possessionPlayers = this.getSidePlayers(attackingSide).filter((player) => player.role !== "GK");
-    if (possessionPlayers.length < 2) {
+    const attackingOutfield = this.getSidePlayers(attackingSide).filter((player) => player.role !== "GK");
+    if (attackingOutfield.length < 2) {
       return;
     }
 
-    const passer =
+    const carrier =
       this.lastPossessor && this.lastPossessor.side === attackingSide && this.lastPossessor.role !== "GK"
         ? this.lastPossessor
-        : possessionPlayers[Math.floor(hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:passer`) * possessionPlayers.length)];
+        : attackingOutfield[Math.floor(hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:carrier`) * attackingOutfield.length)];
 
-    const receiverOptions = possessionPlayers
-      .filter((player) => player !== passer)
+    const receiverOptions = attackingOutfield
+      .filter((player) => player !== carrier)
       .sort(
         (a, b) =>
-          Phaser.Math.Distance.Between(a.baseX, a.baseY, passer.baseX, passer.baseY) -
-          Phaser.Math.Distance.Between(b.baseX, b.baseY, passer.baseX, passer.baseY)
+          Phaser.Math.Distance.Between(a.baseX, a.baseY, carrier.baseX, carrier.baseY) -
+          Phaser.Math.Distance.Between(b.baseX, b.baseY, carrier.baseX, carrier.baseY)
       );
 
     if (!receiverOptions.length) {
       return;
     }
 
-    const receiverPickIndex = Math.floor(
+    const centerX = this.pitchLeft + this.pitchWidth / 2;
+    const forwardDir = attackingSide === "HOME" ? -1 : 1;
+    const candidateReceiverIndex = Math.floor(
       hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:receiver`) * Math.min(receiverOptions.length, 4)
     );
-    const receiver = receiverOptions[receiverPickIndex] ?? receiverOptions[0];
+    const receiver = receiverOptions[candidateReceiverIndex] ?? receiverOptions[0];
+    const support = this.pickSupportPair(attackingSide, receiver, this.elapsed).filter((player) => player !== carrier);
+    const pressureDefenders = this.pickNearestDefenders(defendingSide, carrier, 3);
 
-    const forwardDir = attackingSide === "HOME" ? -1 : 1;
-    const receiverAdvance = 8 + this.possessionProgress * 26 + this.roleAdvanceBoost(receiver.role);
-    const passerAdvance = 4 + this.possessionProgress * 16 + this.roleAdvanceBoost(passer.role) * 0.45;
-
-    const receiverTargetX = Phaser.Math.Clamp(
-      receiver.baseX + this.pickSignedOffset(this.elapsed + 23, 22),
-      this.pitchLeft + 20,
-      this.pitchLeft + this.pitchWidth - 20
+    const averagePressureDistance =
+      pressureDefenders.length > 0
+        ? pressureDefenders.reduce(
+            (sum, defender) =>
+              sum + Phaser.Math.Distance.Between(defender.container.x, defender.container.y, carrier.container.x, carrier.container.y),
+            0
+          ) / pressureDefenders.length
+        : 160;
+    const pressure = clamp01(
+      (138 - averagePressureDistance) / 138 +
+        (this.possessionProgress > 0.74 ? 0.16 : 0.06) +
+        (this.possessionLane === 0 ? 0.07 : -0.02)
     );
-    const receiverTargetY = Phaser.Math.Clamp(
-      receiver.baseY + forwardDir * receiverAdvance + (hashUnit(`${this.matchSeed}:${this.elapsed}:receiver:y`) * 2 - 1) * 7,
-      this.pitchTop + 26,
-      this.pitchTop + this.pitchHeight - 26
-    );
-    const passerTargetX = Phaser.Math.Clamp(
-      passer.baseX + this.pickSignedOffset(this.elapsed + 29, 14),
-      this.pitchLeft + 20,
-      this.pitchLeft + this.pitchWidth - 20
-    );
-    const passerTargetY = Phaser.Math.Clamp(
-      passer.baseY + forwardDir * passerAdvance + (hashUnit(`${this.matchSeed}:${this.elapsed}:passer:y`) * 2 - 1) * 5,
-      this.pitchTop + 26,
-      this.pitchTop + this.pitchHeight - 26
+    const space = clamp01(0.64 - pressure * 0.58 + (this.possessionLane === 0 ? -0.05 : 0.06));
+    const supportRun = clamp01(
+      0.24 +
+        this.possessionProgress * 0.24 +
+        (receiver.role === "ATT" ? 0.2 : receiver.role === "MID" ? 0.12 : 0.04) +
+        hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:supportrun`) * 0.2
     );
 
-    const support = this.pickSupportPair(attackingSide, receiver, this.elapsed).filter((player) => player !== passer);
-    const pressure = this.pickNearestDefenders(defendingSide, receiver, 3);
+    const passScore = 34 + space * 26 + supportRun * 18 - pressure * 26 + (carrier.role === "MID" ? 9 : 0);
+    const dribbleScore =
+      28 + space * 30 - pressure * 30 + (carrier.role === "ATT" ? 12 : carrier.role === "MID" ? 7 : 2);
+    const throughBallScore =
+      this.possessionProgress > 0.44 ? 18 + space * 20 + supportRun * 24 - pressure * 34 : -999;
+    const recycleScore = 24 + pressure * 18 + (carrier.role === "DEF" ? 10 : 0);
 
-    await Promise.all([
-      this.tweenPlayerTo(passer, passerTargetX, passerTargetY, 260),
-      this.tweenPlayerTo(receiver, receiverTargetX, receiverTargetY, 340),
-      ...support.map((player, idx) =>
-        this.tweenPlayerTo(
-          player,
-          Phaser.Math.Clamp(
-            player.baseX + this.pickSignedOffset(this.elapsed + idx + 41, 18),
-            this.pitchLeft + 20,
-            this.pitchLeft + this.pitchWidth - 20
-          ),
-          Phaser.Math.Clamp(
-            player.baseY +
-              forwardDir * (6 + this.possessionProgress * 22 + this.roleAdvanceBoost(player.role) * 0.8) +
-              (hashUnit(`${this.matchSeed}:${this.elapsed}:support:${idx}:y`) * 2 - 1) * 6,
-            this.pitchTop + 26,
-            this.pitchTop + this.pitchHeight - 26
-          ),
-          320
-        )
-      ),
-      ...pressure.map((player, idx) =>
-        this.tweenPlayerTo(
-          player,
-          Phaser.Math.Clamp(
-            player.baseX + Phaser.Math.Clamp(receiverTargetX - player.baseX, -24, 24),
-            this.pitchLeft + 20,
-            this.pitchLeft + this.pitchWidth - 20
-          ),
-          Phaser.Math.Clamp(
-            player.baseY +
-              Phaser.Math.Clamp(receiverTargetY - player.baseY, -20, 20) -
-              forwardDir * (6 + this.possessionProgress * 16 + idx * 6),
-            this.pitchTop + 26,
-            this.pitchTop + this.pitchHeight - 26
-          ),
-          320
-        )
-      ),
-    ]);
+    const rankedActions: Array<{ action: AmbientAction; score: number }> = (
+      [
+        { action: "PASS" as AmbientAction, score: passScore + this.pickSignedOffset(this.elapsed + 141, 6) },
+        { action: "DRIBBLE" as AmbientAction, score: dribbleScore + this.pickSignedOffset(this.elapsed + 147, 6) },
+        { action: "THROUGH_BALL" as AmbientAction, score: throughBallScore + this.pickSignedOffset(this.elapsed + 151, 7) },
+        { action: "RECYCLE" as AmbientAction, score: recycleScore + this.pickSignedOffset(this.elapsed + 157, 5) },
+      ] satisfies Array<{ action: AmbientAction; score: number }>
+    )
+      .filter((entry) => entry.score > -900)
+      .sort((a, b) => b.score - a.score);
 
-    await this.moveBallTo(receiverTargetX, receiverTargetY - 8, 340, 10);
+    const actionRoll = hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:action`);
+    const action = actionRoll < 0.66 ? rankedActions[0].action : actionRoll < 0.89 ? rankedActions[1].action : rankedActions[2].action;
 
-    const closestDefender = [...pressure].sort(
+    let activeX = carrier.container.x;
+    let activeY = carrier.container.y;
+    let commentary = "";
+
+    if (action === "PASS") {
+      const receiverAdvance = 8 + this.possessionProgress * 24 + this.roleAdvanceBoost(receiver.role) * 0.9 + supportRun * 16;
+      const carrierAdvance = 4 + this.possessionProgress * 14 + this.roleAdvanceBoost(carrier.role) * 0.5;
+
+      const receiverTargetX = this.clampPitchX(
+        receiver.baseX +
+          this.pickSignedOffset(this.elapsed + 23, 20) +
+          (this.possessionLane === 0 ? this.pickSignedOffset(this.elapsed + 31, 10) : this.possessionLane * 8)
+      );
+      const receiverTargetY = this.clampPitchY(
+        receiver.baseY + forwardDir * receiverAdvance + (hashUnit(`${this.matchSeed}:${this.elapsed}:receiver:y`) * 2 - 1) * 6
+      );
+      const carrierTargetX = this.clampPitchX(carrier.baseX + this.pickSignedOffset(this.elapsed + 29, 13));
+      const carrierTargetY = this.clampPitchY(
+        carrier.baseY + forwardDir * carrierAdvance + (hashUnit(`${this.matchSeed}:${this.elapsed}:carrier:y`) * 2 - 1) * 5
+      );
+
+      await Promise.all([
+        this.tweenPlayerTo(carrier, carrierTargetX, carrierTargetY, 260),
+        this.tweenPlayerTo(receiver, receiverTargetX, receiverTargetY, 340),
+        ...support.map((player, idx) =>
+          this.tweenPlayerTo(
+            player,
+            this.clampPitchX(player.baseX + this.pickSignedOffset(this.elapsed + idx + 41, 18)),
+            this.clampPitchY(
+              player.baseY +
+                forwardDir * (6 + this.possessionProgress * 20 + this.roleAdvanceBoost(player.role) * 0.8 + supportRun * 8) +
+                (hashUnit(`${this.matchSeed}:${this.elapsed}:support:${idx}:y`) * 2 - 1) * 6
+            ),
+            320
+          )
+        ),
+        ...pressureDefenders.map((player, idx) =>
+          this.tweenPlayerTo(
+            player,
+            this.clampPitchX(player.baseX + Phaser.Math.Clamp(receiverTargetX - player.baseX, -24, 24)),
+            this.clampPitchY(
+              player.baseY +
+                Phaser.Math.Clamp(receiverTargetY - player.baseY, -20, 20) -
+                forwardDir * (8 + this.possessionProgress * 14 + idx * 5)
+            ),
+            320
+          )
+        ),
+      ]);
+
+      await this.moveBallTo(receiverTargetX, receiverTargetY - 8, 320, 9);
+      activeX = receiverTargetX;
+      activeY = receiverTargetY;
+      this.lastPossessor = receiver;
+      this.possessionProgress = clamp(0.08, 0.96, this.possessionProgress + 0.05 + space * 0.09 + supportRun * 0.04);
+      this.possessionLane = this.classifyLane(receiverTargetX);
+      commentary = `${attackingSide === "HOME" ? this.ui.homeName : this.ui.awayName} keep it moving`;
+    } else if (action === "DRIBBLE") {
+      const dribbleDistance = 12 + this.possessionProgress * 20 + this.roleAdvanceBoost(carrier.role) * 0.85 + space * 14;
+      const dribbleTargetX = this.clampPitchX(
+        carrier.container.x + this.pickSignedOffset(this.elapsed + 67, 16) + this.possessionLane * 6
+      );
+      const dribbleTargetY = this.clampPitchY(
+        carrier.container.y + forwardDir * dribbleDistance + (hashUnit(`${this.matchSeed}:${this.elapsed}:dribble:y`) * 2 - 1) * 5
+      );
+
+      await Promise.all([
+        this.tweenPlayerTo(carrier, dribbleTargetX, dribbleTargetY, 340),
+        this.moveBallTo(dribbleTargetX, dribbleTargetY - 8, 340, 6),
+        ...support.map((player, idx) =>
+          this.tweenPlayerTo(
+            player,
+            this.clampPitchX(
+              player.baseX +
+                (idx === 0 ? 14 : -14) +
+                this.pickSignedOffset(this.elapsed + idx + 71, 10) +
+                this.possessionLane * 5
+            ),
+            this.clampPitchY(
+              player.baseY +
+                forwardDir * (10 + this.possessionProgress * 16 + this.roleAdvanceBoost(player.role) * 0.65) +
+                (hashUnit(`${this.matchSeed}:${this.elapsed}:dribble:support:${idx}`) * 2 - 1) * 5
+            ),
+            320
+          )
+        ),
+        ...pressureDefenders.map((player, idx) =>
+          this.tweenPlayerTo(
+            player,
+            this.clampPitchX(player.baseX + Phaser.Math.Clamp(dribbleTargetX - player.baseX, -28, 28)),
+            this.clampPitchY(
+              player.baseY +
+                Phaser.Math.Clamp(dribbleTargetY - player.baseY, -22, 22) -
+                forwardDir * (8 + idx * 4 + pressure * 10)
+            ),
+            320
+          )
+        ),
+      ]);
+
+      activeX = dribbleTargetX;
+      activeY = dribbleTargetY;
+      this.lastPossessor = carrier;
+      this.possessionProgress = clamp(0.08, 0.97, this.possessionProgress + 0.08 + space * 0.11 - pressure * 0.03);
+      this.possessionLane = this.classifyLane(dribbleTargetX);
+      commentary = `${attackingSide === "HOME" ? this.ui.homeName : this.ui.awayName} drive forward with it`;
+    } else if (action === "THROUGH_BALL") {
+      const runner =
+        receiverOptions.find((player) => player.role === "ATT") ??
+        receiverOptions.find((player) => player.role === "MID") ??
+        receiver;
+      const laneHint = runner.baseX > centerX + this.pitchWidth * 0.09 ? 1 : runner.baseX < centerX - this.pitchWidth * 0.09 ? -1 : 0;
+      const runTargetX = this.clampPitchX(
+        runner.baseX + this.pickSignedOffset(this.elapsed + 83, 15) + laneHint * 9
+      );
+      const runTargetY = this.clampPitchY(
+        runner.baseY +
+          forwardDir * (18 + this.possessionProgress * 22 + this.roleAdvanceBoost(runner.role) * 0.95 + supportRun * 10)
+      );
+
+      await Promise.all([
+        this.tweenPlayerTo(carrier, this.clampPitchX(carrier.container.x + this.pickSignedOffset(this.elapsed + 89, 10)), this.clampPitchY(carrier.container.y + forwardDir * 6), 220),
+        this.tweenPlayerTo(runner, runTargetX, runTargetY, 320),
+        ...pressureDefenders.map((player, idx) =>
+          this.tweenPlayerTo(
+            player,
+            this.clampPitchX(player.baseX + Phaser.Math.Clamp(runTargetX - player.baseX, -28, 28)),
+            this.clampPitchY(player.baseY + Phaser.Math.Clamp(runTargetY - player.baseY, -20, 20) - forwardDir * (6 + idx * 5)),
+            300
+          )
+        ),
+      ]);
+
+      await this.moveBallTo(runTargetX, runTargetY - 8, 310, 14);
+      activeX = runTargetX;
+      activeY = runTargetY;
+      this.lastPossessor = runner;
+      this.possessionProgress = clamp(0.1, 0.98, this.possessionProgress + 0.12 + supportRun * 0.08 - pressure * 0.03);
+      this.possessionLane = this.classifyLane(runTargetX);
+      commentary = `${attackingSide === "HOME" ? this.ui.homeName : this.ui.awayName} slip a through ball`;
+    } else {
+      const recycleTargetX = this.clampPitchX(
+        carrier.container.x + this.pickSignedOffset(this.elapsed + 97, 20) + (this.possessionLane === 0 ? this.pickSignedOffset(this.elapsed + 99, 8) : -this.possessionLane * 8)
+      );
+      const recycleTargetY = this.clampPitchY(
+        carrier.container.y - forwardDir * (6 + pressure * 14) + (hashUnit(`${this.matchSeed}:${this.elapsed}:recycle:y`) * 2 - 1) * 4
+      );
+
+      await Promise.all([
+        this.tweenPlayerTo(carrier, recycleTargetX, recycleTargetY, 300),
+        this.moveBallTo(recycleTargetX, recycleTargetY - 8, 300, 5),
+        ...support.map((player, idx) =>
+          this.tweenPlayerTo(
+            player,
+            this.clampPitchX(player.baseX + this.pickSignedOffset(this.elapsed + idx + 101, 12)),
+            this.clampPitchY(player.baseY + forwardDir * (4 + idx * 4)),
+            300
+          )
+        ),
+      ]);
+
+      activeX = recycleTargetX;
+      activeY = recycleTargetY;
+      this.lastPossessor = carrier;
+      this.possessionProgress = clamp(0.08, 0.94, this.possessionProgress - 0.04 + space * 0.03);
+      this.possessionLane =
+        hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:recycle-lane`) < 0.5
+          ? this.possessionLane === 0
+            ? hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:recycle-lane-side`) < 0.5
+              ? -1
+              : 1
+            : 0
+          : this.possessionLane;
+      commentary = `${attackingSide === "HOME" ? this.ui.homeName : this.ui.awayName} recycle and reset`;
+    }
+
+    const closestDefender = [...pressureDefenders].sort(
       (a, b) =>
-        Phaser.Math.Distance.Between(a.container.x, a.container.y, receiverTargetX, receiverTargetY) -
-        Phaser.Math.Distance.Between(b.container.x, b.container.y, receiverTargetX, receiverTargetY)
+        Phaser.Math.Distance.Between(a.container.x, a.container.y, activeX, activeY) -
+        Phaser.Math.Distance.Between(b.container.x, b.container.y, activeX, activeY)
     )[0];
 
     if (closestDefender) {
       const pressureDistance = Phaser.Math.Distance.Between(
         closestDefender.container.x,
         closestDefender.container.y,
-        receiverTargetX,
-        receiverTargetY
+        activeX,
+        activeY
       );
       const pressureFactor = clamp01((130 - pressureDistance) / 130);
-      const stealChance = clamp01(0.1 + pressureFactor * 0.44 + this.possessionProgress * 0.14);
+      const stealChance = clamp01(0.08 + pressureFactor * 0.46 + this.possessionProgress * 0.12 + pressure * 0.12);
       const stealRoll = hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:steal`);
 
       if (stealRoll < stealChance) {
@@ -693,7 +848,8 @@ class MatchSimulationScene extends Phaser.Scene {
         ]);
 
         this.possessionSide = defendingSide;
-        this.possessionProgress = 0.14;
+        this.possessionProgress = clamp(0.1, 0.44, 1 - this.possessionProgress + 0.04);
+        this.possessionLane = this.classifyLane(winX);
         this.lastPossessor = closestDefender;
         const defensiveName = defendingSide === "HOME" ? this.ui.homeName : this.ui.awayName;
         this.commentaryText.setText(`${defensiveName} press and win it back`);
@@ -701,30 +857,13 @@ class MatchSimulationScene extends Phaser.Scene {
       }
     }
 
-    if (support.length && hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:layoff`) < 0.46) {
-      const layoffTarget = support[0];
-      const layoffX = this.clampPitchX(
-        layoffTarget.baseX + this.pickSignedOffset(this.elapsed + 63, 16)
-      );
-      const layoffY = this.clampPitchY(
-        layoffTarget.baseY +
-          forwardDir * (8 + this.possessionProgress * 18 + this.roleAdvanceBoost(layoffTarget.role) * 0.7)
-      );
-
-      await Promise.all([
-        this.tweenPlayerTo(layoffTarget, layoffX, layoffY, 260),
-        this.moveBallTo(layoffX, layoffY - 8, 260, 8),
-      ]);
-      this.lastPossessor = layoffTarget;
-    } else {
-      this.lastPossessor = receiver;
-    }
-
     const sideName = attackingSide === "HOME" ? this.ui.homeName : this.ui.awayName;
-    if (this.possessionProgress >= 0.78) {
+    if (this.possessionProgress >= 0.8) {
       this.commentaryText.setText(`${sideName} push into the final third`);
-    } else if (hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:commentary`) < 0.6) {
-      this.commentaryText.setText(`${sideName} move the ball and probe`);
+    } else if (commentary) {
+      this.commentaryText.setText(commentary);
+    } else if (hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:commentary`) < 0.62) {
+      this.commentaryText.setText(`${sideName} move the ball and probe for space`);
     }
   }
 
@@ -1134,6 +1273,18 @@ class MatchSimulationScene extends Phaser.Scene {
 
   private getSidePlayers(side: Side): PitchPlayer[] {
     return side === "HOME" ? this.homePlayers : this.awayPlayers;
+  }
+
+  private classifyLane(x: number): Lane {
+    const centerX = this.pitchLeft + this.pitchWidth / 2;
+    const laneThreshold = this.pitchWidth * 0.16;
+    if (x < centerX - laneThreshold) {
+      return -1;
+    }
+    if (x > centerX + laneThreshold) {
+      return 1;
+    }
+    return 0;
   }
 
   private roleAdvanceBoost(role: Role): number {
