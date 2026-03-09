@@ -7,6 +7,7 @@ import { pool } from "../config/db";
 import { readClerkUserId, requireAccountId } from "../lib/auth";
 import { HttpError } from "../lib/errors";
 import { generateStarterSquad } from "../lib/starter-squad";
+import { ensureCpuLeaguePopulation, ensurePlayerPool } from "../lib/world-seeding";
 import { asyncHandler } from "../middleware/async-handler";
 
 export const onboardingRouter = Router();
@@ -34,6 +35,10 @@ interface ClubRow extends RowDataPacket {
 
 interface LeagueTierRow extends RowDataPacket {
   id: number;
+}
+
+interface ClubLeagueRow extends RowDataPacket {
+  current_league_code: string;
 }
 
 const DEFAULT_AVATAR = {
@@ -238,6 +243,41 @@ onboardingRouter.post(
   })
 );
 
+onboardingRouter.post(
+  "/bootstrap-world",
+  asyncHandler(async (req, res) => {
+    const accountId = await requireAccountId(req);
+    const scope = readBootstrapScope(req.body?.scope);
+    const targetPlayerPoolSize = readOptionalBoundedInt(req.body?.targetPlayerPoolSize, 480, 40, 5000);
+
+    const [clubRows] = await pool.query<ClubLeagueRow[]>(
+      "SELECT current_league_code FROM clubs WHERE account_id = ? LIMIT 1",
+      [accountId]
+    );
+
+    if (!clubRows.length) {
+      throw new HttpError(400, "Create your club before running world bootstrap seeding");
+    }
+
+    const connection = await pool.getConnection();
+
+    try {
+      const leagueCodes = scope === "ALL_LEAGUES" ? undefined : [clubRows[0].current_league_code];
+      const cpu = await ensureCpuLeaguePopulation(connection, { leagueCodes });
+      const playerPool = await ensurePlayerPool(connection, { targetSize: targetPlayerPoolSize });
+
+      res.status(200).json({
+        seeded: true,
+        scope,
+        cpu,
+        playerPool,
+      });
+    } finally {
+      connection.release();
+    }
+  })
+);
+
 async function upsertAccount(connection: PoolConnection, clerkUserId: string, email: string): Promise<number> {
   const [accountRows] = await connection.query<AccountRow[]>(
     "SELECT id FROM accounts WHERE clerk_user_id = ? LIMIT 1",
@@ -344,6 +384,8 @@ async function createClubWithStarterSquad(
     `,
     [clubId, tierRows[0].id]
   );
+
+  await ensureCpuLeaguePopulation(connection, { leagueCodes: ["BEGINNER_I"] });
 
   const starterRows = generateStarterSquad(`${clubId}-${Date.now()}`);
   const starterPlayerIds: number[] = [];
@@ -533,4 +575,31 @@ function readOptionalNumber(value: unknown): number | null {
   if (!Number.isFinite(parsed)) return null;
   if (parsed < 0 || parsed > 100) return null;
   return parsed;
+}
+
+function readBootstrapScope(value: unknown): "CURRENT_LEAGUE" | "ALL_LEAGUES" {
+  if (value === undefined || value === null || value === "") {
+    return "CURRENT_LEAGUE";
+  }
+
+  if (value === "CURRENT_LEAGUE" || value === "ALL_LEAGUES") {
+    return value;
+  }
+
+  throw new HttpError(400, "scope must be CURRENT_LEAGUE or ALL_LEAGUES");
+}
+
+function readOptionalBoundedInt(value: unknown, fallback: number, min: number, max: number): number {
+  if (value === undefined || value === null || value === "") return fallback;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new HttpError(400, `Expected integer between ${min} and ${max}`);
+  }
+
+  const integer = Math.round(parsed);
+  if (integer < min || integer > max) {
+    throw new HttpError(400, `Expected integer between ${min} and ${max}`);
+  }
+
+  return integer;
 }

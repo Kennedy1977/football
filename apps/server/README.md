@@ -15,6 +15,7 @@ Implemented endpoints:
 - `POST /api/onboarding/manager`
 - `POST /api/onboarding/club`
 - `POST /api/onboarding/reset-club`
+- `POST /api/onboarding/bootstrap-world`
 - `GET /api/dashboard/summary`
 - `GET /api/squad/players`
 - `PUT /api/squad/lineup`
@@ -45,6 +46,13 @@ Auth uses Clerk:
 First sign-in flow:
 - Call `POST /api/auth/session` to create or sync `accounts` row before manager/club onboarding.
 
+World seeding:
+- `POST /api/onboarding/club` now auto-fills missing CPU teams in `BEGINNER_I` so new clubs always have opponents.
+- `POST /api/onboarding/bootstrap-world` can seed:
+  - `scope: "CURRENT_LEAGUE"` (default) or `scope: "ALL_LEAGUES"`
+  - optional `targetPlayerPoolSize` (default `480`)
+  - CPU teams for selected leagues plus `player_pool` templates.
+
 Deployment target:
 - App domain: `https://football.andrewkennedydev.com/`
 - API base: `https://football.andrewkennedydev.com/api`
@@ -52,3 +60,5 @@ Deployment target:
 DB migration note:
 - If your DB was created before pack reward payload support, run:
   - `database/migrations/20260308_add_pack_reward_payload.sql`
+- If your DB was created before player-pool support, run:
+  - `database/migrations/20260309_add_player_pool.sql`
