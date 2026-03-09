@@ -1,6 +1,6 @@
 {
   "name": "football",
-  "version": "1.0.1",
+  "version": "0.0.2",
   "description": "Football Manager Arcade MVP scaffold",
   "main": "server.js",
   "engines": {

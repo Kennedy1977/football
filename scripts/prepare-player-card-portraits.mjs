@@ -19,8 +19,7 @@ const facesSpritePath = path.join(outputDir, "faces-sprite.webp");
 const manifestPath = path.join(outputDir, "portrait-manifest.json");
 
 const SHIRT_GRID = { columns: 8, rows: 6, count: 48, cellSize: 192 };
-const FACE_GRID = { columns: 12, rows: 10, count: 120, cellSize: 192 };
-const FACE_SOURCE_GRID = { columns: 10, rows: 6 };
+const FACE_GRID = { columns: 12, rows: 9, count: 108, cellSize: 192 };
 
 async function run() {
   const sharp = await loadSharp();
@@ -28,6 +27,8 @@ async function run() {
   await fs.mkdir(outputDir, { recursive: true });
 
   const shirtComponents = await detectConnectedComponents(shirtsPath, sharp);
+  const faceComponents1 = await detectConnectedComponents(faces1Path, sharp);
+  const faceComponents2 = await detectConnectedComponents(faces2Path, sharp);
 
   const shirtBoxes = shirtComponents
     .filter((component) => {
@@ -42,6 +43,30 @@ async function run() {
     })
     .sort(sortByRowThenColumn);
 
+  const faceBoxes1 = faceComponents1
+    .filter((component) => {
+      return (
+        component.pixelCount >= 5000 &&
+        component.width >= 110 &&
+        component.width <= 220 &&
+        component.height >= 110 &&
+        component.height <= 240
+      );
+    })
+    .sort(sortByRowThenColumn);
+
+  const faceBoxes2 = faceComponents2
+    .filter((component) => {
+      return (
+        component.pixelCount >= 5000 &&
+        component.width >= 110 &&
+        component.width <= 220 &&
+        component.height >= 110 &&
+        component.height <= 240
+      );
+    })
+    .sort(sortByRowThenColumn);
+
   if (shirtBoxes.length !== SHIRT_GRID.count) {
     throw new Error(
       `Expected ${SHIRT_GRID.count} shirt sprites but found ${shirtBoxes.length}. ` +
@@ -49,12 +74,25 @@ async function run() {
     );
   }
 
+  if (faceBoxes1.length !== 54 || faceBoxes2.length !== 54) {
+    throw new Error(
+      `Expected 54 face components per sheet but found ${faceBoxes1.length} and ${faceBoxes2.length}. ` +
+        "Verify face source files and filtering assumptions."
+    );
+  }
+
   const shirtTiles = await buildTiles(shirtsPath, shirtBoxes, SHIRT_GRID.cellSize, 10, sharp, {
     cleanupIslands: true,
     alphaThreshold: 88,
   });
-  const faceTilesA = await buildFaceGridTiles(faces1Path, FACE_SOURCE_GRID, FACE_GRID.cellSize, sharp);
-  const faceTilesB = await buildFaceGridTiles(faces2Path, FACE_SOURCE_GRID, FACE_GRID.cellSize, sharp);
+  const faceTilesA = await buildTiles(faces1Path, faceBoxes1, FACE_GRID.cellSize, 12, sharp, {
+    cleanupIslands: true,
+    alphaThreshold: 16,
+  });
+  const faceTilesB = await buildTiles(faces2Path, faceBoxes2, FACE_GRID.cellSize, 12, sharp, {
+    cleanupIslands: true,
+    alphaThreshold: 16,
+  });
   const faceTiles = [...faceTilesA, ...faceTilesB];
 
   if (faceTiles.length !== FACE_GRID.count) {
@@ -226,73 +264,6 @@ async function buildTiles(imagePath, boxes, cellSize, padding, sharp, options = 
       .toBuffer();
 
     tiles.push(canvas);
-  }
-
-  return tiles;
-}
-
-async function buildFaceGridTiles(imagePath, sourceGrid, cellSize, sharp) {
-  const sourceMeta = await sharp(imagePath).metadata();
-  const sourceWidth = sourceMeta.width || 0;
-  const sourceHeight = sourceMeta.height || 0;
-  if (!sourceWidth || !sourceHeight) {
-    throw new Error(`Unable to read face source dimensions for ${imagePath}`);
-  }
-
-  const gridLeft = Math.round(sourceWidth * 0.015);
-  const gridTop = Math.round(sourceHeight * 0.02);
-  const gridWidth = sourceWidth - gridLeft * 2;
-  const gridHeight = sourceHeight - gridTop * 2;
-
-  const cellWidth = gridWidth / sourceGrid.columns;
-  const cellHeight = gridHeight / sourceGrid.rows;
-  const tiles = [];
-
-  const maskSize = cellSize - 20;
-  const maskSvg = Buffer.from(
-    `<svg width="${maskSize}" height="${maskSize}" viewBox="0 0 ${maskSize} ${maskSize}" xmlns="http://www.w3.org/2000/svg">` +
-      `<circle cx="${maskSize / 2}" cy="${maskSize / 2}" r="${maskSize / 2 - 1}" fill="white"/>` +
-      "</svg>"
-  );
-
-  for (let row = 0; row < sourceGrid.rows; row += 1) {
-    for (let col = 0; col < sourceGrid.columns; col += 1) {
-      const left = Math.floor(gridLeft + col * cellWidth + cellWidth * 0.04);
-      const top = Math.floor(gridTop + row * cellHeight + cellHeight * 0.01);
-      const width = Math.max(1, Math.floor(cellWidth * 0.9));
-      const height = Math.max(1, Math.floor(cellHeight * 0.94));
-      const rect = {
-        left,
-        top,
-        width: Math.min(width, sourceWidth - left),
-        height: Math.min(height, sourceHeight - top),
-      };
-
-      let tile = await sharp(imagePath)
-        .extract(rect)
-        .resize(maskSize, maskSize, {
-          fit: "cover",
-          position: "centre",
-          background: { r: 0, g: 0, b: 0, alpha: 0 },
-        })
-        .composite([{ input: maskSvg, blend: "dest-in" }])
-        .png()
-        .toBuffer();
-
-      const canvas = await sharp({
-        create: {
-          width: cellSize,
-          height: cellSize,
-          channels: 4,
-          background: { r: 0, g: 0, b: 0, alpha: 0 },
-        },
-      })
-        .composite([{ input: tile, left: 10, top: 10 }])
-        .png()
-        .toBuffer();
-
-      tiles.push(canvas);
-    }
   }
 
   return tiles;

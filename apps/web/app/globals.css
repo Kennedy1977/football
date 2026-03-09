@@ -111,8 +111,8 @@ a {
   border: 1px solid var(--line);
   border-radius: 18px;
   background:
-    linear-gradient(132deg, rgba(10, 41, 92, 0.98), rgba(5, 24, 56, 0.94)),
-    radial-gradient(circle at 0% 0%, rgba(58, 192, 255, 0.35), transparent 40%);
+    linear-gradient(132deg, rgba(5, 21, 47, 0.95), rgba(4, 16, 37, 0.92)),
+    var(--card-gradient-rare);
   box-shadow: var(--shadow);
   padding: 14px 14px 12px;
 }
@@ -159,7 +159,7 @@ a {
   font-weight: 700;
   font-size: 13px;
   letter-spacing: 0.02em;
-  background: rgba(18, 51, 98, 0.6);
+  background: linear-gradient(160deg, rgba(8, 26, 56, 0.82), rgba(6, 19, 41, 0.86));
   transition: transform 180ms ease, border-color 180ms ease, background 180ms ease, color 180ms ease;
 }
 
@@ -169,8 +169,10 @@ a {
 }
 
 .nav-link.is-active {
-  border-color: rgba(84, 223, 149, 0.68);
-  background: linear-gradient(160deg, rgba(29, 164, 227, 0.44), rgba(18, 74, 140, 0.7));
+  border-color: rgba(84, 223, 149, 0.72);
+  background:
+    linear-gradient(160deg, rgba(5, 22, 48, 0.22), rgba(5, 19, 42, 0.32)),
+    var(--card-gradient-rare);
   color: #eefaff;
 }
 
@@ -184,8 +186,9 @@ a {
   border: 1px solid var(--line);
   border-radius: 18px;
   background:
-    linear-gradient(160deg, rgba(8, 29, 63, 0.93), rgba(6, 23, 52, 0.95)),
-    radial-gradient(circle at 100% 100%, rgba(30, 115, 191, 0.25), transparent 42%);
+    linear-gradient(160deg, rgba(6, 21, 46, 0.9), rgba(4, 16, 37, 0.94)),
+    radial-gradient(circle at 100% 100%, rgba(30, 115, 191, 0.18), transparent 42%),
+    var(--card-gradient-common);
   box-shadow: var(--shadow);
   padding: 14px;
   animation: fade-up 500ms ease-out;
@@ -200,7 +203,9 @@ a {
   border-radius: 14px;
   padding: 12px;
   margin-bottom: 12px;
-  background: rgba(4, 25, 58, 0.72);
+  background:
+    linear-gradient(150deg, rgba(5, 20, 46, 0.78), rgba(4, 15, 33, 0.86)),
+    var(--card-gradient-rare);
 }
 
 .hero-topline {
@@ -245,7 +250,9 @@ a {
 .onboarding-card {
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: var(--surface-strong);
+  background:
+    linear-gradient(150deg, rgba(7, 23, 50, 0.86), rgba(5, 16, 36, 0.9)),
+    var(--card-gradient-epic);
   margin-top: 12px;
   padding: 12px;
 }
@@ -312,16 +319,24 @@ a {
 .stat-card {
   border: 1px solid var(--line-soft);
   border-radius: 12px;
-  background: linear-gradient(170deg, rgba(14, 56, 106, 0.74), rgba(8, 35, 75, 0.82));
+  background:
+    linear-gradient(170deg, rgba(7, 27, 60, 0.78), rgba(5, 20, 44, 0.86)),
+    var(--card-gradient-rare);
   padding: 10px 11px;
 }
 
 .stat-card.good {
   border-color: rgba(84, 223, 149, 0.65);
+  background:
+    linear-gradient(170deg, rgba(7, 28, 26, 0.72), rgba(5, 19, 18, 0.84)),
+    var(--card-gradient-common);
 }
 
 .stat-card.warn {
   border-color: rgba(255, 211, 77, 0.65);
+  background:
+    linear-gradient(170deg, rgba(44, 31, 8, 0.72), rgba(28, 18, 5, 0.84)),
+    var(--card-gradient-legendary);
 }
 
 .stat-label {
@@ -352,7 +367,9 @@ button,
   border: 1px solid rgba(117, 202, 255, 0.58);
   border-radius: 10px;
   padding: 9px 12px;
-  background: linear-gradient(170deg, #2ca9e3, #1a77bf);
+  background:
+    linear-gradient(170deg, rgba(5, 22, 50, 0.18), rgba(5, 20, 45, 0.32)),
+    var(--card-gradient-rare);
   color: #eaf8ff;
   font: inherit;
   font-weight: 700;
@@ -386,7 +403,9 @@ button[disabled] {
   padding: 4px 8px;
   font-size: 12px;
   color: #c3d8f1;
-  background: rgba(8, 34, 72, 0.62);
+  background:
+    linear-gradient(160deg, rgba(6, 23, 50, 0.46), rgba(5, 18, 39, 0.56)),
+    var(--card-gradient-rare);
 }
 
 .progress-stack {
@@ -471,7 +490,9 @@ button[disabled] {
   font-weight: 700;
   font-family: "Barlow Condensed", "Exo 2", sans-serif;
   letter-spacing: 0.02em;
-  background: linear-gradient(160deg, rgba(27, 81, 140, 0.78), rgba(14, 55, 102, 0.9));
+  background:
+    linear-gradient(160deg, rgba(8, 25, 55, 0.2), rgba(5, 18, 40, 0.32)),
+    var(--card-gradient-rare);
   transition: transform 180ms ease, border-color 180ms ease;
 }
 
@@ -487,7 +508,9 @@ button[disabled] {
   text-transform: uppercase;
   font-size: 26px;
   letter-spacing: 0.04em;
-  background: linear-gradient(160deg, #3ac0ff, #2793d1);
+  background:
+    linear-gradient(160deg, rgba(45, 31, 6, 0.16), rgba(33, 20, 5, 0.3)),
+    var(--card-gradient-legendary);
   color: #f2f9ff;
 }
 
@@ -642,7 +665,7 @@ button[disabled] {
   border-radius: 50%;
   border: 1px solid rgba(214, 237, 255, 0.36);
   background-image: url("/assets/player-cards/faces-sprite.webp");
-  background-size: 1200% 1000%;
+  background-size: 1200% 900%;
   background-position: 0% 0%;
   box-shadow: 0 1px 4px rgba(2, 6, 16, 0.6);
 }
@@ -733,7 +756,7 @@ button[disabled] {
   transform: translateX(-50%);
   border-radius: 50%;
   background-image: url("/assets/player-cards/faces-sprite.webp");
-  background-size: 1200% 1000%;
+  background-size: 1200% 900%;
   background-repeat: no-repeat;
   background-position: 0% 0%;
   box-shadow: 0 3px 10px rgba(1, 6, 16, 0.42);
@@ -752,6 +775,7 @@ button[disabled] {
   font-size: 20px;
   font-family: "Barlow Condensed", "Exo 2", sans-serif;
   font-weight: 800;
+  font-variant-numeric: tabular-nums;
   display: grid;
   place-items: center;
   z-index: 3;
@@ -766,7 +790,7 @@ button[disabled] {
   height: 15%;
   border-radius: 11px;
   border: 1px solid rgba(217, 236, 255, 0.62);
-  background: linear-gradient(180deg, rgba(27, 122, 224, 0.95), rgba(18, 83, 168, 0.95));
+  background: linear-gradient(180deg, var(--card-rare-middle), var(--card-rare-bottom));
   color: #f6fbff;
   display: grid;
   place-items: center;
@@ -776,6 +800,22 @@ button[disabled] {
   letter-spacing: 0.01em;
   z-index: 3;
   text-shadow: 0 1px 2px rgba(3, 10, 24, 0.64);
+}
+
+.preview-player-card.rarity-common .preview-player-name {
+  background: linear-gradient(180deg, var(--card-common-middle), var(--card-common-bottom));
+}
+
+.preview-player-card.rarity-rare .preview-player-name {
+  background: linear-gradient(180deg, var(--card-rare-middle), var(--card-rare-bottom));
+}
+
+.preview-player-card.rarity-epic .preview-player-name {
+  background: linear-gradient(180deg, var(--card-epic-middle), var(--card-epic-bottom));
+}
+
+.preview-player-card.rarity-legendary .preview-player-name {
+  background: linear-gradient(180deg, var(--card-legendary-middle), var(--card-legendary-bottom));
 }
 
 .preview-player-meta {
@@ -817,7 +857,9 @@ button[disabled] {
   border: 1px solid var(--line-soft);
   border-radius: 12px;
   padding: 10px;
-  background: linear-gradient(160deg, rgba(12, 45, 88, 0.9), rgba(7, 31, 66, 0.95));
+  background:
+    linear-gradient(160deg, rgba(17, 10, 43, 0.48), rgba(12, 7, 30, 0.62)),
+    var(--card-gradient-epic);
   display: grid;
   gap: 8px;
 }
@@ -865,7 +907,9 @@ button[disabled] {
   font-size: 28px;
   font-family: "Barlow Condensed", "Exo 2", sans-serif;
   font-weight: 800;
-  background: linear-gradient(160deg, rgba(63, 130, 186, 0.75), rgba(20, 73, 120, 0.92));
+  background:
+    linear-gradient(160deg, rgba(6, 25, 55, 0.2), rgba(5, 20, 43, 0.34)),
+    var(--card-gradient-rare);
 }
 
 .manager-name {

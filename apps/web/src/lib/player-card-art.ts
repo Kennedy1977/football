@@ -1,5 +1,5 @@
 const FACE_COLUMNS = 12;
-const FACE_ROWS = 10;
+const FACE_ROWS = 9;
 const FACE_COUNT = FACE_COLUMNS * FACE_ROWS;
 
 const SHIRT_COLUMNS = 8;

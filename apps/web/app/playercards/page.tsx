@@ -30,7 +30,7 @@ export default function PlayerCardsPreviewPage() {
 
       <div className="inline" style={{ marginBottom: 12 }}>
         <span className="label-pill">Route: /playercards</span>
-        <span className="label-pill">Faces: 120</span>
+        <span className="label-pill">Faces: 108</span>
         <span className="label-pill">Shirts: 48</span>
       </div>
 
