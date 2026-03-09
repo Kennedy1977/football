@@ -670,11 +670,35 @@ button[disabled] {
   box-shadow: 0 1px 4px rgba(2, 6, 16, 0.6);
 }
 
+.preview-block {
+  margin-top: 14px;
+}
+
+.preview-block-title {
+  margin: 0 0 8px;
+  font-size: 22px;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: "Barlow Condensed", "Exo 2", sans-serif;
+}
+
 .preview-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
   gap: 14px;
-  margin-top: 6px;
+}
+
+.preview-card-grid-1up {
+  grid-template-columns: 1fr;
+}
+
+.preview-card-grid-2up {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.preview-card-grid-1up .preview-player-card {
+  max-width: 236px;
+  margin-inline: auto;
 }
 
 .preview-player-card {
@@ -737,7 +761,7 @@ button[disabled] {
 .preview-player-shirt {
   position: absolute;
   left: 50%;
-  bottom: -1%;
+  bottom: -2%;
   width: 88%;
   height: 62%;
   transform: translateX(-50%);
@@ -750,7 +774,7 @@ button[disabled] {
 .preview-player-face {
   position: absolute;
   left: 50%;
-  top: 2%;
+  top: -3%;
   width: 66%;
   aspect-ratio: 1 / 1;
   transform: translateX(-50%);
@@ -764,65 +788,55 @@ button[disabled] {
 
 .preview-player-rating {
   position: absolute;
-  right: 13%;
-  top: 8%;
-  width: 19%;
+  right: 12.8%;
+  top: 8.4%;
+  width: 18%;
   aspect-ratio: 1 / 1;
   border-radius: 50%;
   border: 2px solid rgba(227, 242, 255, 0.72);
   background: rgba(8, 29, 62, 0.66);
   color: #f4fbff;
   font-size: 20px;
+  line-height: 1;
   font-family: "Barlow Condensed", "Exo 2", sans-serif;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  display: grid;
-  place-items: center;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 1px;
   z-index: 3;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.44);
 }
 
 .preview-player-name {
   position: absolute;
-  left: 9%;
-  right: 9%;
-  bottom: 6%;
-  height: 15%;
-  border-radius: 11px;
-  border: 1px solid rgba(217, 236, 255, 0.62);
-  background: linear-gradient(180deg, var(--card-rare-middle), var(--card-rare-bottom));
+  left: 10%;
+  right: 10%;
+  bottom: 8.1%;
   color: #f6fbff;
-  display: grid;
-  place-items: center;
+  display: block;
+  text-align: center;
   font-family: "Barlow Condensed", "Exo 2", sans-serif;
   font-size: clamp(18px, 2.1vw, 30px);
   font-weight: 800;
   letter-spacing: 0.01em;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   z-index: 3;
-  text-shadow: 0 1px 2px rgba(3, 10, 24, 0.64);
-}
-
-.preview-player-card.rarity-common .preview-player-name {
-  background: linear-gradient(180deg, var(--card-common-middle), var(--card-common-bottom));
-}
-
-.preview-player-card.rarity-rare .preview-player-name {
-  background: linear-gradient(180deg, var(--card-rare-middle), var(--card-rare-bottom));
-}
-
-.preview-player-card.rarity-epic .preview-player-name {
-  background: linear-gradient(180deg, var(--card-epic-middle), var(--card-epic-bottom));
-}
-
-.preview-player-card.rarity-legendary .preview-player-name {
-  background: linear-gradient(180deg, var(--card-legendary-middle), var(--card-legendary-bottom));
+  text-shadow:
+    0 2px 0 rgba(8, 21, 46, 0.8),
+    0 0 7px rgba(2, 9, 23, 0.8);
 }
 
 .preview-player-meta {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 1.5%;
+  bottom: 2%;
   color: rgba(233, 244, 255, 0.94);
   text-align: center;
   font-size: 12px;
@@ -830,6 +844,114 @@ button[disabled] {
   letter-spacing: 0.04em;
   z-index: 3;
   text-shadow: 0 1px 2px rgba(1, 8, 22, 0.68);
+}
+
+.preview-landscape-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.preview-player-card-landscape {
+  position: relative;
+  min-height: 168px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(190, 220, 246, 0.42);
+  box-shadow: 0 12px 26px rgba(2, 10, 24, 0.44);
+  padding: 18px 82px 16px 142px;
+  isolation: isolate;
+}
+
+.preview-player-card-landscape::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(140deg, rgba(7, 20, 43, 0.5), rgba(4, 12, 29, 0.7));
+  z-index: 0;
+}
+
+.preview-player-card-landscape::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 24% 38%, rgba(255, 255, 255, 0.2), transparent 48%);
+  z-index: 0;
+}
+
+.preview-player-card-landscape.rarity-common {
+  background: var(--card-gradient-common);
+  border-color: rgba(154, 237, 104, 0.82);
+}
+
+.preview-player-card-landscape.rarity-rare {
+  background: var(--card-gradient-rare);
+  border-color: rgba(109, 170, 255, 0.84);
+}
+
+.preview-player-card-landscape.rarity-epic {
+  background: var(--card-gradient-epic);
+  border-color: rgba(180, 125, 255, 0.84);
+}
+
+.preview-player-card-landscape.rarity-legendary {
+  background: var(--card-gradient-legendary);
+  border-color: rgba(255, 213, 82, 0.88);
+}
+
+.preview-player-art-landscape {
+  position: absolute;
+  left: 12px;
+  bottom: 6px;
+  width: 124px;
+  height: 156px;
+  z-index: 2;
+}
+
+.preview-player-shirt-landscape {
+  width: 92%;
+  height: 58%;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+}
+
+.preview-player-face-landscape {
+  width: 60%;
+  left: 50%;
+  top: -6%;
+  transform: translateX(-50%);
+}
+
+.preview-player-rating-landscape {
+  right: 20px;
+  top: 14px;
+  width: 46px;
+  font-size: 22px;
+}
+
+.preview-player-name-landscape {
+  position: relative;
+  z-index: 2;
+  margin: 0;
+  font-family: "Barlow Condensed", "Exo 2", sans-serif;
+  font-size: clamp(34px, 7vw, 52px);
+  line-height: 0.9;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: #f5fbff;
+  text-shadow:
+    0 2px 0 rgba(7, 18, 38, 0.72),
+    0 0 10px rgba(2, 8, 20, 0.7);
+}
+
+.preview-player-meta-landscape {
+  position: relative;
+  z-index: 2;
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: rgba(237, 246, 255, 0.95);
+  letter-spacing: 0.05em;
+  font-weight: 700;
 }
 
 .player-overall {
