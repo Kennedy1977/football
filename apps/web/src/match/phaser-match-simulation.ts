@@ -871,24 +871,20 @@ class MatchSimulationScene extends Phaser.Scene {
     this.resolvingChance = true;
     const chanceType = pickChanceType(this.matchSeed, eventIndex, event.quality);
     const display = chanceTypeDisplayName(chanceType);
-    const yourAction = event.attackingSide === "HOME" ? "Shoot" : "Save";
+    const sideName = event.attackingSide === "HOME" ? this.ui.homeName : this.ui.awayName;
 
-    this.commentaryText.setText(`${display} - ${yourAction}`);
+    this.commentaryText.setText(`${display}: ${sideName} chance`);
 
     void this.resolveChanceEvent(event, eventIndex, chanceType);
   }
 
   private async resolveChanceEvent(event: MatchChanceEvent, eventIndex: number, chanceType: ChanceType) {
     try {
-      const { tapQuality, tapped } = await this.playTimingMinigame(event, eventIndex, chanceType);
-
       const resolvedOutcome = resolveChanceOutcome({
         seed: this.matchSeed,
         event,
         eventIndex,
         chanceType,
-        tapQuality,
-        tapped,
         teams: this.teams,
       });
 
@@ -899,19 +895,19 @@ class MatchSimulationScene extends Phaser.Scene {
         second: event.second,
         attackingSide: event.attackingSide,
         chanceType,
-        tapQuality,
-        tapped,
+        tapQuality: resolvedOutcome.executionQuality,
+        tapped: false,
         baseQuality: event.quality,
         scoreProbability: resolvedOutcome.scoreProbability,
         scored: resolvedOutcome.scored,
       });
 
       await this.animateChanceOnPitch(event, eventIndex, resolvedOutcome.scored, chanceType);
-      this.applyEventOutcome(resolvedEvent, chanceType, tapQuality, tapped);
+      this.applyEventOutcome(resolvedEvent, chanceType, resolvedOutcome.executionQuality);
     } catch {
       const fallback = { ...event };
       this.resolvedEvents.push(fallback);
-      this.applyEventOutcome(fallback, chanceType, "POOR", false);
+      this.applyEventOutcome(fallback, chanceType, "POOR");
     } finally {
       this.eventCursor += 1;
       this.resolvingChance = false;
@@ -1358,7 +1354,7 @@ class MatchSimulationScene extends Phaser.Scene {
     });
   }
 
-  private applyEventOutcome(event: MatchChanceEvent, chanceType: ChanceType, tapQuality: TapQuality, tapped: boolean) {
+  private applyEventOutcome(event: MatchChanceEvent, chanceType: ChanceType, executionQuality: TapQuality) {
     const sideName = event.attackingSide === "HOME" ? this.ui.homeName : this.ui.awayName;
 
     if (event.scored) {
@@ -1370,14 +1366,14 @@ class MatchSimulationScene extends Phaser.Scene {
 
       this.scoreText.setText(`${this.ui.homeName} ${this.homeGoals} - ${this.awayGoals} ${this.ui.awayName}`);
       this.commentaryText.setText(
-        `${chanceTypeDisplayName(chanceType)}: GOAL for ${sideName} (${tapQuality}${tapped ? "" : ", auto"})`
+        `${chanceTypeDisplayName(chanceType)}: GOAL for ${sideName} (${executionQuality})`
       );
       this.flashGoalBanner(sideName);
       return;
     }
 
     this.commentaryText.setText(
-      `${chanceTypeDisplayName(chanceType)}: ${sideName} denied (${tapQuality}${tapped ? "" : ", auto"})`
+      `${chanceTypeDisplayName(chanceType)}: ${sideName} denied (${executionQuality})`
     );
   }
 
@@ -1576,11 +1572,9 @@ function resolveChanceOutcome(options: {
   event: MatchChanceEvent;
   eventIndex: number;
   chanceType: ChanceType;
-  tapQuality: TapQuality;
-  tapped: boolean;
   teams: { home: RuntimeTeam; away: RuntimeTeam };
-}): { scored: boolean; scoreProbability: number } {
-  const { event, chanceType, tapQuality, tapped, teams } = options;
+}): { scored: boolean; scoreProbability: number; executionQuality: TapQuality } {
+  const { event, chanceType, teams } = options;
   const attacking = event.attackingSide === "HOME" ? teams.home : teams.away;
   const defending = event.attackingSide === "HOME" ? teams.away : teams.home;
 
@@ -1593,14 +1587,79 @@ function resolveChanceOutcome(options: {
   const baseFromEngine = event.scored ? 0.62 : 0.34;
   const chanceTypeEdge = chanceType === "CLOSE_RANGE" ? 0.05 : chanceType === "ONE_ON_ONE" ? 0.03 : 0;
   const qualityEdge = clampSigned((event.quality - 0.4) * 0.45, 0.16);
-  const userEdge = tapInfluence(event.attackingSide, tapQuality, tapped);
+  const attackingExecution = computeAiExecution(options.seed, options.eventIndex, "attack", attacking, chanceType, true);
+  const defendingExecution = computeAiExecution(options.seed, options.eventIndex, "defend", defending, chanceType, false);
+  const executionEdge = clampSigned((attackingExecution - defendingExecution) * 0.28, 0.18);
+  const keeperEdge =
+    chanceType === "ONE_ON_ONE"
+      ? clampSigned((defending.goalkeepingRating - attacking.attackRating) / 240, 0.09)
+      : clampSigned((defending.goalkeepingRating - attacking.attackRating) / 320, 0.06);
 
-  const scoreProbability = clamp01(baseFromEngine + statEdge + staminaEdge + qualityEdge + chanceTypeEdge + userEdge);
-  const roll = hashUnit(`${options.seed}:${options.eventIndex}:resolve:${tapQuality}:${tapped ? 1 : 0}`);
+  const scoreProbability = clamp01(
+    baseFromEngine + statEdge + staminaEdge + qualityEdge + chanceTypeEdge + executionEdge + keeperEdge * -1
+  );
+  const roll = hashUnit(
+    `${options.seed}:${options.eventIndex}:resolve:auto:${attackingExecution.toFixed(4)}:${defendingExecution.toFixed(4)}`
+  );
+  const executionBlend = clamp01(
+    attackingExecution * 0.5 + (1 - defendingExecution) * 0.32 + event.quality * 0.18 + (roll <= scoreProbability ? 0.08 : -0.08)
+  );
   return {
     scored: roll <= scoreProbability,
     scoreProbability: Number(scoreProbability.toFixed(4)),
+    executionQuality: executionToTapQuality(executionBlend),
   };
+}
+
+function computeAiExecution(
+  seed: string,
+  eventIndex: number,
+  mode: "attack" | "defend",
+  team: RuntimeTeam,
+  chanceType: ChanceType,
+  isAttacking: boolean
+): number {
+  const base =
+    mode === "attack"
+      ? team.attackRating * 0.34 +
+        team.controlRating * 0.24 +
+        team.staminaRating * 0.16 +
+        team.strength * 0.14 +
+        team.goalkeepingRating * 0.02 +
+        chanceTypeAttackBonus(chanceType) * 100
+      : team.defenseRating * 0.34 +
+        team.goalkeepingRating * 0.3 +
+        team.controlRating * 0.16 +
+        team.staminaRating * 0.12 +
+        team.strength * 0.08 +
+        chanceTypeDefenseBonus(chanceType) * 100;
+
+  const normalized = clamp01(base / 100);
+  const variance = (hashUnit(`${seed}:${eventIndex}:ai:${mode}:${isAttacking ? "A" : "D"}`) * 2 - 1) * 0.14;
+  return clamp01(normalized + variance);
+}
+
+function chanceTypeAttackBonus(type: ChanceType): number {
+  if (type === "CLOSE_RANGE") return 0.06;
+  if (type === "CENTRAL_SHOT") return 0.02;
+  if (type === "ANGLED_SHOT") return -0.02;
+  return 0.01;
+}
+
+function chanceTypeDefenseBonus(type: ChanceType): number {
+  if (type === "ONE_ON_ONE") return 0.05;
+  if (type === "ANGLED_SHOT") return 0.02;
+  return 0;
+}
+
+function executionToTapQuality(value: number): TapQuality {
+  if (value >= 0.72) {
+    return "PERFECT";
+  }
+  if (value >= 0.48) {
+    return "GOOD";
+  }
+  return "POOR";
 }
 
 function chanceTypeDifficulty(type: ChanceType): number {
@@ -1640,22 +1699,6 @@ function clamp(min: number, max: number, value: number): number {
 
 function clampSigned(value: number, maxAbs: number): number {
   return Math.min(maxAbs, Math.max(-maxAbs, value));
-}
-
-function tapInfluence(attackingSide: "HOME" | "AWAY", tapQuality: TapQuality, tapped: boolean): number {
-  if (!tapped) {
-    return attackingSide === "HOME" ? -0.18 : 0.18;
-  }
-
-  if (attackingSide === "HOME") {
-    if (tapQuality === "PERFECT") return 0.18;
-    if (tapQuality === "GOOD") return 0.08;
-    return -0.1;
-  }
-
-  if (tapQuality === "PERFECT") return -0.2;
-  if (tapQuality === "GOOD") return -0.1;
-  return 0.09;
 }
 
 function shouldStopEarly(homeGoals: number, awayGoals: number): boolean {
