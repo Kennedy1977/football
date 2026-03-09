@@ -190,6 +190,7 @@ class MatchSimulationScene extends Phaser.Scene {
   private ambientAnimating = false;
   private possessionSide: Side = "HOME";
   private lastPossessor: PitchPlayer | null = null;
+  private possessionProgress = 0.12;
 
   constructor(options: {
     simulation: MatchSimulationOutput;
@@ -230,7 +231,9 @@ class MatchSimulationScene extends Phaser.Scene {
     this.buildHud();
     this.createTeams();
     this.createBall();
-    this.lastPossessor = this.homePlayers.find((player) => player.role === "MID") ?? this.homePlayers[0] ?? null;
+    this.possessionSide = hashUnit(`${this.matchSeed}:kickoff:side`) < 0.5 ? "HOME" : "AWAY";
+    const kickoffSidePlayers = this.getSidePlayers(this.possessionSide);
+    this.lastPossessor = kickoffSidePlayers.find((player) => player.role === "MID") ?? kickoffSidePlayers[0] ?? null;
     if (this.lastPossessor) {
       this.setBallPosition(this.lastPossessor.baseX, this.lastPossessor.baseY - 10, 0);
     }
@@ -546,19 +549,28 @@ class MatchSimulationScene extends Phaser.Scene {
   }
 
   private async runAmbientPossessionPhase(): Promise<void> {
-    const sideSwapRoll = hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:swap`);
-    if (sideSwapRoll < 0.22) {
-      this.possessionSide = this.possessionSide === "HOME" ? "AWAY" : "HOME";
+    let attackingSide = this.possessionSide;
+    let defendingSide: Side = attackingSide === "HOME" ? "AWAY" : "HOME";
+    const naturalTurnoverRoll = hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:turnover:pre`);
+
+    if (naturalTurnoverRoll < 0.08) {
+      attackingSide = defendingSide;
+      defendingSide = attackingSide === "HOME" ? "AWAY" : "HOME";
+      this.possessionSide = attackingSide;
+      this.possessionProgress = 0.14;
       this.lastPossessor = null;
+    } else {
+      const progressStep = 0.08 + hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:step`) * 0.14;
+      this.possessionProgress = clamp(0.08, 0.96, this.possessionProgress + progressStep);
     }
 
-    const possessionPlayers = this.getSidePlayers(this.possessionSide).filter((player) => player.role !== "GK");
+    const possessionPlayers = this.getSidePlayers(attackingSide).filter((player) => player.role !== "GK");
     if (possessionPlayers.length < 2) {
       return;
     }
 
     const passer =
-      this.lastPossessor && this.lastPossessor.side === this.possessionSide && this.lastPossessor.role !== "GK"
+      this.lastPossessor && this.lastPossessor.side === attackingSide && this.lastPossessor.role !== "GK"
         ? this.lastPossessor
         : possessionPlayers[Math.floor(hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:passer`) * possessionPlayers.length)];
 
@@ -579,30 +591,33 @@ class MatchSimulationScene extends Phaser.Scene {
     );
     const receiver = receiverOptions[receiverPickIndex] ?? receiverOptions[0];
 
-    const forwardDir = this.possessionSide === "HOME" ? -1 : 1;
+    const forwardDir = attackingSide === "HOME" ? -1 : 1;
+    const receiverAdvance = 8 + this.possessionProgress * 26 + this.roleAdvanceBoost(receiver.role);
+    const passerAdvance = 4 + this.possessionProgress * 16 + this.roleAdvanceBoost(passer.role) * 0.45;
+
     const receiverTargetX = Phaser.Math.Clamp(
-      receiver.baseX + this.pickSignedOffset(this.elapsed + 23, 26),
+      receiver.baseX + this.pickSignedOffset(this.elapsed + 23, 22),
       this.pitchLeft + 20,
       this.pitchLeft + this.pitchWidth - 20
     );
     const receiverTargetY = Phaser.Math.Clamp(
-      receiver.baseY + forwardDir * Phaser.Math.Between(10, 24),
+      receiver.baseY + forwardDir * receiverAdvance + (hashUnit(`${this.matchSeed}:${this.elapsed}:receiver:y`) * 2 - 1) * 7,
       this.pitchTop + 26,
       this.pitchTop + this.pitchHeight - 26
     );
     const passerTargetX = Phaser.Math.Clamp(
-      passer.baseX + this.pickSignedOffset(this.elapsed + 29, 12),
+      passer.baseX + this.pickSignedOffset(this.elapsed + 29, 14),
       this.pitchLeft + 20,
       this.pitchLeft + this.pitchWidth - 20
     );
     const passerTargetY = Phaser.Math.Clamp(
-      passer.baseY + forwardDir * Phaser.Math.Between(4, 12),
+      passer.baseY + forwardDir * passerAdvance + (hashUnit(`${this.matchSeed}:${this.elapsed}:passer:y`) * 2 - 1) * 5,
       this.pitchTop + 26,
       this.pitchTop + this.pitchHeight - 26
     );
 
-    const support = this.pickSupportPair(this.possessionSide, receiver, this.elapsed).filter((player) => player !== passer);
-    const pressure = this.pickNearestDefenders(this.possessionSide === "HOME" ? "AWAY" : "HOME", receiver, 2);
+    const support = this.pickSupportPair(attackingSide, receiver, this.elapsed).filter((player) => player !== passer);
+    const pressure = this.pickNearestDefenders(defendingSide, receiver, 3);
 
     await Promise.all([
       this.tweenPlayerTo(passer, passerTargetX, passerTargetY, 260),
@@ -610,31 +625,107 @@ class MatchSimulationScene extends Phaser.Scene {
       ...support.map((player, idx) =>
         this.tweenPlayerTo(
           player,
-          Phaser.Math.Clamp(player.baseX + this.pickSignedOffset(this.elapsed + idx + 41, 16), this.pitchLeft + 20, this.pitchLeft + this.pitchWidth - 20),
-          Phaser.Math.Clamp(player.baseY + forwardDir * Phaser.Math.Between(6, 16), this.pitchTop + 26, this.pitchTop + this.pitchHeight - 26),
+          Phaser.Math.Clamp(
+            player.baseX + this.pickSignedOffset(this.elapsed + idx + 41, 18),
+            this.pitchLeft + 20,
+            this.pitchLeft + this.pitchWidth - 20
+          ),
+          Phaser.Math.Clamp(
+            player.baseY +
+              forwardDir * (6 + this.possessionProgress * 22 + this.roleAdvanceBoost(player.role) * 0.8) +
+              (hashUnit(`${this.matchSeed}:${this.elapsed}:support:${idx}:y`) * 2 - 1) * 6,
+            this.pitchTop + 26,
+            this.pitchTop + this.pitchHeight - 26
+          ),
           320
         )
       ),
       ...pressure.map((player, idx) =>
         this.tweenPlayerTo(
           player,
-          Phaser.Math.Clamp(player.baseX + Phaser.Math.Clamp(receiverTargetX - player.baseX, -18, 18), this.pitchLeft + 20, this.pitchLeft + this.pitchWidth - 20),
-          Phaser.Math.Clamp(player.baseY - forwardDir * (10 + idx * 8), this.pitchTop + 26, this.pitchTop + this.pitchHeight - 26),
+          Phaser.Math.Clamp(
+            player.baseX + Phaser.Math.Clamp(receiverTargetX - player.baseX, -24, 24),
+            this.pitchLeft + 20,
+            this.pitchLeft + this.pitchWidth - 20
+          ),
+          Phaser.Math.Clamp(
+            player.baseY +
+              Phaser.Math.Clamp(receiverTargetY - player.baseY, -20, 20) -
+              forwardDir * (6 + this.possessionProgress * 16 + idx * 6),
+            this.pitchTop + 26,
+            this.pitchTop + this.pitchHeight - 26
+          ),
           320
         )
       ),
     ]);
 
     await this.moveBallTo(receiverTargetX, receiverTargetY - 8, 340, 10);
-    this.lastPossessor = receiver;
 
-    if (hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:commentary`) < 0.25) {
-      const sideName = this.possessionSide === "HOME" ? this.ui.homeName : this.ui.awayName;
-      this.commentaryText.setText(`${sideName} keep the ball moving`);
+    const closestDefender = [...pressure].sort(
+      (a, b) =>
+        Phaser.Math.Distance.Between(a.container.x, a.container.y, receiverTargetX, receiverTargetY) -
+        Phaser.Math.Distance.Between(b.container.x, b.container.y, receiverTargetX, receiverTargetY)
+    )[0];
+
+    if (closestDefender) {
+      const pressureDistance = Phaser.Math.Distance.Between(
+        closestDefender.container.x,
+        closestDefender.container.y,
+        receiverTargetX,
+        receiverTargetY
+      );
+      const pressureFactor = clamp01((130 - pressureDistance) / 130);
+      const stealChance = clamp01(0.1 + pressureFactor * 0.44 + this.possessionProgress * 0.14);
+      const stealRoll = hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:steal`);
+
+      if (stealRoll < stealChance) {
+        const winX = this.clampPitchX(closestDefender.container.x + this.pickSignedOffset(this.elapsed + 55, 10));
+        const winY = this.clampPitchY(
+          closestDefender.container.y +
+            (defendingSide === "HOME" ? -1 : 1) * (6 + this.possessionProgress * 8) +
+            (hashUnit(`${this.matchSeed}:${this.elapsed}:steal:y`) * 2 - 1) * 4
+        );
+
+        await Promise.all([
+          this.tweenPlayerTo(closestDefender, winX, winY, 260),
+          this.moveBallTo(winX, winY - 8, 240, 8),
+        ]);
+
+        this.possessionSide = defendingSide;
+        this.possessionProgress = 0.14;
+        this.lastPossessor = closestDefender;
+        const defensiveName = defendingSide === "HOME" ? this.ui.homeName : this.ui.awayName;
+        this.commentaryText.setText(`${defensiveName} press and win it back`);
+        return;
+      }
     }
 
-    const resetPlayers = [passer, receiver, ...support, ...pressure];
-    await Promise.all(resetPlayers.map((player) => this.tweenPlayerTo(player, player.baseX, player.baseY, 240)));
+    if (support.length && hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:layoff`) < 0.46) {
+      const layoffTarget = support[0];
+      const layoffX = this.clampPitchX(
+        layoffTarget.baseX + this.pickSignedOffset(this.elapsed + 63, 16)
+      );
+      const layoffY = this.clampPitchY(
+        layoffTarget.baseY +
+          forwardDir * (8 + this.possessionProgress * 18 + this.roleAdvanceBoost(layoffTarget.role) * 0.7)
+      );
+
+      await Promise.all([
+        this.tweenPlayerTo(layoffTarget, layoffX, layoffY, 260),
+        this.moveBallTo(layoffX, layoffY - 8, 260, 8),
+      ]);
+      this.lastPossessor = layoffTarget;
+    } else {
+      this.lastPossessor = receiver;
+    }
+
+    const sideName = attackingSide === "HOME" ? this.ui.homeName : this.ui.awayName;
+    if (this.possessionProgress >= 0.78) {
+      this.commentaryText.setText(`${sideName} push into the final third`);
+    } else if (hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:commentary`) < 0.6) {
+      this.commentaryText.setText(`${sideName} move the ball and probe`);
+    }
   }
 
   private startChanceEvent(event: MatchChanceEvent, eventIndex: number) {
@@ -1043,6 +1134,21 @@ class MatchSimulationScene extends Phaser.Scene {
 
   private getSidePlayers(side: Side): PitchPlayer[] {
     return side === "HOME" ? this.homePlayers : this.awayPlayers;
+  }
+
+  private roleAdvanceBoost(role: Role): number {
+    if (role === "ATT") return 20;
+    if (role === "MID") return 12;
+    if (role === "DEF") return 5;
+    return 0;
+  }
+
+  private clampPitchX(value: number): number {
+    return clamp(this.pitchLeft + 20, this.pitchLeft + this.pitchWidth - 20, value);
+  }
+
+  private clampPitchY(value: number): number {
+    return clamp(this.pitchTop + 24, this.pitchTop + this.pitchHeight - 24, value);
   }
 
   private pickShotTargetX(eventIndex: number, side: Side): number {

@@ -11,11 +11,12 @@ export default function LeaguePage() {
   return (
     <main className="page-panel page-panel-portrait">
       <h2 className="page-title">League Table</h2>
-      <p className="page-copy">Condensed table view (9 teams around your rank) with points and movement context.</p>
+      <p className="page-copy">Full division standings with points, record and goal metrics.</p>
 
       <div className="inline" style={{ marginBottom: 10 }}>
         <span className="label-pill">League: {data?.league || "-"}</span>
         <span className="label-pill">Your Rank: {data?.userRank || "-"}</span>
+        <span className="label-pill">Teams: {data?.table?.length || "-"}</span>
         <button type="button" onClick={() => refetch()}>
           Refresh
         </button>

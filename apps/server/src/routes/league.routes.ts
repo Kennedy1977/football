@@ -92,14 +92,11 @@ leagueRouter.get(
       throw new HttpError(500, "Current club is missing from league table");
     }
 
-    const start = Math.max(0, userIndex - 4);
-    const slice = ranked.slice(start, start + 9);
-
     res.status(200).json({
       league: membership.league_code,
       userRank: ranked[userIndex].rank,
       legendsDivision: membership.legends_division,
-      table: slice,
+      table: ranked,
     });
   })
 );
