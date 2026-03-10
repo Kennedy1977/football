@@ -86,6 +86,12 @@ interface MinigameActorSet {
   ball: Phaser.GameObjects.Container;
 }
 
+interface DisplayClockState {
+  half: 1 | 2;
+  halfLabel: string;
+  clockText: string;
+}
+
 const TOP_FORMATION: FormationNode[] = [
   { x: 0.5, y: 0.07, role: "GK" },
   { x: 0.14, y: 0.19, role: "DEF" },
@@ -100,6 +106,9 @@ const TOP_FORMATION: FormationNode[] = [
   { x: 0.58, y: 0.49, role: "ATT" },
 ];
 const DISABLED_EARLY_FINISH_GOAL_LEAD = 99;
+const HALF_DURATION_SECONDS = Math.floor(MATCH_DURATION_SECONDS / 2);
+const VIRTUAL_HALF_MINUTES = 45;
+const VIRTUAL_HALF_SECONDS = VIRTUAL_HALF_MINUTES * 60;
 
 export function mountPhaserMatchSimulation(
   container: HTMLElement,
@@ -186,6 +195,7 @@ class MatchSimulationScene extends Phaser.Scene {
   private pitchHeight = 0;
 
   private timerText!: Phaser.GameObjects.Text;
+  private halfText!: Phaser.GameObjects.Text;
   private scoreText!: Phaser.GameObjects.Text;
   private commentaryText!: Phaser.GameObjects.Text;
 
@@ -372,6 +382,7 @@ class MatchSimulationScene extends Phaser.Scene {
 
   private buildHud() {
     const centerX = this.cameras.main.width / 2;
+    const startClock = toDisplayClockState(0);
 
     this.add
       .text(centerX, 34, "MATCH LIVE", {
@@ -382,8 +393,17 @@ class MatchSimulationScene extends Phaser.Scene {
       })
       .setOrigin(0.5, 0.5);
 
+    this.halfText = this.add
+      .text(centerX, 66, startClock.halfLabel, {
+        fontFamily: "Barlow Condensed, Arial",
+        fontSize: "21px",
+        color: "#c7ddf8",
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5, 0.5);
+
     this.timerText = this.add
-      .text(centerX, 70, formatMatchClock(0), {
+      .text(centerX, 88, startClock.clockText, {
         fontFamily: "Courier New",
         fontSize: "24px",
         color: "#99f6e4",
@@ -392,7 +412,7 @@ class MatchSimulationScene extends Phaser.Scene {
       .setOrigin(0.5, 0.5);
 
     this.scoreText = this.add
-      .text(centerX, 102, `${this.ui.homeName} 0 - 0 ${this.ui.awayName}`, {
+      .text(centerX, 114, `${this.ui.homeName} 0 - 0 ${this.ui.awayName}`, {
         fontFamily: "Barlow Condensed, Arial",
         fontSize: "26px",
         color: "#f8fafc",
@@ -524,8 +544,20 @@ class MatchSimulationScene extends Phaser.Scene {
       return;
     }
 
+    const wasFirstHalf = this.elapsed < HALF_DURATION_SECONDS;
     this.elapsed += 1;
-    this.timerText.setText(formatMatchClock(this.elapsed));
+    const displayClock = toDisplayClockState(this.elapsed);
+    this.halfText.setText(displayClock.halfLabel);
+    this.timerText.setText(displayClock.clockText);
+
+    if (wasFirstHalf && this.elapsed === HALF_DURATION_SECONDS) {
+      this.commentaryText.setText("HALF-TIME");
+      return;
+    }
+
+    if (!wasFirstHalf && this.elapsed === HALF_DURATION_SECONDS + 1) {
+      this.commentaryText.setText("SECOND HALF UNDERWAY");
+    }
 
     if (this.ambientAnimating) {
       return;
@@ -1672,7 +1704,9 @@ class MatchSimulationScene extends Phaser.Scene {
       this.baseRuntimeResult
     );
 
-    this.timerText.setText(formatMatchClock(Math.min(finalResult.durationSeconds, MATCH_DURATION_SECONDS)));
+    const displayClock = toDisplayClockState(Math.min(finalResult.durationSeconds, MATCH_DURATION_SECONDS));
+    this.halfText.setText("FULL TIME");
+    this.timerText.setText(displayClock.clockText);
     this.scoreText.setText(`${this.ui.homeName} ${finalResult.homeGoals} - ${finalResult.awayGoals} ${this.ui.awayName}`);
 
     this.commentaryText.setText(`FINAL: ${finalResult.result} (${finalResult.endReason.replaceAll("_", " ")})`);
@@ -1727,15 +1761,28 @@ function drawNet(graphics: Phaser.GameObjects.Graphics, x: number, y: number, w:
   }
 }
 
-function formatMatchClock(seconds: number): string {
+function toDisplayClockState(seconds: number): DisplayClockState {
   const clamped = Math.max(0, Math.min(seconds, MATCH_DURATION_SECONDS));
-  const mins = Math.floor(clamped / 60)
+  const firstHalf = clamped <= HALF_DURATION_SECONDS;
+  const half: 1 | 2 = firstHalf ? 1 : 2;
+  const halfSecondsElapsed = firstHalf ? clamped : clamped - HALF_DURATION_SECONDS;
+  const virtualHalfSeconds = clamp(
+    0,
+    VIRTUAL_HALF_SECONDS,
+    Math.round((halfSecondsElapsed / Math.max(1, HALF_DURATION_SECONDS)) * VIRTUAL_HALF_SECONDS)
+  );
+  const mins = Math.floor(virtualHalfSeconds / 60)
     .toString()
     .padStart(2, "0");
-  const secs = Math.floor(clamped % 60)
+  const secs = Math.floor(virtualHalfSeconds % 60)
     .toString()
     .padStart(2, "0");
-  return `${mins}:${secs}`;
+
+  return {
+    half,
+    halfLabel: half === 1 ? "1ST HALF" : "2ND HALF",
+    clockText: `${mins}:${secs}`,
+  };
 }
 
 function pickChanceType(seed: string, eventIndex: number, quality: number): ChanceType {
