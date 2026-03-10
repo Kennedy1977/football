@@ -507,10 +507,16 @@ button,
   transition: filter 180ms ease, transform 180ms ease;
 }
 
-button:hover:not(.match-kickoff-button),
-.btn:hover {
+button:hover:not(.match-kickoff-button):not(.no-hover-lift),
+.btn:hover:not(.no-hover-lift) {
   filter: brightness(1.07);
   transform: translateY(-1px);
+}
+
+.no-hover-lift:hover,
+.no-hover-lift:focus-visible,
+.no-hover-lift:active {
+  transform: none !important;
 }
 
 button[disabled] {

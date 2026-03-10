@@ -68,6 +68,7 @@ export default function MatchPrepPage() {
           <div className="inline" style={{ marginTop: 10 }}>
             <button
               type="button"
+              className="no-hover-lift"
               onClick={() => {
                 router.push("/match/live");
               }}
@@ -84,6 +85,7 @@ export default function MatchPrepPage() {
         <div className="inline">
           <button
             type="button"
+            className="no-hover-lift"
             disabled={startState.isLoading}
             onClick={async () => {
               const started = await startMatch().unwrap();

@@ -134,7 +134,7 @@ export default function MatchLivePage() {
         <h2 className="page-title">Match Live</h2>
         <p className="feedback error">No active match prep found. Start from match prep first.</p>
         <div className="inline">
-          <Link href="/match/prep" className="btn">
+          <Link href="/match/prep" className="btn no-hover-lift">
             Open Match Prep
           </Link>
         </div>
@@ -200,7 +200,7 @@ export default function MatchLivePage() {
 
       {submitState.isError ? (
         <div className="inline" style={{ marginTop: 10 }}>
-          <Link href="/match/prep" className="btn">
+          <Link href="/match/prep" className="btn no-hover-lift">
             Back To Match Prep
           </Link>
         </div>

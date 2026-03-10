@@ -49,7 +49,7 @@ export default function MatchResultPage() {
         <h2 className="page-title">Match Result</h2>
         <p className="feedback error">No submitted match result found. Complete a live match first.</p>
         <div className="inline">
-          <Link href="/match/prep" className="btn">
+          <Link href="/match/prep" className="btn no-hover-lift">
             Open Match Prep
           </Link>
         </div>
@@ -65,7 +65,7 @@ export default function MatchResultPage() {
       <div className="inline" style={{ marginBottom: 10 }}>
         <span className="label-pill">Stage {stage}/4</span>
         {stage < 4 ? (
-          <button type="button" onClick={() => setStage(4)}>
+          <button type="button" className="no-hover-lift" onClick={() => setStage(4)}>
             Skip Reveal
           </button>
         ) : null}
@@ -165,6 +165,7 @@ export default function MatchResultPage() {
           <div className="inline">
             <button
               type="button"
+              className="no-hover-lift"
               disabled={promotionState.isLoading}
               onClick={async () => {
                 await claimPromotion().unwrap();
@@ -188,6 +189,7 @@ export default function MatchResultPage() {
         <div className="inline" style={{ marginTop: 14 }}>
           <button
             type="button"
+            className="no-hover-lift"
             onClick={() => {
               dispatch(clearMatchState());
               router.push("/match/prep");
@@ -195,7 +197,7 @@ export default function MatchResultPage() {
           >
             Play Next Match
           </button>
-          <Link href="/home" className="btn">
+          <Link href="/home" className="btn no-hover-lift">
             Back To Dashboard
           </Link>
         </div>
@@ -210,6 +212,7 @@ export default function MatchResultPage() {
         <div className="inline" style={{ marginTop: 10 }}>
           <button
             type="button"
+            className="no-hover-lift"
             onClick={() => {
               setStage((value) => Math.min(4, value + 1));
             }}
