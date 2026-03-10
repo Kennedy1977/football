@@ -2,6 +2,7 @@
 
 import { useGetLeagueTableQuery } from "../../src/state/apis/gameApi";
 import { ProgressRow } from "../../src/components/progress-row";
+import { formatLeagueLabel } from "../../src/lib/league-format";
 
 export default function LeaguePage() {
   const { data, isLoading, error, refetch } = useGetLeagueTableQuery();
@@ -14,7 +15,7 @@ export default function LeaguePage() {
       <p className="page-copy">Full division standings with points, record and goal metrics.</p>
 
       <div className="inline" style={{ marginBottom: 10 }}>
-        <span className="label-pill">League: {data?.league || "-"}</span>
+        <span className="label-pill">League: {formatLeagueLabel(data?.league)}</span>
         <span className="label-pill">Your Rank: {data?.userRank || "-"}</span>
         <span className="label-pill">Teams: {data?.table?.length || "-"}</span>
         <button type="button" onClick={() => refetch()}>

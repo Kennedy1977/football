@@ -1,6 +1,7 @@
 "use client";
 
-import { SignInButton, SignUpButton, UserButton, useAuth } from "@clerk/nextjs";
+import Link from "next/link";
+import { SignInButton, SignOutButton, SignUpButton, useAuth } from "@clerk/nextjs";
 
 export function AuthControls() {
   const { isLoaded, isSignedIn } = useAuth();
@@ -21,7 +22,14 @@ export function AuthControls() {
           </SignUpButton>
         </>
       ) : (
-        <UserButton />
+        <>
+          <Link href="/profile" className="btn">
+            Account
+          </Link>
+          <SignOutButton>
+            <button type="button">Sign Out</button>
+          </SignOutButton>
+        </>
       )}
     </div>
   );

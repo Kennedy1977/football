@@ -3,6 +3,7 @@
 import { useGetDashboardSummaryQuery } from "../../src/state/apis/gameApi";
 import { ProgressRow } from "../../src/components/progress-row";
 import { StatCard } from "../../src/components/stat-card";
+import { formatLeagueLabel } from "../../src/lib/league-format";
 
 export default function ProfilePage() {
   const { data, isLoading, error } = useGetDashboardSummaryQuery();
@@ -25,7 +26,7 @@ export default function ProfilePage() {
             <div>
               <p className="manager-name">{manager.name}</p>
               <p className="manager-sub">
-                {club?.name || "No club yet"} • {club?.league || "Unranked"}
+                {club?.name || "No club yet"} • {club?.league ? formatLeagueLabel(club.league) : "Unranked"}
               </p>
             </div>
           </div>
@@ -47,7 +48,7 @@ export default function ProfilePage() {
           <StatCard label="Club" value={club?.name || "Not created"} />
           <StatCard label="City" value={club?.city || "-"} />
           <StatCard label="Stadium" value={club?.stadiumName || "-"} />
-          <StatCard label="League" value={club?.league || "-"} />
+          <StatCard label="League" value={formatLeagueLabel(club?.league)} />
           <StatCard label="Coins" value={String(club?.coins || 0)} tone="good" />
           <StatCard label="Team Overall" value={club ? `${club.teamOverall.toFixed(1)}` : "-"} />
         </section>

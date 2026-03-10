@@ -1569,6 +1569,11 @@ button[disabled] {
     0 0 0 3px rgba(92, 212, 255, 0.22);
 }
 
+.match-kickoff-button:hover,
+.match-kickoff-button:focus-visible {
+  transform: translate(-50%, -50%);
+}
+
 .feedback {
   margin-top: 10px;
   color: var(--muted);

@@ -5,6 +5,7 @@ import { useClaimDailyRewardMutation, useGetDashboardSummaryQuery } from "../../
 import { ProgressRow } from "../../src/components/progress-row";
 import { StatCard } from "../../src/components/stat-card";
 import { isAccountMissingError, readApiErrorMessage } from "../../src/lib/api-error";
+import { formatLeagueLabel } from "../../src/lib/league-format";
 
 export default function HomePage() {
   const { data, isLoading, error, refetch } = useGetDashboardSummaryQuery();
@@ -89,7 +90,7 @@ export default function HomePage() {
           <h3>Club Status</h3>
           <div className="grid cards">
             <StatCard label="Level" value={String(manager.level)} />
-            <StatCard label="League" value={club?.league || "-"} />
+            <StatCard label="League" value={formatLeagueLabel(club?.league)} />
             <StatCard label="Daily Reward" value={daily?.claimed ? "Claimed" : "Ready"} tone={daily?.claimed ? "neutral" : "good"} />
           </div>
           <div className="progress-stack">
