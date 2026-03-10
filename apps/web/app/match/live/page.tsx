@@ -20,6 +20,7 @@ export default function MatchLivePage() {
   const router = useRouter();
   const dispatch = useDispatch();
   const prep = useSelector((state: RootState) => state.match.matchPrep);
+  const yourClubName = useSelector((state: RootState) => state.club.club?.name ?? null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mountedSimRef = useRef<MountedPhaserMatch | null>(null);
   const [simulation, setSimulation] = useState<MatchRuntimeResult | null>(null);
@@ -90,7 +91,7 @@ export default function MatchLivePage() {
         {
           matchSeed: prep.matchSeed,
           homeTeam: {
-            name: "Your Team",
+            name: yourClubName || "Your Team",
             strength: prep.yourTeamOverall,
             attackRating: prep.yourArcadeRatings.attack,
             defenseRating: prep.yourArcadeRatings.defense,

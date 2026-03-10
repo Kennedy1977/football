@@ -141,6 +141,8 @@ export function mountPhaserMatchSimulation(
       ui: {
         homeName: runtimeConfig.homeTeam.name,
         awayName: runtimeConfig.awayTeam.name,
+        homeCode: toTeamCode(runtimeConfig.homeTeam.name),
+        awayCode: toTeamCode(runtimeConfig.awayTeam.name),
         homeColor: options.homeColor ?? 0x2f8ef0,
         awayColor: options.awayColor ?? 0xd72638,
       },
@@ -170,6 +172,8 @@ class MatchSimulationScene extends Phaser.Scene {
   private readonly ui: {
     homeName: string;
     awayName: string;
+    homeCode: string;
+    awayCode: string;
     homeColor: number;
     awayColor: number;
   };
@@ -217,6 +221,8 @@ class MatchSimulationScene extends Phaser.Scene {
     ui: {
       homeName: string;
       awayName: string;
+      homeCode: string;
+      awayCode: string;
       homeColor: number;
       awayColor: number;
     };
@@ -412,7 +418,7 @@ class MatchSimulationScene extends Phaser.Scene {
       .setOrigin(0.5, 0.5);
 
     this.scoreText = this.add
-      .text(centerX, 114, `${this.ui.homeName} 0 - 0 ${this.ui.awayName}`, {
+      .text(centerX, 114, `${this.ui.homeCode} 0 - 0 ${this.ui.awayCode}`, {
         fontFamily: "Barlow Condensed, Arial",
         fontSize: "26px",
         color: "#f8fafc",
@@ -619,8 +625,14 @@ class MatchSimulationScene extends Phaser.Scene {
     await this.alignPlayersToAmbientShape(tacticalAnchors, 240);
     const carrierAnchor = this.getAnchorPosition(tacticalAnchors, carrier);
 
-    const receiverOptions = attackingOutfield
-      .filter((player) => player !== carrier)
+    const receiverPool = attackingOutfield.filter((player) => player !== carrier);
+    const preferForwardReceiver = carrier.role === "ATT" || this.possessionProgress >= 0.56;
+    const filteredReceiverPool =
+      preferForwardReceiver && receiverPool.some((player) => player.role !== "DEF")
+        ? receiverPool.filter((player) => player.role !== "DEF")
+        : receiverPool;
+
+    const receiverOptions = filteredReceiverPool
       .sort(
         (a, b) =>
           Phaser.Math.Distance.Between(a.container.x, a.container.y, carrierAnchor.x, carrierAnchor.y) -
@@ -663,12 +675,34 @@ class MatchSimulationScene extends Phaser.Scene {
         hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:supportrun`) * 0.2
     );
 
-    const passScore = 34 + space * 26 + supportRun * 18 - pressure * 26 + (carrier.role === "MID" ? 9 : 0);
+    const passScore =
+      34 +
+      space * 26 +
+      supportRun * 18 -
+      pressure * 26 +
+      (carrier.role === "MID" ? 9 : 0) +
+      (carrier.role === "ATT" ? 8 : 0);
     const dribbleScore =
-      28 + space * 30 - pressure * 30 + (carrier.role === "ATT" ? 12 : carrier.role === "MID" ? 7 : 2);
+      28 +
+      space * 30 -
+      pressure * 30 +
+      (carrier.role === "ATT" ? 24 : carrier.role === "MID" ? 7 : 2) +
+      (this.possessionProgress > 0.6 ? 5 : 0);
     const throughBallScore =
-      this.possessionProgress > 0.44 ? 18 + space * 20 + supportRun * 24 - pressure * 34 : -999;
-    const recycleScore = 24 + pressure * 18 + (carrier.role === "DEF" ? 10 : 0);
+      this.possessionProgress > 0.42
+        ? 19 +
+          space * 20 +
+          supportRun * 24 -
+          pressure * 34 +
+          (carrier.role === "ATT" ? 14 : 0) +
+          (this.possessionProgress > 0.62 ? 4 : 0)
+        : -999;
+    const recycleScore =
+      24 +
+      pressure * 18 +
+      (carrier.role === "DEF" ? 10 : 0) +
+      (carrier.role === "ATT" ? -44 : 0) +
+      (this.possessionProgress > 0.62 ? -14 : 0);
 
     const rankedActions: Array<{ action: AmbientAction; score: number }> = (
       [
@@ -682,7 +716,22 @@ class MatchSimulationScene extends Phaser.Scene {
       .sort((a, b) => b.score - a.score);
 
     const actionRoll = hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:action`);
-    const action = actionRoll < 0.66 ? rankedActions[0].action : actionRoll < 0.89 ? rankedActions[1].action : rankedActions[2].action;
+    const directActions = rankedActions.filter((entry) => entry.action !== "RECYCLE");
+    const shouldForceDirectPlay = carrier.role === "ATT" && this.possessionProgress >= 0.52;
+    const preferredDirect =
+      directActions.find((entry) => entry.action === "DRIBBLE" || entry.action === "THROUGH_BALL") ??
+      directActions[0] ??
+      rankedActions[0];
+
+    const action = shouldForceDirectPlay
+      ? actionRoll < 0.84
+        ? preferredDirect.action
+        : (directActions[1] ?? directActions[0] ?? rankedActions[0]).action
+      : actionRoll < 0.66
+        ? rankedActions[0].action
+        : actionRoll < 0.89
+          ? rankedActions[1].action
+          : rankedActions[2].action;
 
     let activeX = carrier.container.x;
     let activeY = carrier.container.y;
@@ -692,19 +741,26 @@ class MatchSimulationScene extends Phaser.Scene {
       const receiverAdvance = 8 + this.possessionProgress * 24 + this.roleAdvanceBoost(receiver.role) * 0.9 + supportRun * 16;
       const carrierAdvance = 4 + this.possessionProgress * 14 + this.roleAdvanceBoost(carrier.role) * 0.5;
 
+      const effectiveReceiver =
+        carrier.role === "ATT" && this.possessionProgress >= 0.56
+          ? receiverOptions.find((player) => player.role === "ATT" || player.role === "MID") ?? receiver
+          : receiver;
+      const effectiveReceiverAnchor = this.getAnchorPosition(tacticalAnchors, effectiveReceiver);
       const receiverTargetX = this.clampPitchX(
-        receiverAnchor.x +
+        effectiveReceiverAnchor.x +
           this.pickSignedOffset(this.elapsed + 23, 20) +
           (this.possessionLane === 0 ? this.pickSignedOffset(this.elapsed + 31, 10) : this.possessionLane * 8)
       );
       const receiverDesiredY = this.clampPitchY(
-        receiverAnchor.y + forwardDir * receiverAdvance + (hashUnit(`${this.matchSeed}:${this.elapsed}:receiver:y`) * 2 - 1) * 6
+        effectiveReceiverAnchor.y +
+          forwardDir * receiverAdvance +
+          (hashUnit(`${this.matchSeed}:${this.elapsed}:receiver:y`) * 2 - 1) * 6
       );
       const receiverTargetY = this.limitRoleStepFromAnchor(
-        receiver,
+        effectiveReceiver,
         receiverDesiredY,
-        receiverAnchor.y,
-        receiver.role === "ATT" ? 16 : receiver.role === "MID" ? 12 : 10
+        effectiveReceiverAnchor.y,
+        effectiveReceiver.role === "ATT" ? 16 : effectiveReceiver.role === "MID" ? 12 : 10
       );
       const carrierTargetX = this.clampPitchX(carrierAnchor.x + this.pickSignedOffset(this.elapsed + 29, 13));
       const carrierDesiredY = this.clampPitchY(
@@ -719,7 +775,7 @@ class MatchSimulationScene extends Phaser.Scene {
 
       await Promise.all([
         this.tweenPlayerTo(carrier, carrierTargetX, carrierTargetY, 260),
-        this.tweenPlayerTo(receiver, receiverTargetX, receiverTargetY, 340),
+        this.tweenPlayerTo(effectiveReceiver, receiverTargetX, receiverTargetY, 340),
         ...support.map((player, idx) =>
           this.tweenPlayerTo(
             player,
@@ -764,7 +820,7 @@ class MatchSimulationScene extends Phaser.Scene {
       await this.moveBallTo(receiverTargetX, receiverTargetY - 8, 320, 9);
       activeX = receiverTargetX;
       activeY = receiverTargetY;
-      this.lastPossessor = receiver;
+      this.lastPossessor = effectiveReceiver;
       this.possessionProgress = clamp(0.08, 0.96, this.possessionProgress + 0.05 + space * 0.09 + supportRun * 0.04);
       this.possessionLane = this.classifyLane(receiverTargetX);
       commentary = `${attackingSide === "HOME" ? this.ui.homeName : this.ui.awayName} keep it moving`;
@@ -1475,20 +1531,20 @@ class MatchSimulationScene extends Phaser.Scene {
 
     const oppDefBaseForAttack = this.averageRoleBaseAxis(defendingSide, "DEF", attackingSide, axisUnit * 0.78);
     const oppMidBaseForAttack = this.averageRoleBaseAxis(defendingSide, "MID", attackingSide, axisUnit * 0.64);
-    const attackingMidUpper = Math.min(axisUnit * 0.66, oppMidBaseForAttack - axisUnit * 0.02);
+    const attackingMidUpper = Math.min(axisUnit * 0.68, oppMidBaseForAttack - axisUnit * 0.02);
 
-    const attackingDefAxis = clamp(axisUnit * 0.26, axisUnit * 0.42, axisUnit * (0.3 + progress * 0.1));
-    const attackingMidAxis = clamp(axisUnit * 0.5, attackingMidUpper, axisUnit * (0.52 + progress * 0.12));
-    const attackingAttUpper = Math.min(axisUnit * 0.84, oppDefBaseForAttack - axisUnit * 0.03);
-    const attackingAttLower = attackingMidAxis + axisUnit * 0.1;
-    const attackingAttAxis = clampOrdered(attackingAttLower, attackingAttUpper, axisUnit * (0.67 + progress * 0.14));
+    const attackingDefAxis = clamp(axisUnit * 0.26, axisUnit * 0.43, axisUnit * (0.31 + progress * 0.1));
+    const attackingMidAxis = clamp(axisUnit * 0.5, attackingMidUpper, axisUnit * (0.54 + progress * 0.12));
+    const attackingAttUpper = Math.min(axisUnit * 0.86, oppDefBaseForAttack - axisUnit * 0.02);
+    const attackingAttLower = attackingMidAxis + axisUnit * 0.12;
+    const attackingAttAxis = clampOrdered(attackingAttLower, attackingAttUpper, axisUnit * (0.72 + progress * 0.12));
 
     const attackingMidBaseFromDefView = this.averageRoleBaseAxis(attackingSide, "MID", defendingSide, axisUnit * 0.64);
-    const defendingDefAxis = clamp(axisUnit * 0.1, axisUnit * 0.28, axisUnit * (0.24 - progress * 0.1));
-    const defendingMidAxis = clamp(defendingDefAxis + axisUnit * 0.12, axisUnit * 0.47, axisUnit * (0.42 - progress * 0.08));
-    const defendingAttLower = defendingDefAxis + axisUnit * 0.14;
-    const defendingAttUpper = Math.min(axisUnit * 0.49, attackingMidBaseFromDefView - axisUnit * 0.04);
-    const defendingAttAxis = clampOrdered(defendingAttLower, defendingAttUpper, axisUnit * (0.38 - progress * 0.05));
+    const defendingDefAxis = clamp(axisUnit * 0.09, axisUnit * 0.28, axisUnit * (0.23 - progress * 0.1));
+    const defendingMidAxis = clamp(defendingDefAxis + axisUnit * 0.12, axisUnit * 0.48, axisUnit * (0.43 - progress * 0.07));
+    const defendingAttLower = defendingDefAxis + axisUnit * 0.2;
+    const defendingAttUpper = Math.min(axisUnit * 0.58, attackingMidBaseFromDefView - axisUnit * 0.02);
+    const defendingAttAxis = clampOrdered(defendingAttLower, defendingAttUpper, axisUnit * (0.46 - progress * 0.03));
 
     const allPlayers = [...this.homePlayers, ...this.awayPlayers];
     for (const player of allPlayers) {
@@ -1654,7 +1710,7 @@ class MatchSimulationScene extends Phaser.Scene {
         this.awayGoals += 1;
       }
 
-      this.scoreText.setText(`${this.ui.homeName} ${this.homeGoals} - ${this.awayGoals} ${this.ui.awayName}`);
+      this.scoreText.setText(`${this.ui.homeCode} ${this.homeGoals} - ${this.awayGoals} ${this.ui.awayCode}`);
       this.commentaryText.setText(
         `${chanceTypeDisplayName(chanceType)}: GOAL for ${sideName} (${executionQuality})`
       );
@@ -1707,7 +1763,7 @@ class MatchSimulationScene extends Phaser.Scene {
     const displayClock = toDisplayClockState(Math.min(finalResult.durationSeconds, MATCH_DURATION_SECONDS));
     this.halfText.setText("FULL TIME");
     this.timerText.setText(displayClock.clockText);
-    this.scoreText.setText(`${this.ui.homeName} ${finalResult.homeGoals} - ${finalResult.awayGoals} ${this.ui.awayName}`);
+    this.scoreText.setText(`${this.ui.homeCode} ${finalResult.homeGoals} - ${finalResult.awayGoals} ${this.ui.awayCode}`);
 
     this.commentaryText.setText(`FINAL: ${finalResult.result} (${finalResult.endReason.replaceAll("_", " ")})`);
 
@@ -1980,6 +2036,37 @@ function chanceTypeDifficulty(type: ChanceType): number {
     default:
       return 0;
   }
+}
+
+function toTeamCode(name: string): string {
+  const cleaned = (name || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9\s]/g, " ")
+    .trim();
+
+  if (!cleaned) {
+    return "CLB";
+  }
+
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  const shortWord = words.find((word) => word.length === 3);
+  if (shortWord) {
+    return shortWord;
+  }
+
+  if (words.length >= 3) {
+    return words
+      .slice(0, 3)
+      .map((word) => word[0])
+      .join("");
+  }
+
+  if (words.length === 2) {
+    const [first, second] = words;
+    return `${first[0]}${second.slice(0, 2)}`.padEnd(3, second[0] ?? "X");
+  }
+
+  return words[0].slice(0, 3).padEnd(3, "X");
 }
 
 function hashUnit(input: string): number {
