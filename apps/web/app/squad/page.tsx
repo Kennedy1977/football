@@ -353,17 +353,28 @@ export default function SquadPage() {
           </div>
 
           <div className="lineup-actions">
-            <button type="button" onClick={handleAutoPickBestXi} disabled={updateLineupState.isLoading || players.length < 11}>
+            <button
+              type="button"
+              className="no-hover-lift"
+              onClick={handleAutoPickBestXi}
+              disabled={updateLineupState.isLoading || players.length < 11}
+            >
               Auto Pick Best XI
             </button>
             <button
               type="button"
+              className="no-hover-lift"
               onClick={handleSaveLineup}
               disabled={updateLineupState.isLoading || !lineupReady || !hasLineupChanges}
             >
               {updateLineupState.isLoading ? "Saving..." : "Save Lineup"}
             </button>
-            <button type="button" onClick={handleResetSelection} disabled={updateLineupState.isLoading || !hasLineupChanges}>
+            <button
+              type="button"
+              className="no-hover-lift"
+              onClick={handleResetSelection}
+              disabled={updateLineupState.isLoading || !hasLineupChanges}
+            >
               Reset
             </button>
           </div>
@@ -400,7 +411,7 @@ export default function SquadPage() {
                   <button
                     key={slot.key}
                     type="button"
-                    className={`lineup-slot ${player ? "is-filled" : "is-empty"} ${isDropTarget ? "is-target" : ""}`}
+                    className={`lineup-slot no-hover-lift ${player ? "is-filled" : "is-empty"} ${isDropTarget ? "is-target" : ""}`}
                     style={slotStyle}
                     onDragOver={(event) => {
                       if (!activeReserveId) return;
@@ -513,7 +524,7 @@ export default function SquadPage() {
                     <div className="lineup-carousel-actions">
                       <button
                         type="button"
-                        className={`lineup-role-button ${isBench ? "active-bench" : ""}`}
+                        className={`lineup-role-button no-hover-lift ${isBench ? "active-bench" : ""}`}
                         onClick={(event) => {
                           event.stopPropagation();
                           handleToggleBench(player);
@@ -524,6 +535,7 @@ export default function SquadPage() {
                       </button>
                       <button
                         type="button"
+                        className="no-hover-lift"
                         onClick={async (event) => {
                           event.stopPropagation();
                           setSellingId(player.id);

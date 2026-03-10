@@ -74,6 +74,11 @@ interface PitchPlayer {
   baseY: number;
 }
 
+interface TacticalAnchor {
+  x: number;
+  y: number;
+}
+
 interface MinigameActorSet {
   layer: Phaser.GameObjects.Container;
   shooter: Phaser.GameObjects.Container;
@@ -578,12 +583,16 @@ class MatchSimulationScene extends Phaser.Scene {
         ? this.lastPossessor
         : attackingOutfield[Math.floor(hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:carrier`) * attackingOutfield.length)];
 
+    const tacticalAnchors = this.buildAmbientShapeTargets(attackingSide, defendingSide);
+    await this.alignPlayersToAmbientShape(tacticalAnchors, 240);
+    const carrierAnchor = this.getAnchorPosition(tacticalAnchors, carrier);
+
     const receiverOptions = attackingOutfield
       .filter((player) => player !== carrier)
       .sort(
         (a, b) =>
-          Phaser.Math.Distance.Between(a.baseX, a.baseY, carrier.baseX, carrier.baseY) -
-          Phaser.Math.Distance.Between(b.baseX, b.baseY, carrier.baseX, carrier.baseY)
+          Phaser.Math.Distance.Between(a.container.x, a.container.y, carrierAnchor.x, carrierAnchor.y) -
+          Phaser.Math.Distance.Between(b.container.x, b.container.y, carrierAnchor.x, carrierAnchor.y)
       );
 
     if (!receiverOptions.length) {
@@ -592,10 +601,12 @@ class MatchSimulationScene extends Phaser.Scene {
 
     const centerX = this.pitchLeft + this.pitchWidth / 2;
     const forwardDir = attackingSide === "HOME" ? -1 : 1;
+    const defendingRetreatDir = -this.getForwardDirection(defendingSide);
     const candidateReceiverIndex = Math.floor(
       hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:receiver`) * Math.min(receiverOptions.length, 4)
     );
     const receiver = receiverOptions[candidateReceiverIndex] ?? receiverOptions[0];
+    const receiverAnchor = this.getAnchorPosition(tacticalAnchors, receiver);
     const support = this.pickSupportPair(attackingSide, receiver, this.elapsed).filter((player) => player !== carrier);
     const pressureDefenders = this.pickNearestDefenders(defendingSide, carrier, 3);
 
@@ -650,16 +661,28 @@ class MatchSimulationScene extends Phaser.Scene {
       const carrierAdvance = 4 + this.possessionProgress * 14 + this.roleAdvanceBoost(carrier.role) * 0.5;
 
       const receiverTargetX = this.clampPitchX(
-        receiver.baseX +
+        receiverAnchor.x +
           this.pickSignedOffset(this.elapsed + 23, 20) +
           (this.possessionLane === 0 ? this.pickSignedOffset(this.elapsed + 31, 10) : this.possessionLane * 8)
       );
-      const receiverTargetY = this.clampPitchY(
-        receiver.baseY + forwardDir * receiverAdvance + (hashUnit(`${this.matchSeed}:${this.elapsed}:receiver:y`) * 2 - 1) * 6
+      const receiverDesiredY = this.clampPitchY(
+        receiverAnchor.y + forwardDir * receiverAdvance + (hashUnit(`${this.matchSeed}:${this.elapsed}:receiver:y`) * 2 - 1) * 6
       );
-      const carrierTargetX = this.clampPitchX(carrier.baseX + this.pickSignedOffset(this.elapsed + 29, 13));
-      const carrierTargetY = this.clampPitchY(
-        carrier.baseY + forwardDir * carrierAdvance + (hashUnit(`${this.matchSeed}:${this.elapsed}:carrier:y`) * 2 - 1) * 5
+      const receiverTargetY = this.limitRoleStepFromAnchor(
+        receiver,
+        receiverDesiredY,
+        receiverAnchor.y,
+        receiver.role === "ATT" ? 16 : receiver.role === "MID" ? 12 : 10
+      );
+      const carrierTargetX = this.clampPitchX(carrierAnchor.x + this.pickSignedOffset(this.elapsed + 29, 13));
+      const carrierDesiredY = this.clampPitchY(
+        carrierAnchor.y + forwardDir * carrierAdvance + (hashUnit(`${this.matchSeed}:${this.elapsed}:carrier:y`) * 2 - 1) * 5
+      );
+      const carrierTargetY = this.limitRoleStepFromAnchor(
+        carrier,
+        carrierDesiredY,
+        carrierAnchor.y,
+        carrier.role === "ATT" ? 14 : carrier.role === "MID" ? 11 : 9
       );
 
       await Promise.all([
@@ -668,11 +691,18 @@ class MatchSimulationScene extends Phaser.Scene {
         ...support.map((player, idx) =>
           this.tweenPlayerTo(
             player,
-            this.clampPitchX(player.baseX + this.pickSignedOffset(this.elapsed + idx + 41, 18)),
-            this.clampPitchY(
-              player.baseY +
-                forwardDir * (6 + this.possessionProgress * 20 + this.roleAdvanceBoost(player.role) * 0.8 + supportRun * 8) +
-                (hashUnit(`${this.matchSeed}:${this.elapsed}:support:${idx}:y`) * 2 - 1) * 6
+            this.clampPitchX(
+              this.getAnchorPosition(tacticalAnchors, player).x + this.pickSignedOffset(this.elapsed + idx + 41, 18)
+            ),
+            this.limitRoleStepFromAnchor(
+              player,
+              this.clampPitchY(
+                this.getAnchorPosition(tacticalAnchors, player).y +
+                  forwardDir * (6 + this.possessionProgress * 20 + this.roleAdvanceBoost(player.role) * 0.8 + supportRun * 8) +
+                  (hashUnit(`${this.matchSeed}:${this.elapsed}:support:${idx}:y`) * 2 - 1) * 6
+              ),
+              this.getAnchorPosition(tacticalAnchors, player).y,
+              player.role === "ATT" ? 14 : player.role === "MID" ? 10 : 8
             ),
             320
           )
@@ -680,11 +710,19 @@ class MatchSimulationScene extends Phaser.Scene {
         ...pressureDefenders.map((player, idx) =>
           this.tweenPlayerTo(
             player,
-            this.clampPitchX(player.baseX + Phaser.Math.Clamp(receiverTargetX - player.baseX, -24, 24)),
-            this.clampPitchY(
-              player.baseY +
-                Phaser.Math.Clamp(receiverTargetY - player.baseY, -20, 20) -
-                forwardDir * (8 + this.possessionProgress * 14 + idx * 5)
+            this.clampPitchX(
+              this.getAnchorPosition(tacticalAnchors, player).x +
+                Phaser.Math.Clamp(receiverTargetX - this.getAnchorPosition(tacticalAnchors, player).x, -22, 22)
+            ),
+            this.limitRoleStepFromAnchor(
+              player,
+              this.clampPitchY(
+                this.getAnchorPosition(tacticalAnchors, player).y +
+                  Phaser.Math.Clamp(receiverTargetY - this.getAnchorPosition(tacticalAnchors, player).y, -14, 14) +
+                  defendingRetreatDir * (4 + this.possessionProgress * 8 + idx * 3)
+              ),
+              this.getAnchorPosition(tacticalAnchors, player).y,
+              player.role === "DEF" ? 10 : 8
             ),
             320
           )
@@ -701,10 +739,16 @@ class MatchSimulationScene extends Phaser.Scene {
     } else if (action === "DRIBBLE") {
       const dribbleDistance = 12 + this.possessionProgress * 20 + this.roleAdvanceBoost(carrier.role) * 0.85 + space * 14;
       const dribbleTargetX = this.clampPitchX(
-        carrier.container.x + this.pickSignedOffset(this.elapsed + 67, 16) + this.possessionLane * 6
+        carrierAnchor.x + this.pickSignedOffset(this.elapsed + 67, 16) + this.possessionLane * 6
       );
-      const dribbleTargetY = this.clampPitchY(
-        carrier.container.y + forwardDir * dribbleDistance + (hashUnit(`${this.matchSeed}:${this.elapsed}:dribble:y`) * 2 - 1) * 5
+      const dribbleDesiredY = this.clampPitchY(
+        carrierAnchor.y + forwardDir * dribbleDistance + (hashUnit(`${this.matchSeed}:${this.elapsed}:dribble:y`) * 2 - 1) * 5
+      );
+      const dribbleTargetY = this.limitRoleStepFromAnchor(
+        carrier,
+        dribbleDesiredY,
+        carrierAnchor.y,
+        carrier.role === "ATT" ? 16 : carrier.role === "MID" ? 12 : 10
       );
 
       await Promise.all([
@@ -714,15 +758,20 @@ class MatchSimulationScene extends Phaser.Scene {
           this.tweenPlayerTo(
             player,
             this.clampPitchX(
-              player.baseX +
+              this.getAnchorPosition(tacticalAnchors, player).x +
                 (idx === 0 ? 14 : -14) +
                 this.pickSignedOffset(this.elapsed + idx + 71, 10) +
                 this.possessionLane * 5
             ),
-            this.clampPitchY(
-              player.baseY +
-                forwardDir * (10 + this.possessionProgress * 16 + this.roleAdvanceBoost(player.role) * 0.65) +
-                (hashUnit(`${this.matchSeed}:${this.elapsed}:dribble:support:${idx}`) * 2 - 1) * 5
+            this.limitRoleStepFromAnchor(
+              player,
+              this.clampPitchY(
+                this.getAnchorPosition(tacticalAnchors, player).y +
+                  forwardDir * (10 + this.possessionProgress * 16 + this.roleAdvanceBoost(player.role) * 0.65) +
+                  (hashUnit(`${this.matchSeed}:${this.elapsed}:dribble:support:${idx}`) * 2 - 1) * 5
+              ),
+              this.getAnchorPosition(tacticalAnchors, player).y,
+              player.role === "ATT" ? 14 : player.role === "MID" ? 10 : 8
             ),
             320
           )
@@ -730,11 +779,19 @@ class MatchSimulationScene extends Phaser.Scene {
         ...pressureDefenders.map((player, idx) =>
           this.tweenPlayerTo(
             player,
-            this.clampPitchX(player.baseX + Phaser.Math.Clamp(dribbleTargetX - player.baseX, -28, 28)),
-            this.clampPitchY(
-              player.baseY +
-                Phaser.Math.Clamp(dribbleTargetY - player.baseY, -22, 22) -
-                forwardDir * (8 + idx * 4 + pressure * 10)
+            this.clampPitchX(
+              this.getAnchorPosition(tacticalAnchors, player).x +
+                Phaser.Math.Clamp(dribbleTargetX - this.getAnchorPosition(tacticalAnchors, player).x, -24, 24)
+            ),
+            this.limitRoleStepFromAnchor(
+              player,
+              this.clampPitchY(
+                this.getAnchorPosition(tacticalAnchors, player).y +
+                  Phaser.Math.Clamp(dribbleTargetY - this.getAnchorPosition(tacticalAnchors, player).y, -14, 14) +
+                  defendingRetreatDir * (4 + idx * 3 + pressure * 6)
+              ),
+              this.getAnchorPosition(tacticalAnchors, player).y,
+              player.role === "DEF" ? 10 : 8
             ),
             320
           )
@@ -752,23 +809,53 @@ class MatchSimulationScene extends Phaser.Scene {
         receiverOptions.find((player) => player.role === "ATT") ??
         receiverOptions.find((player) => player.role === "MID") ??
         receiver;
-      const laneHint = runner.baseX > centerX + this.pitchWidth * 0.09 ? 1 : runner.baseX < centerX - this.pitchWidth * 0.09 ? -1 : 0;
+      const runnerAnchor = this.getAnchorPosition(tacticalAnchors, runner);
+      const laneHint =
+        runnerAnchor.x > centerX + this.pitchWidth * 0.09 ? 1 : runnerAnchor.x < centerX - this.pitchWidth * 0.09 ? -1 : 0;
       const runTargetX = this.clampPitchX(
-        runner.baseX + this.pickSignedOffset(this.elapsed + 83, 15) + laneHint * 9
+        runnerAnchor.x + this.pickSignedOffset(this.elapsed + 83, 15) + laneHint * 9
       );
-      const runTargetY = this.clampPitchY(
-        runner.baseY +
+      const runDesiredY = this.clampPitchY(
+        runnerAnchor.y +
           forwardDir * (18 + this.possessionProgress * 22 + this.roleAdvanceBoost(runner.role) * 0.95 + supportRun * 10)
+      );
+      const runTargetY = this.limitRoleStepFromAnchor(
+        runner,
+        runDesiredY,
+        runnerAnchor.y,
+        runner.role === "ATT" ? 18 : 14
       );
 
       await Promise.all([
-        this.tweenPlayerTo(carrier, this.clampPitchX(carrier.container.x + this.pickSignedOffset(this.elapsed + 89, 10)), this.clampPitchY(carrier.container.y + forwardDir * 6), 220),
+        this.tweenPlayerTo(
+          carrier,
+          this.clampPitchX(carrierAnchor.x + this.pickSignedOffset(this.elapsed + 89, 10)),
+          this.limitRoleStepFromAnchor(
+            carrier,
+            this.clampPitchY(carrierAnchor.y + forwardDir * 6),
+            carrierAnchor.y,
+            carrier.role === "ATT" ? 10 : 8
+          ),
+          220
+        ),
         this.tweenPlayerTo(runner, runTargetX, runTargetY, 320),
         ...pressureDefenders.map((player, idx) =>
           this.tweenPlayerTo(
             player,
-            this.clampPitchX(player.baseX + Phaser.Math.Clamp(runTargetX - player.baseX, -28, 28)),
-            this.clampPitchY(player.baseY + Phaser.Math.Clamp(runTargetY - player.baseY, -20, 20) - forwardDir * (6 + idx * 5)),
+            this.clampPitchX(
+              this.getAnchorPosition(tacticalAnchors, player).x +
+                Phaser.Math.Clamp(runTargetX - this.getAnchorPosition(tacticalAnchors, player).x, -26, 26)
+            ),
+            this.limitRoleStepFromAnchor(
+              player,
+              this.clampPitchY(
+                this.getAnchorPosition(tacticalAnchors, player).y +
+                  Phaser.Math.Clamp(runTargetY - this.getAnchorPosition(tacticalAnchors, player).y, -13, 13) +
+                  defendingRetreatDir * (4 + idx * 4)
+              ),
+              this.getAnchorPosition(tacticalAnchors, player).y,
+              player.role === "DEF" ? 10 : 8
+            ),
             300
           )
         ),
@@ -783,10 +870,18 @@ class MatchSimulationScene extends Phaser.Scene {
       commentary = `${attackingSide === "HOME" ? this.ui.homeName : this.ui.awayName} slip a through ball`;
     } else {
       const recycleTargetX = this.clampPitchX(
-        carrier.container.x + this.pickSignedOffset(this.elapsed + 97, 20) + (this.possessionLane === 0 ? this.pickSignedOffset(this.elapsed + 99, 8) : -this.possessionLane * 8)
+        carrierAnchor.x +
+          this.pickSignedOffset(this.elapsed + 97, 20) +
+          (this.possessionLane === 0 ? this.pickSignedOffset(this.elapsed + 99, 8) : -this.possessionLane * 8)
       );
-      const recycleTargetY = this.clampPitchY(
-        carrier.container.y - forwardDir * (6 + pressure * 14) + (hashUnit(`${this.matchSeed}:${this.elapsed}:recycle:y`) * 2 - 1) * 4
+      const recycleDesiredY = this.clampPitchY(
+        carrierAnchor.y - forwardDir * (6 + pressure * 14) + (hashUnit(`${this.matchSeed}:${this.elapsed}:recycle:y`) * 2 - 1) * 4
+      );
+      const recycleTargetY = this.limitRoleStepFromAnchor(
+        carrier,
+        recycleDesiredY,
+        carrierAnchor.y,
+        carrier.role === "ATT" ? 10 : 8
       );
 
       await Promise.all([
@@ -795,8 +890,13 @@ class MatchSimulationScene extends Phaser.Scene {
         ...support.map((player, idx) =>
           this.tweenPlayerTo(
             player,
-            this.clampPitchX(player.baseX + this.pickSignedOffset(this.elapsed + idx + 101, 12)),
-            this.clampPitchY(player.baseY + forwardDir * (4 + idx * 4)),
+            this.clampPitchX(this.getAnchorPosition(tacticalAnchors, player).x + this.pickSignedOffset(this.elapsed + idx + 101, 12)),
+            this.limitRoleStepFromAnchor(
+              player,
+              this.clampPitchY(this.getAnchorPosition(tacticalAnchors, player).y + forwardDir * (4 + idx * 4)),
+              this.getAnchorPosition(tacticalAnchors, player).y,
+              player.role === "ATT" ? 10 : 8
+            ),
             300
           )
         ),
@@ -1283,6 +1383,154 @@ class MatchSimulationScene extends Phaser.Scene {
     return 0;
   }
 
+  private getForwardDirection(side: Side): number {
+    return side === "HOME" ? -1 : 1;
+  }
+
+  private toForwardAxis(side: Side, y: number): number {
+    const bottom = this.pitchTop + this.pitchHeight;
+    return side === "HOME" ? bottom - y : y - this.pitchTop;
+  }
+
+  private fromForwardAxis(side: Side, axis: number): number {
+    const bottom = this.pitchTop + this.pitchHeight;
+    return side === "HOME" ? bottom - axis : this.pitchTop + axis;
+  }
+
+  private averageRoleAxis(side: Side, role: Role, perspective: Side, fallback: number): number {
+    const players = this.getSidePlayers(side).filter((player) => player.role === role);
+    if (!players.length) {
+      return fallback;
+    }
+
+    const avgY = players.reduce((sum, player) => sum + player.container.y, 0) / players.length;
+    return this.toForwardAxis(perspective, avgY);
+  }
+
+  private roleDepthOffset(player: PitchPlayer, amplitude: number): number {
+    const peers = this.getSidePlayers(player.side)
+      .filter((candidate) => candidate.role === player.role)
+      .sort((a, b) => a.baseX - b.baseX);
+    if (peers.length <= 1) {
+      return 0;
+    }
+
+    const center = (peers.length - 1) / 2;
+    const idx = peers.indexOf(player);
+    if (idx < 0) {
+      return 0;
+    }
+
+    return (idx - center) * amplitude;
+  }
+
+  private buildAmbientShapeTargets(attackingSide: Side, defendingSide: Side): Map<PitchPlayer, TacticalAnchor> {
+    const targets = new Map<PitchPlayer, TacticalAnchor>();
+    const halfAxis = this.pitchHeight * 0.5;
+    const progress = this.possessionProgress;
+    const laneShift = this.possessionLane * this.pitchWidth;
+
+    const oppDefLineForAttack = this.averageRoleAxis(defendingSide, "DEF", attackingSide, halfAxis + 24);
+    const oppMidLineForAttack = this.averageRoleAxis(defendingSide, "MID", attackingSide, halfAxis + 12);
+    const attackingMidAxis = clampOrdered(halfAxis + 4, oppMidLineForAttack - 8, halfAxis + 10 + progress * 24);
+    const attackingDefAxis = clampOrdered(halfAxis - 30, attackingMidAxis - 12, halfAxis - 14 + progress * 10);
+    const attackingAttMax = Math.max(attackingMidAxis + 5, oppDefLineForAttack - 7);
+    const attackingAttAxis = clamp(attackingMidAxis + 5, attackingAttMax, attackingMidAxis + 16 + progress * 28);
+
+    const defendingDefBase = this.averageRoleAxis(defendingSide, "DEF", defendingSide, halfAxis * 0.22);
+    const defendingDefAxis = clamp(8, halfAxis - 18, defendingDefBase - (8 + progress * 18));
+    const defendingMidAxis = clamp(defendingDefAxis + 11, halfAxis - 4, halfAxis - 4 - progress * 8);
+    const attackingMidFromDefView = this.averageRoleAxis(attackingSide, "MID", defendingSide, halfAxis + 12);
+    const defendingAttUpper = Math.max(defendingDefAxis + 10, Math.min(halfAxis - 2, attackingMidFromDefView - 6));
+    const defendingAttAxis = clamp(
+      defendingDefAxis + 8,
+      defendingAttUpper,
+      defendingDefAxis + (attackingMidFromDefView - defendingDefAxis) * 0.56
+    );
+
+    const allPlayers = [...this.homePlayers, ...this.awayPlayers];
+    for (const player of allPlayers) {
+      const isAttacking = player.side === attackingSide;
+      const roleForwardOffset = this.roleDepthOffset(
+        player,
+        player.role === "DEF" ? 2.8 : player.role === "MID" ? 2.4 : player.role === "ATT" ? 2 : 1.2
+      );
+      const baseAxis = this.toForwardAxis(player.side, player.baseY);
+      const laneWeight = isAttacking
+        ? player.role === "ATT"
+          ? 0.09
+          : player.role === "MID"
+            ? 0.065
+            : 0.032
+        : player.role === "DEF"
+          ? 0.08
+          : player.role === "MID"
+            ? 0.06
+            : 0.045;
+      const jitterX = this.pickSignedOffset(this.elapsed + Math.round(player.baseX) + player.baseY, 4);
+
+      let axis = baseAxis;
+      if (player.role === "GK") {
+        axis = isAttacking ? baseAxis + progress * 2.5 : baseAxis - progress * 1.5;
+        axis = clamp(4, halfAxis - 34, axis);
+      } else if (isAttacking) {
+        if (player.role === "DEF") {
+          axis = clampOrdered(attackingDefAxis - 6, attackingMidAxis - 8, attackingDefAxis + roleForwardOffset);
+        } else if (player.role === "MID") {
+          axis = clampOrdered(halfAxis + 2, oppMidLineForAttack - 6, attackingMidAxis + roleForwardOffset);
+        } else {
+          axis = clampOrdered(attackingMidAxis + 4, oppDefLineForAttack - 7, attackingAttAxis + roleForwardOffset);
+        }
+      } else {
+        if (player.role === "DEF") {
+          axis = clampOrdered(8, halfAxis - 14, defendingDefAxis + roleForwardOffset);
+        } else if (player.role === "MID") {
+          axis = clampOrdered(defendingDefAxis + 10, halfAxis - 4, defendingMidAxis + roleForwardOffset);
+        } else {
+          axis = clampOrdered(defendingDefAxis + 8, defendingAttUpper, defendingAttAxis + roleForwardOffset);
+        }
+      }
+
+      const targetX = this.clampPitchX(player.baseX + laneShift * laneWeight + jitterX);
+      const targetY = this.clampPitchY(this.fromForwardAxis(player.side, axis));
+      targets.set(player, { x: targetX, y: targetY });
+    }
+
+    return targets;
+  }
+
+  private async alignPlayersToAmbientShape(targets: Map<PitchPlayer, TacticalAnchor>, duration: number): Promise<void> {
+    const movers = [...this.homePlayers, ...this.awayPlayers];
+    await Promise.all(
+      movers.map((player) => {
+        const target = targets.get(player);
+        if (!target) {
+          return Promise.resolve();
+        }
+        return this.tweenPlayerTo(player, target.x, target.y, duration);
+      })
+    );
+  }
+
+  private getAnchorPosition(targets: Map<PitchPlayer, TacticalAnchor>, player: PitchPlayer): TacticalAnchor {
+    return targets.get(player) ?? { x: player.container.x, y: player.container.y };
+  }
+
+  private limitRoleStepFromAnchor(player: PitchPlayer, targetY: number, anchorY: number, maxStep: number): number {
+    const direction = this.getForwardDirection(player.side);
+    const limited = anchorY + Phaser.Math.Clamp(targetY - anchorY, -maxStep, maxStep);
+    const forwardOnly = player.role === "ATT" || player.role === "MID";
+    if (!forwardOnly) {
+      return this.clampPitchY(limited);
+    }
+
+    const delta = limited - anchorY;
+    if (delta * direction < 0) {
+      return this.clampPitchY(anchorY);
+    }
+    return this.clampPitchY(limited);
+  }
+
   private roleAdvanceBoost(role: Role): number {
     if (role === "ATT") return 20;
     if (role === "MID") return 12;
@@ -1695,6 +1943,10 @@ function clamp01(value: number): number {
 
 function clamp(min: number, max: number, value: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function clampOrdered(a: number, b: number, value: number): number {
+  return clamp(Math.min(a, b), Math.max(a, b), value);
 }
 
 function clampSigned(value: number, maxAbs: number): number {
