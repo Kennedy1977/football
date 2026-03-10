@@ -390,17 +390,8 @@ class MatchSimulationScene extends Phaser.Scene {
     const centerX = this.cameras.main.width / 2;
     const startClock = toDisplayClockState(0);
 
-    this.add
-      .text(centerX, 34, "MATCH LIVE", {
-        fontFamily: "Barlow Condensed, Arial",
-        fontSize: "42px",
-        color: "#f8fafc",
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5, 0.5);
-
     this.halfText = this.add
-      .text(centerX, 66, startClock.halfLabel, {
+      .text(centerX, 48, startClock.halfLabel, {
         fontFamily: "Barlow Condensed, Arial",
         fontSize: "21px",
         color: "#c7ddf8",
@@ -409,7 +400,7 @@ class MatchSimulationScene extends Phaser.Scene {
       .setOrigin(0.5, 0.5);
 
     this.timerText = this.add
-      .text(centerX, 88, startClock.clockText, {
+      .text(centerX, 72, startClock.clockText, {
         fontFamily: "Courier New",
         fontSize: "24px",
         color: "#99f6e4",
@@ -418,7 +409,7 @@ class MatchSimulationScene extends Phaser.Scene {
       .setOrigin(0.5, 0.5);
 
     this.scoreText = this.add
-      .text(centerX, 114, `${this.ui.homeCode} 0 - 0 ${this.ui.awayCode}`, {
+      .text(centerX, 98, `${this.ui.homeCode} 0 - 0 ${this.ui.awayCode}`, {
         fontFamily: "Barlow Condensed, Arial",
         fontSize: "26px",
         color: "#f8fafc",
