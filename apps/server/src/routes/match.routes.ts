@@ -24,6 +24,7 @@ import type { LeagueCode, MatchEndReason, MatchResult, PlayerCard } from "../../
 import { pool } from "../config/db";
 import { requireAccountId } from "../lib/auth";
 import { HttpError } from "../lib/errors";
+import { recoverClubStamina } from "../lib/stamina-recovery";
 import { asyncHandler } from "../middleware/async-handler";
 
 export const matchRouter = Router();
@@ -82,6 +83,7 @@ matchRouter.post(
   asyncHandler(async (req, res) => {
     const accountId = await requireAccountId(req);
     const context = await getMatchContext(accountId);
+    await recoverClubStamina(context.club_id);
 
     const [lineupRows] = await pool.query<StartingPlayerRow[]>(
       `

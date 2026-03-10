@@ -5,6 +5,7 @@ import type { FormationCode, PlayerCard } from "../../../../packages/game-core/s
 import { pool } from "../config/db";
 import { requireAccountId } from "../lib/auth";
 import { HttpError } from "../lib/errors";
+import { recoverClubStamina } from "../lib/stamina-recovery";
 import { asyncHandler } from "../middleware/async-handler";
 
 export const squadRouter = Router();
@@ -51,6 +52,7 @@ squadRouter.get(
   asyncHandler(async (req, res) => {
     const accountId = await requireAccountId(req);
     const context = await getClubContext(accountId);
+    await recoverClubStamina(context.club_id);
 
     const [players] = await pool.query<PlayerRow[]>(
       `
@@ -125,6 +127,7 @@ squadRouter.put(
   asyncHandler(async (req, res) => {
     const accountId = await requireAccountId(req);
     const context = await getClubContext(accountId);
+    await recoverClubStamina(context.club_id);
 
     const formation = readFormation(req.body?.formation);
     const startingPlayerIds = readIdArray(req.body?.startingPlayerIds, "startingPlayerIds");
