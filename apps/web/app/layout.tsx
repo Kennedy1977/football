@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
-import { AppNav } from "../src/components/app-nav";
-import { AuthControls } from "../src/components/auth-controls";
 import { AuthSessionSync } from "../src/components/auth-session-sync";
+import { AppFrame } from "../src/components/app-frame";
 import { BuildFooter } from "../src/components/build-footer";
 import { ContextMenuGuard } from "../src/components/context-menu-guard";
 import { StoreProvider } from "../src/state/store-provider";
@@ -19,17 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <StoreProvider>
       {clerkConfigured ? <AuthSessionSync /> : null}
       <ContextMenuGuard />
-      <div className="app-shell">
-        <header className="app-header">
-          <h1 className="app-title">Football Manager Arcade</h1>
-          <p className="app-subtitle">Build your club, play 3-minute matches, climb to Legends.</p>
-          <div className="header-actions">
-            <AppNav />
-            {clerkConfigured ? <AuthControls /> : null}
-          </div>
-        </header>
-        {children}
-      </div>
+      <AppFrame clerkConfigured={clerkConfigured}>{children}</AppFrame>
       <BuildFooter />
     </StoreProvider>
   );
