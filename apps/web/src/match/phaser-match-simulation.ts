@@ -1407,6 +1407,16 @@ class MatchSimulationScene extends Phaser.Scene {
     return this.toForwardAxis(perspective, avgY);
   }
 
+  private averageRoleBaseAxis(side: Side, role: Role, perspective: Side, fallback: number): number {
+    const players = this.getSidePlayers(side).filter((player) => player.role === role);
+    if (!players.length) {
+      return fallback;
+    }
+
+    const avgY = players.reduce((sum, player) => sum + player.baseY, 0) / players.length;
+    return this.toForwardAxis(perspective, avgY);
+  }
+
   private roleDepthOffset(player: PitchPlayer, amplitude: number): number {
     const peers = this.getSidePlayers(player.side)
       .filter((candidate) => candidate.role === player.role)
@@ -1429,31 +1439,31 @@ class MatchSimulationScene extends Phaser.Scene {
     const halfAxis = this.pitchHeight * 0.5;
     const progress = this.possessionProgress;
     const laneShift = this.possessionLane * this.pitchWidth;
+    const axisUnit = this.pitchHeight;
 
-    const oppDefLineForAttack = this.averageRoleAxis(defendingSide, "DEF", attackingSide, halfAxis + 24);
-    const oppMidLineForAttack = this.averageRoleAxis(defendingSide, "MID", attackingSide, halfAxis + 12);
-    const attackingMidAxis = clampOrdered(halfAxis + 4, oppMidLineForAttack - 8, halfAxis + 10 + progress * 24);
-    const attackingDefAxis = clampOrdered(halfAxis - 30, attackingMidAxis - 12, halfAxis - 14 + progress * 10);
-    const attackingAttMax = Math.max(attackingMidAxis + 5, oppDefLineForAttack - 7);
-    const attackingAttAxis = clamp(attackingMidAxis + 5, attackingAttMax, attackingMidAxis + 16 + progress * 28);
+    const oppDefBaseForAttack = this.averageRoleBaseAxis(defendingSide, "DEF", attackingSide, axisUnit * 0.78);
+    const oppMidBaseForAttack = this.averageRoleBaseAxis(defendingSide, "MID", attackingSide, axisUnit * 0.64);
+    const attackingMidUpper = Math.min(axisUnit * 0.66, oppMidBaseForAttack - axisUnit * 0.02);
 
-    const defendingDefBase = this.averageRoleAxis(defendingSide, "DEF", defendingSide, halfAxis * 0.22);
-    const defendingDefAxis = clamp(8, halfAxis - 18, defendingDefBase - (8 + progress * 18));
-    const defendingMidAxis = clamp(defendingDefAxis + 11, halfAxis - 4, halfAxis - 4 - progress * 8);
-    const attackingMidFromDefView = this.averageRoleAxis(attackingSide, "MID", defendingSide, halfAxis + 12);
-    const defendingAttUpper = Math.max(defendingDefAxis + 10, Math.min(halfAxis - 2, attackingMidFromDefView - 6));
-    const defendingAttAxis = clamp(
-      defendingDefAxis + 8,
-      defendingAttUpper,
-      defendingDefAxis + (attackingMidFromDefView - defendingDefAxis) * 0.56
-    );
+    const attackingDefAxis = clamp(axisUnit * 0.26, axisUnit * 0.42, axisUnit * (0.3 + progress * 0.1));
+    const attackingMidAxis = clamp(axisUnit * 0.5, attackingMidUpper, axisUnit * (0.52 + progress * 0.12));
+    const attackingAttUpper = Math.min(axisUnit * 0.84, oppDefBaseForAttack - axisUnit * 0.03);
+    const attackingAttLower = attackingMidAxis + axisUnit * 0.1;
+    const attackingAttAxis = clampOrdered(attackingAttLower, attackingAttUpper, axisUnit * (0.67 + progress * 0.14));
+
+    const attackingMidBaseFromDefView = this.averageRoleBaseAxis(attackingSide, "MID", defendingSide, axisUnit * 0.64);
+    const defendingDefAxis = clamp(axisUnit * 0.1, axisUnit * 0.28, axisUnit * (0.24 - progress * 0.1));
+    const defendingMidAxis = clamp(defendingDefAxis + axisUnit * 0.12, axisUnit * 0.47, axisUnit * (0.42 - progress * 0.08));
+    const defendingAttLower = defendingDefAxis + axisUnit * 0.14;
+    const defendingAttUpper = Math.min(axisUnit * 0.49, attackingMidBaseFromDefView - axisUnit * 0.04);
+    const defendingAttAxis = clampOrdered(defendingAttLower, defendingAttUpper, axisUnit * (0.38 - progress * 0.05));
 
     const allPlayers = [...this.homePlayers, ...this.awayPlayers];
     for (const player of allPlayers) {
       const isAttacking = player.side === attackingSide;
       const roleForwardOffset = this.roleDepthOffset(
         player,
-        player.role === "DEF" ? 2.8 : player.role === "MID" ? 2.4 : player.role === "ATT" ? 2 : 1.2
+        player.role === "DEF" ? axisUnit * 0.006 : player.role === "MID" ? axisUnit * 0.005 : player.role === "ATT" ? axisUnit * 0.004 : axisUnit * 0.003
       );
       const baseAxis = this.toForwardAxis(player.side, player.baseY);
       const laneWeight = isAttacking
@@ -1472,22 +1482,22 @@ class MatchSimulationScene extends Phaser.Scene {
       let axis = baseAxis;
       if (player.role === "GK") {
         axis = isAttacking ? baseAxis + progress * 2.5 : baseAxis - progress * 1.5;
-        axis = clamp(4, halfAxis - 34, axis);
+        axis = clamp(axisUnit * 0.06, halfAxis - axisUnit * 0.14, axis);
       } else if (isAttacking) {
         if (player.role === "DEF") {
-          axis = clampOrdered(attackingDefAxis - 6, attackingMidAxis - 8, attackingDefAxis + roleForwardOffset);
+          axis = clampOrdered(attackingDefAxis - axisUnit * 0.03, attackingMidAxis - axisUnit * 0.06, attackingDefAxis + roleForwardOffset);
         } else if (player.role === "MID") {
-          axis = clampOrdered(halfAxis + 2, oppMidLineForAttack - 6, attackingMidAxis + roleForwardOffset);
+          axis = clampOrdered(halfAxis + axisUnit * 0.005, attackingMidUpper, attackingMidAxis + roleForwardOffset);
         } else {
-          axis = clampOrdered(attackingMidAxis + 4, oppDefLineForAttack - 7, attackingAttAxis + roleForwardOffset);
+          axis = clampOrdered(attackingMidAxis + axisUnit * 0.04, attackingAttUpper, attackingAttAxis + roleForwardOffset);
         }
       } else {
         if (player.role === "DEF") {
-          axis = clampOrdered(8, halfAxis - 14, defendingDefAxis + roleForwardOffset);
+          axis = clampOrdered(axisUnit * 0.07, halfAxis - axisUnit * 0.12, defendingDefAxis + roleForwardOffset);
         } else if (player.role === "MID") {
-          axis = clampOrdered(defendingDefAxis + 10, halfAxis - 4, defendingMidAxis + roleForwardOffset);
+          axis = clampOrdered(defendingDefAxis + axisUnit * 0.08, halfAxis - axisUnit * 0.03, defendingMidAxis + roleForwardOffset);
         } else {
-          axis = clampOrdered(defendingDefAxis + 8, defendingAttUpper, defendingAttAxis + roleForwardOffset);
+          axis = clampOrdered(defendingDefAxis + axisUnit * 0.11, defendingAttUpper, defendingAttAxis + roleForwardOffset);
         }
       }
 
