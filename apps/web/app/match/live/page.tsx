@@ -7,7 +7,7 @@ import { useDispatch, useSelector } from "react-redux";
 import type { MatchRuntimeResult, SubmitMatchRequest } from "../../../../../packages/game-core/src";
 import { ProgressRow } from "../../../src/components/progress-row";
 import { readApiErrorMessage } from "../../../src/lib/api-error";
-import { useSubmitMatchMutation } from "../../../src/state/apis/gameApi";
+import { useGetDashboardSummaryQuery, useSubmitMatchMutation } from "../../../src/state/apis/gameApi";
 import type { RootState } from "../../../src/state/store";
 import { setMatchEvents, setMatchRuntimeResult, setMatchSubmission } from "../../../src/state/slices/matchSlice";
 
@@ -20,7 +20,9 @@ export default function MatchLivePage() {
   const router = useRouter();
   const dispatch = useDispatch();
   const prep = useSelector((state: RootState) => state.match.matchPrep);
-  const yourClubName = useSelector((state: RootState) => state.club.club?.name ?? null);
+  const clubNameFromState = useSelector((state: RootState) => state.club.club?.name ?? null);
+  const { data: dashboardData } = useGetDashboardSummaryQuery();
+  const yourClubName = clubNameFromState || dashboardData?.club?.name || "Home Club";
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mountedSimRef = useRef<MountedPhaserMatch | null>(null);
   const [simulation, setSimulation] = useState<MatchRuntimeResult | null>(null);
@@ -91,7 +93,7 @@ export default function MatchLivePage() {
         {
           matchSeed: prep.matchSeed,
           homeTeam: {
-            name: yourClubName || "Your Team",
+            name: yourClubName,
             strength: prep.yourTeamOverall,
             attackRating: prep.yourArcadeRatings.attack,
             defenseRating: prep.yourArcadeRatings.defense,
@@ -144,26 +146,29 @@ export default function MatchLivePage() {
 
   return (
     <main className="page-panel page-panel-portrait">
-      <section className="onboarding-card section-pad match-live-metrics-top">
-        <div className="progress-stack compact">
-          <ProgressRow label="Team Strength" value={prep.yourTeamOverall} valueText={`${prep.yourTeamOverall}`} tone="cyan" />
-          <ProgressRow
-            label="Attack Matchup"
-            value={Math.max(0, Math.min(100, 50 + (prep.yourArcadeRatings.attack - prep.opponentArcadeRatings.defense) * 5))}
-            tone="green"
-          />
-          <ProgressRow
-            label="Defensive Matchup"
-            value={Math.max(0, Math.min(100, 50 + (prep.yourArcadeRatings.defense - prep.opponentArcadeRatings.attack) * 5))}
-            tone="gold"
-          />
-        </div>
-      </section>
+      {!hasSessionStarted ? (
+        <section className="onboarding-card section-pad match-live-metrics-top">
+          <div className="progress-stack compact">
+            <ProgressRow label="Team Strength" value={prep.yourTeamOverall} valueText={`${prep.yourTeamOverall}`} tone="cyan" />
+            <ProgressRow
+              label="Attack Matchup"
+              value={Math.max(0, Math.min(100, 50 + (prep.yourArcadeRatings.attack - prep.opponentArcadeRatings.defense) * 5))}
+              tone="green"
+            />
+            <ProgressRow
+              label="Defensive Matchup"
+              value={Math.max(0, Math.min(100, 50 + (prep.yourArcadeRatings.defense - prep.opponentArcadeRatings.attack) * 5))}
+              tone="gold"
+            />
+          </div>
+        </section>
+      ) : null}
 
       {!hasSessionStarted ? (
         <section className="onboarding-card section-pad">
           <div className="match-kickoff-pitch" role="img" aria-label="Kick-off pitch preview">
             <div className="match-kickoff-meta">
+              <span className="label-pill">Club: {yourClubName}</span>
               <span className="label-pill">Opponent: {prep.opponentName}</span>
               <span className="label-pill">Rank: #{prep.opponentRank}</span>
             </div>

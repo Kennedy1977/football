@@ -901,12 +901,12 @@ button[disabled] {
   width: 100%;
   max-width: 420px;
   margin-inline: auto;
-  aspect-ratio: 3 / 5;
+  aspect-ratio: 2 / 3;
   border: 1px solid rgba(214, 236, 254, 0.45);
   border-radius: 12px;
   overflow: hidden;
   background-image: url("/assets/pitch/vertical-pitch.svg");
-  background-size: cover;
+  background-size: 100% 100%;
   background-position: center;
   box-shadow: inset 0 0 0 1px rgba(34, 96, 165, 0.45);
 }
@@ -1830,12 +1830,15 @@ button[disabled] {
 .match-kickoff-pitch {
   position: relative;
   margin-bottom: 10px;
+  width: 100%;
+  max-width: 460px;
+  margin-inline: auto;
+  aspect-ratio: 2 / 3;
   border: 1px solid rgba(212, 235, 252, 0.46);
   border-radius: 12px;
   overflow: hidden;
-  min-height: clamp(380px, calc(100dvh - 360px), 700px);
   background-image: url("/assets/pitch/vertical-pitch.svg");
-  background-size: cover;
+  background-size: 100% 100%;
   background-position: center;
   box-shadow: inset 0 0 0 1px rgba(48, 117, 193, 0.36);
 }
@@ -1988,6 +1991,9 @@ button[disabled] {
   margin: 0;
   color: #e4eefb;
   font-size: 13px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
 }
 
 .fulltime-goal-list {
@@ -1995,7 +2001,18 @@ button[disabled] {
   gap: 5px;
 }
 
+.fulltime-goal-scorer {
+  color: #ecf5ff;
+  font-weight: 700;
+}
+
+.fulltime-goal-minute {
+  color: #9ec5eb;
+  font-variant-numeric: tabular-nums;
+}
+
 .fulltime-goal-list.away p {
+  justify-self: end;
   text-align: right;
 }
 
@@ -2125,6 +2142,33 @@ button[disabled] {
 }
 
 .fulltime-lineup-placeholder span {
+  color: #b9d2ee;
+  font-size: 12px;
+}
+
+.fulltime-lineup-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.fulltime-lineup-list li {
+  border: 1px solid rgba(148, 201, 238, 0.2);
+  border-radius: 8px;
+  background: rgba(8, 28, 52, 0.48);
+  padding: 5px 8px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  color: #d7e8fa;
+  font-size: 12px;
+}
+
+.fulltime-lineup-note {
+  margin: 8px 0 0;
   color: #b9d2ee;
   font-size: 12px;
 }
@@ -2267,7 +2311,7 @@ button[disabled] {
   }
 
   .match-kickoff-pitch {
-    min-height: clamp(340px, calc(100dvh - 330px), 560px);
+    max-width: 420px;
   }
 
   .fulltime-team-name {

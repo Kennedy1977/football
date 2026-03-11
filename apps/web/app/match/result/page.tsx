@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { MATCH_DURATION_SECONDS, type MatchChanceOutcome, type SubmitMatchResponse } from "../../../../../packages/game-core/src";
-import { useClaimPromotionRewardMutation } from "../../../src/state/apis/gameApi";
+import { useClaimPromotionRewardMutation, useGetDashboardSummaryQuery, useGetSquadQuery } from "../../../src/state/apis/gameApi";
 import { readApiErrorMessage } from "../../../src/lib/api-error";
 import type { RootState } from "../../../src/state/store";
 import { clearMatchState } from "../../../src/state/slices/matchSlice";
@@ -27,20 +27,87 @@ interface TeamStatRow {
   winner: "HOME" | "AWAY" | "EVEN";
 }
 
+interface GoalMoment {
+  id: string;
+  minute: string;
+  scorer: string;
+}
+
+interface MatchNarrative {
+  homeGoals: GoalMoment[];
+  awayGoals: GoalMoment[];
+  timeline: TimelineEntry[];
+}
+
+interface SquadPlayerLite {
+  id: number;
+  name: string;
+  shirtNumber: number;
+  position: string;
+}
+
+const EMPTY_MATCH_NARRATIVE: MatchNarrative = {
+  homeGoals: [],
+  awayGoals: [],
+  timeline: [],
+};
+
 export default function MatchResultPage() {
   const router = useRouter();
   const dispatch = useDispatch();
   const prep = useSelector((state: RootState) => state.match.matchPrep);
   const result = useSelector((state: RootState) => state.match.lastSubmission);
   const runtimeResult = useSelector((state: RootState) => state.match.runtimeResult);
-  const yourClubName = useSelector((state: RootState) => state.club.club?.name ?? "Your Club");
+  const clubNameFromState = useSelector((state: RootState) => state.club.club?.name ?? null);
   const [claimPromotion, promotionState] = useClaimPromotionRewardMutation();
+  const { data: squadData } = useGetSquadQuery();
+  const { data: dashboardData } = useGetDashboardSummaryQuery();
   const [activeTab, setActiveTab] = useState<ResultTab>("stats");
 
+  const yourClubName = clubNameFromState || dashboardData?.club?.name || "Home Club";
   const chanceOutcomes = runtimeResult?.chanceOutcomes ?? [];
   const homeBadgeCode = toClubCode(yourClubName);
   const awayBadgeCode = toClubCode(prep?.opponentName ?? "Opponent");
   const matchDateLabel = useMemo(() => formatUiDate(new Date()), []);
+
+  const startingXi = useMemo(() => {
+    const players = (squadData?.players ?? []) as SquadPlayerLite[];
+    const lineup = squadData?.lineup;
+    if (!lineup || !lineup.startingPlayerIds.length) {
+      return [] as SquadPlayerLite[];
+    }
+
+    const playersById = new Map(players.map((player) => [player.id, player]));
+    const positionOrder: Record<string, number> = { GK: 0, DEF: 1, MID: 2, ATT: 3 };
+
+    return lineup.startingPlayerIds
+      .map((id) => playersById.get(id))
+      .filter((player): player is SquadPlayerLite => Boolean(player))
+      .sort((a, b) => {
+        const posDelta = (positionOrder[a.position] ?? 9) - (positionOrder[b.position] ?? 9);
+        if (posDelta !== 0) {
+          return posDelta;
+        }
+        return a.shirtNumber - b.shirtNumber;
+      });
+  }, [squadData?.lineup, squadData?.players]);
+
+  const homeScorerPool = useMemo(() => buildHomeScorerPool(startingXi), [startingXi]);
+  const awayScorerPool = useMemo(() => buildOpponentScorerPool(prep?.opponentName ?? "Opponent"), [prep?.opponentName]);
+
+  const narrative = useMemo(() => {
+    if (!result) {
+      return EMPTY_MATCH_NARRATIVE;
+    }
+    return buildMatchNarrative(chanceOutcomes, result, homeScorerPool, awayScorerPool);
+  }, [chanceOutcomes, result, homeScorerPool, awayScorerPool]);
+
+  const teamStats = useMemo(() => {
+    if (!prep || !result) {
+      return [] as TeamStatRow[];
+    }
+    return buildTeamStats(prep, result, chanceOutcomes);
+  }, [prep, result, chanceOutcomes]);
 
   useEffect(() => {
     setActiveTab("stats");
@@ -59,11 +126,6 @@ export default function MatchResultPage() {
       </main>
     );
   }
-
-  const homeGoalMoments = buildGoalMoments("HOME", chanceOutcomes, result.goals.club);
-  const awayGoalMoments = buildGoalMoments("AWAY", chanceOutcomes, result.goals.opponent);
-  const timeline = buildTimelineEntries(chanceOutcomes, result);
-  const teamStats = buildTeamStats(prep, result, chanceOutcomes);
 
   return (
     <main className="page-panel page-panel-portrait fulltime-layout">
@@ -95,9 +157,12 @@ export default function MatchResultPage() {
 
         <div className="fulltime-goal-row">
           <div className="fulltime-goal-list">
-            {homeGoalMoments.length ? (
-              homeGoalMoments.map((minute, index) => (
-                <p key={`home-goal-${minute}-${index}`}>{`Goal ${index + 1} ${minute}`}</p>
+            {narrative.homeGoals.length ? (
+              narrative.homeGoals.map((goal) => (
+                <p key={goal.id}>
+                  <span className="fulltime-goal-scorer">{goal.scorer}</span>
+                  <span className="fulltime-goal-minute">{goal.minute}</span>
+                </p>
               ))
             ) : (
               <p>No goals</p>
@@ -107,9 +172,12 @@ export default function MatchResultPage() {
           <p className="fulltime-goal-label">Goals</p>
 
           <div className="fulltime-goal-list away">
-            {awayGoalMoments.length ? (
-              awayGoalMoments.map((minute, index) => (
-                <p key={`away-goal-${minute}-${index}`}>{`Goal ${index + 1} ${minute}`}</p>
+            {narrative.awayGoals.length ? (
+              narrative.awayGoals.map((goal) => (
+                <p key={goal.id}>
+                  <span className="fulltime-goal-scorer">{goal.scorer}</span>
+                  <span className="fulltime-goal-minute">{goal.minute}</span>
+                </p>
               ))
             ) : (
               <p>No goals</p>
@@ -152,7 +220,7 @@ export default function MatchResultPage() {
         <section className="onboarding-card section-pad">
           <h3>Timeline</h3>
           <ul className="fulltime-timeline-list">
-            {timeline.map((entry) => (
+            {narrative.timeline.map((entry) => (
               <li key={entry.id} className={`fulltime-timeline-item ${entry.isGoal ? "is-goal" : ""}`}>
                 <span className="fulltime-timeline-minute">{entry.minute}</span>
                 <span className="fulltime-timeline-side">{entry.side === "HOME" ? "You" : "Opp"}</span>
@@ -166,15 +234,31 @@ export default function MatchResultPage() {
       {activeTab === "lineups" ? (
         <section className="onboarding-card section-pad">
           <h3>Lineups</h3>
-          <p className="feedback">Detailed lineups replay is not available yet. Placeholder uses current team ratings.</p>
+          <p className="feedback">
+            {squadData?.lineup?.formation
+              ? `Formation ${String(squadData.lineup.formation)} · Opponent lineup is currently hidden in v1.`
+              : "Saved lineup not found yet. Set your XI in Squad to populate this section."}
+          </p>
           <div className="fulltime-lineup-placeholder">
             <div>
               <strong>{yourClubName}</strong>
               <span>Overall {prep.yourTeamOverall}</span>
+              {startingXi.length ? (
+                <ul className="fulltime-lineup-list">
+                  {startingXi.map((player) => (
+                    <li key={`lineup-${player.id}`}>
+                      <span>#{player.shirtNumber}</span>
+                      <span>{player.name}</span>
+                      <span>{player.position}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
             <div>
               <strong>{prep.opponentName}</strong>
               <span>Overall {prep.opponentTeamOverall}</span>
+              <p className="fulltime-lineup-note">Opponent player list is not returned by the API yet.</p>
             </div>
           </div>
         </section>
@@ -283,71 +367,167 @@ function FakeClubBadge({
   );
 }
 
-function buildGoalMoments(side: "HOME" | "AWAY", outcomes: MatchChanceOutcome[], fallbackGoalCount: number): string[] {
-  const goals = outcomes
-    .filter((entry) => entry.attackingSide === side && entry.scored)
-    .sort((a, b) => a.second - b.second)
-    .map((entry) => formatMatchMinute(entry.second));
+function buildMatchNarrative(
+  outcomes: MatchChanceOutcome[],
+  result: SubmitMatchResponse,
+  homeScorers: string[],
+  awayScorers: string[]
+): MatchNarrative {
+  const sortedOutcomes = outcomes.slice().sort((a, b) => (a.second !== b.second ? a.second - b.second : a.eventIndex - b.eventIndex));
+  const homeGoals: GoalMoment[] = [];
+  const awayGoals: GoalMoment[] = [];
+  const timeline: TimelineEntry[] = [];
+  let homeGoalIndex = 0;
+  let awayGoalIndex = 0;
 
-  if (goals.length) {
-    return goals;
+  for (const entry of sortedOutcomes) {
+    const minute = formatMatchMinute(entry.second);
+    if (!entry.scored) {
+      timeline.push({
+        id: `tl-${entry.eventIndex}-${entry.second}`,
+        minute,
+        side: entry.attackingSide,
+        detail: `${readChanceTypeLabel(entry.chanceType)} saved`,
+        isGoal: false,
+      });
+      continue;
+    }
+
+    if (entry.attackingSide === "HOME") {
+      const scorer = pickScorer(homeScorers, "HOME", homeGoalIndex);
+      homeGoals.push({
+        id: `goal-home-${entry.eventIndex}-${homeGoalIndex}`,
+        minute,
+        scorer,
+      });
+      timeline.push({
+        id: `tl-goal-home-${entry.eventIndex}-${homeGoalIndex}`,
+        minute,
+        side: "HOME",
+        detail: `${scorer} scored (${readChanceTypeLabel(entry.chanceType)})`,
+        isGoal: true,
+      });
+      homeGoalIndex += 1;
+    } else {
+      const scorer = pickScorer(awayScorers, "AWAY", awayGoalIndex);
+      awayGoals.push({
+        id: `goal-away-${entry.eventIndex}-${awayGoalIndex}`,
+        minute,
+        scorer,
+      });
+      timeline.push({
+        id: `tl-goal-away-${entry.eventIndex}-${awayGoalIndex}`,
+        minute,
+        side: "AWAY",
+        detail: `${scorer} scored (${readChanceTypeLabel(entry.chanceType)})`,
+        isGoal: true,
+      });
+      awayGoalIndex += 1;
+    }
   }
 
-  if (fallbackGoalCount <= 0) {
+  for (let i = homeGoals.length; i < result.goals.club; i += 1) {
+    const minute = makeFallbackMinute(i, result.goals.club);
+    const scorer = pickScorer(homeScorers, "HOME", i);
+    homeGoals.push({
+      id: `goal-home-fallback-${i}`,
+      minute,
+      scorer,
+    });
+    timeline.push({
+      id: `tl-goal-home-fallback-${i}`,
+      minute,
+      side: "HOME",
+      detail: `${scorer} scored`,
+      isGoal: true,
+    });
+  }
+
+  for (let i = awayGoals.length; i < result.goals.opponent; i += 1) {
+    const minute = makeFallbackMinute(i, result.goals.opponent);
+    const scorer = pickScorer(awayScorers, "AWAY", i);
+    awayGoals.push({
+      id: `goal-away-fallback-${i}`,
+      minute,
+      scorer,
+    });
+    timeline.push({
+      id: `tl-goal-away-fallback-${i}`,
+      minute,
+      side: "AWAY",
+      detail: `${scorer} scored`,
+      isGoal: true,
+    });
+  }
+
+  if (timeline.length === 0) {
+    timeline.push({
+      id: "tl-no-events",
+      minute: "90'",
+      side: "HOME",
+      detail: "No major chances recorded",
+      isGoal: false,
+    });
+  }
+
+  homeGoals.sort((a, b) => toMinuteValue(a.minute) - toMinuteValue(b.minute));
+  awayGoals.sort((a, b) => toMinuteValue(a.minute) - toMinuteValue(b.minute));
+  timeline.sort((a, b) => toMinuteValue(a.minute) - toMinuteValue(b.minute));
+
+  return {
+    homeGoals,
+    awayGoals,
+    timeline,
+  };
+}
+
+function buildHomeScorerPool(players: SquadPlayerLite[]): string[] {
+  if (!players.length) {
     return [];
   }
 
-  return Array.from({ length: fallbackGoalCount }, (_, index) => {
-    const minute = Math.round(((index + 1) * 90) / (fallbackGoalCount + 1));
-    return `${minute}'`;
+  const ordered = [
+    ...players.filter((player) => player.position === "ATT"),
+    ...players.filter((player) => player.position === "MID"),
+    ...players.filter((player) => player.position === "DEF"),
+    ...players.filter((player) => player.position === "GK"),
+  ];
+
+  const deduped: string[] = [];
+  const seen = new Set<string>();
+  for (const player of ordered) {
+    if (!player.name || seen.has(player.name)) {
+      continue;
+    }
+    seen.add(player.name);
+    deduped.push(player.name);
+  }
+
+  return deduped;
+}
+
+function buildOpponentScorerPool(opponentName: string): string[] {
+  const firstNames = ["Luca", "Mason", "Theo", "Noah", "Kai", "Evan", "Ruben", "Diego", "Finn", "Owen", "Enzo", "Leo"];
+  const lastNames = ["Grant", "Nolan", "Santos", "Ryder", "Walsh", "Diaz", "Foster", "Byrne", "Parker", "Murphy", "Cole", "Reed"];
+  const seed = hashString(opponentName);
+
+  return Array.from({ length: 11 }, (_, index) => {
+    const first = firstNames[(seed + index * 3) % firstNames.length];
+    const last = lastNames[(seed + index * 5) % lastNames.length];
+    return `${first} ${last}`;
   });
 }
 
-function buildTimelineEntries(outcomes: MatchChanceOutcome[], result: SubmitMatchResponse): TimelineEntry[] {
-  const mapped = outcomes
-    .slice()
-    .sort((a, b) => a.second - b.second)
-    .map((entry, index) => ({
-      id: `tl-${entry.eventIndex}-${entry.second}-${index}`,
-      minute: formatMatchMinute(entry.second),
-      side: entry.attackingSide,
-      detail: entry.scored ? `${readChanceTypeLabel(entry.chanceType)} converted` : `${readChanceTypeLabel(entry.chanceType)} saved`,
-      isGoal: entry.scored,
-    }));
-
-  if (mapped.length) {
-    return mapped;
+function pickScorer(pool: string[], side: "HOME" | "AWAY", index: number): string {
+  if (pool.length) {
+    return pool[index % pool.length];
   }
+  return side === "HOME" ? `Home Player ${index + 1}` : `Away Player ${index + 1}`;
+}
 
-  if (result.goals.club === 0 && result.goals.opponent === 0) {
-    return [
-      {
-        id: "tl-no-events",
-        minute: "90'",
-        side: "HOME",
-        detail: "No major chances recorded",
-        isGoal: false,
-      },
-    ];
-  }
-
-  const fallbackHome = buildGoalMoments("HOME", [], result.goals.club).map((minute, index) => ({
-    id: `tl-fallback-home-${index}`,
-    minute,
-    side: "HOME" as const,
-    detail: "Goal",
-    isGoal: true,
-  }));
-
-  const fallbackAway = buildGoalMoments("AWAY", [], result.goals.opponent).map((minute, index) => ({
-    id: `tl-fallback-away-${index}`,
-    minute,
-    side: "AWAY" as const,
-    detail: "Goal",
-    isGoal: true,
-  }));
-
-  return [...fallbackHome, ...fallbackAway].sort((a, b) => toMinuteValue(a.minute) - toMinuteValue(b.minute));
+function makeFallbackMinute(goalIndex: number, totalGoals: number): string {
+  const minute = Math.round(((goalIndex + 1) * 90) / Math.max(1, totalGoals + 1));
+  return `${minute}'`;
 }
 
 function buildTeamStats(prep: NonNullable<RootState["match"]["matchPrep"]>, result: SubmitMatchResponse, outcomes: MatchChanceOutcome[]): TeamStatRow[] {
@@ -447,6 +627,14 @@ function toClubCode(name: string): string {
 
   const initials = words.slice(0, 3).map((word) => word[0] || "");
   return initials.join("").toUpperCase();
+}
+
+function hashString(input: string): number {
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = (hash * 31 + input.charCodeAt(i)) >>> 0;
+  }
+  return hash;
 }
 
 function clampInt(min: number, max: number, value: number): number {

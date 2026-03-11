@@ -246,10 +246,10 @@ class MatchSimulationScene extends Phaser.Scene {
   create() {
     const { width, height } = this.cameras.main;
 
-    this.pitchTop = 114;
+    this.pitchTop = 132;
     this.pitchLeft = 20;
     this.pitchWidth = width - 40;
-    this.pitchHeight = height - 188;
+    this.pitchHeight = height - 206;
 
     this.drawVerticalPitch();
     this.buildHud();
@@ -354,33 +354,46 @@ class MatchSimulationScene extends Phaser.Scene {
   private buildHud() {
     const centerX = this.cameras.main.width / 2;
     const startClock = toDisplayClockState(0);
+    const hudTop = 14;
+    const hudHeight = 104;
+    const hudWidth = Math.min(this.cameras.main.width - 28, 420);
+    const hudLeft = centerX - hudWidth / 2;
+
+    const hudPanel = this.add.graphics().setDepth(2100);
+    hudPanel.fillStyle(0x04162f, 0.48);
+    hudPanel.fillRoundedRect(hudLeft, hudTop, hudWidth, hudHeight, 16);
+    hudPanel.lineStyle(2, 0x2f7cae, 0.5);
+    hudPanel.strokeRoundedRect(hudLeft, hudTop, hudWidth, hudHeight, 16);
 
     this.halfText = this.add
-      .text(centerX, 48, startClock.halfLabel, {
+      .text(centerX, hudTop + 24, startClock.halfLabel, {
         fontFamily: "Barlow Condensed, Arial",
-        fontSize: "21px",
+        fontSize: "19px",
         color: "#c7ddf8",
         fontStyle: "bold",
       })
-      .setOrigin(0.5, 0.5);
+      .setOrigin(0.5, 0.5)
+      .setDepth(2200);
 
     this.timerText = this.add
-      .text(centerX, 72, startClock.clockText, {
+      .text(centerX, hudTop + 52, startClock.clockText, {
         fontFamily: "Courier New",
-        fontSize: "24px",
+        fontSize: "30px",
         color: "#99f6e4",
         fontStyle: "bold",
       })
-      .setOrigin(0.5, 0.5);
+      .setOrigin(0.5, 0.5)
+      .setDepth(2200);
 
     this.scoreText = this.add
-      .text(centerX, 98, `${this.ui.homeCode} 0 - 0 ${this.ui.awayCode}`, {
+      .text(centerX, hudTop + 86, `${this.ui.homeCode} 0 - 0 ${this.ui.awayCode}`, {
         fontFamily: "Barlow Condensed, Arial",
-        fontSize: "26px",
+        fontSize: "42px",
         color: "#f8fafc",
         fontStyle: "bold",
       })
-      .setOrigin(0.5, 0.5);
+      .setOrigin(0.5, 0.5)
+      .setDepth(2200);
   }
 
   private createTeams() {
@@ -1680,15 +1693,23 @@ class MatchSimulationScene extends Phaser.Scene {
   }
 
   private flashGoalBanner(sideName: string) {
-    const { width } = this.cameras.main;
+    const bannerX = this.pitchLeft + this.pitchWidth / 2;
+    const bannerY = this.pitchTop + this.pitchHeight / 2;
+    const bannerWidth = Math.max(220, this.pitchWidth - 10);
+    const goalLabel = `GOAL - ${sideName}`;
+    const fontSize = Math.round(Phaser.Math.Clamp(38 - Math.max(0, goalLabel.length - 18), 24, 36));
 
-    const banner = this.add.rectangle(width / 2, 102, width - 44, 46, 0x8d2c24, 0.95).setStrokeStyle(2, 0xf8fafc, 1);
+    const banner = this.add
+      .rectangle(bannerX, bannerY, bannerWidth, 50, 0x8d2c24, 0.95)
+      .setStrokeStyle(2, 0xf8fafc, 1);
     const text = this.add
-      .text(width / 2, 102, `GOAL - ${sideName}`, {
+      .text(bannerX, bannerY, goalLabel, {
         fontFamily: "Barlow Condensed, Arial",
-        fontSize: "34px",
+        fontSize: `${fontSize}px`,
         color: "#f8fafc",
         fontStyle: "bold",
+        align: "center",
+        wordWrap: { width: bannerWidth - 20, useAdvancedWrap: true },
       })
       .setOrigin(0.5, 0.5);
 
