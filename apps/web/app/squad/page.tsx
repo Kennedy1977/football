@@ -483,7 +483,11 @@ export default function SquadPage() {
                   >
                     {player && art ? (
                       <>
-                        <span className="lineup-slot-head" style={{ backgroundPosition: art.facePosition }} aria-hidden />
+                        <span
+                          className={`lineup-slot-head rarity-${toRarityFrame(player.rarity)}`}
+                          style={{ backgroundPosition: art.facePosition }}
+                          aria-hidden
+                        />
                         <span className="lineup-slot-name">{shortStarterLabel(player.name)}</span>
                         <span className="lineup-slot-role">{slot.label}</span>
                       </>

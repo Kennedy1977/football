@@ -998,17 +998,39 @@ button[disabled] {
 }
 
 .lineup-slot-head {
+  --slot-rarity-border: rgba(226, 242, 255, 0.75);
+  --slot-rarity-inset: rgba(13, 72, 143, 0.42);
   width: 54px;
   aspect-ratio: 1 / 1;
   border-radius: 50%;
-  border: 1px solid rgba(226, 242, 255, 0.75);
+  border: 1px solid var(--slot-rarity-border);
   background-color: rgba(8, 25, 51, 0.82);
   background-image: url("/assets/player-cards/faces-sprite.webp");
   background-size: 1200% 900%;
   background-repeat: no-repeat;
   box-shadow:
     0 2px 8px rgba(1, 8, 20, 0.65),
-    inset 0 0 0 1px rgba(13, 72, 143, 0.42);
+    inset 0 0 0 1px var(--slot-rarity-inset);
+}
+
+.lineup-slot-head.rarity-common {
+  --slot-rarity-border: rgba(146, 224, 100, 0.9);
+  --slot-rarity-inset: rgba(78, 152, 34, 0.66);
+}
+
+.lineup-slot-head.rarity-rare {
+  --slot-rarity-border: rgba(89, 157, 255, 0.95);
+  --slot-rarity-inset: rgba(32, 101, 204, 0.66);
+}
+
+.lineup-slot-head.rarity-epic {
+  --slot-rarity-border: rgba(173, 112, 255, 0.95);
+  --slot-rarity-inset: rgba(117, 55, 206, 0.68);
+}
+
+.lineup-slot-head.rarity-legendary {
+  --slot-rarity-border: rgba(255, 203, 67, 0.95);
+  --slot-rarity-inset: rgba(186, 123, 17, 0.72);
 }
 
 .lineup-slot-name {
@@ -1151,6 +1173,26 @@ button[disabled] {
   margin-bottom: 8px;
 }
 
+.lineup-carousel-card.rarity-common .lineup-carousel-avatar {
+  border-color: rgba(146, 224, 100, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(78, 152, 34, 0.55);
+}
+
+.lineup-carousel-card.rarity-rare .lineup-carousel-avatar {
+  border-color: rgba(89, 157, 255, 0.95);
+  box-shadow: inset 0 0 0 1px rgba(32, 101, 204, 0.55);
+}
+
+.lineup-carousel-card.rarity-epic .lineup-carousel-avatar {
+  border-color: rgba(173, 112, 255, 0.95);
+  box-shadow: inset 0 0 0 1px rgba(117, 55, 206, 0.58);
+}
+
+.lineup-carousel-card.rarity-legendary .lineup-carousel-avatar {
+  border-color: rgba(255, 203, 67, 0.95);
+  box-shadow: inset 0 0 0 1px rgba(186, 123, 17, 0.6);
+}
+
 .lineup-carousel-shirt,
 .lineup-carousel-face {
   position: absolute;
@@ -1174,10 +1216,26 @@ button[disabled] {
   top: 8px;
   transform: translateX(-50%);
   border-radius: 50%;
-  border: 0;
+  border: 2px solid rgba(223, 239, 255, 0.7);
   background-image: url("/assets/player-cards/faces-sprite.webp");
   background-size: 1200% 900%;
-  box-shadow: none;
+  box-shadow: 0 2px 8px rgba(2, 10, 24, 0.4);
+}
+
+.lineup-carousel-card.rarity-common .lineup-carousel-face {
+  border-color: rgba(146, 224, 100, 0.96);
+}
+
+.lineup-carousel-card.rarity-rare .lineup-carousel-face {
+  border-color: rgba(89, 157, 255, 0.96);
+}
+
+.lineup-carousel-card.rarity-epic .lineup-carousel-face {
+  border-color: rgba(173, 112, 255, 0.96);
+}
+
+.lineup-carousel-card.rarity-legendary .lineup-carousel-face {
+  border-color: rgba(255, 203, 67, 0.96);
 }
 
 .lineup-carousel-head h4 {

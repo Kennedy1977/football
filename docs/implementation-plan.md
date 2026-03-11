@@ -111,7 +111,7 @@ Implemented highlights:
 
 - `/start`: manager + club onboarding flow with manager portrait picker.
 - `/home`: dashboard summary, manager portrait, reward CTA, quick actions.
-- `/squad`: lineup editor with formation switching, XI/bench validation, drag/drop swaps, automatic best-XI pick on formation change, and auto-save.
+- `/squad`: lineup editor with formation switching, XI/bench validation, drag/drop swaps, automatic best-XI pick on formation change, auto-save, and rarity-coded player borders on pitch/bench.
 - `/match/prep`: pre-match setup and start.
 - `/match/live`: Phaser runtime host.
 - `/match/result`: full-time presentation + rewards/promotion.
@@ -199,6 +199,7 @@ Core:
 
 Latest patch notes (newest first):
 <!-- PATCH_NOTES_FEED_START -->
+- [2026-03-11 - v0.0.67 - Add rarity borders to pitch and bench player avatars](docs/patch-notes/2026-03-11-v0.0.67-add-rarity-borders-to-pitch-and-bench-player-avatars.md)
 - [2026-03-11 - v0.0.66 - Fix squad pitch player hover position jump](docs/patch-notes/2026-03-11-v0.0.66-fix-squad-pitch-player-hover-position-jump.md)
 - [2026-03-11 - v0.0.65 - Auto-pick and auto-save lineup when formation changes](docs/patch-notes/2026-03-11-v0.0.65-auto-pick-and-auto-save-lineup-when-formation-changes.md)
 - [2026-03-11 - v0.0.64 - Apply each team's own formation in match sim](docs/patch-notes/2026-03-11-v0.0.64-apply-each-team-s-own-formation-in-match-sim.md)
