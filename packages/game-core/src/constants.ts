@@ -5,7 +5,7 @@ export const MIN_STARTING_PLAYERS = 11;
 export const MIN_GOALKEEPERS = 1;
 export const STARTING_SQUAD_SPLIT = { GK: 2, DEF: 5, MID: 5, ATT: 3 } as const;
 
-export const MATCH_DURATION_SECONDS = 180;
+export const MATCH_DURATION_SECONDS = 60;
 export const MAX_EVENT_GAP_SECONDS = 20;
 export const MAX_TOTAL_GOALS = 10;
 export const EARLY_FINISH_GOAL_LEAD = 3;
