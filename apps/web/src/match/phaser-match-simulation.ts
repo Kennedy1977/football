@@ -440,19 +440,17 @@ class MatchSimulationScene extends Phaser.Scene {
     const timerWidth = 60;
     const scoreWidth = Math.round(clamp(132, 166, this.pitchWidth * 0.3));
     const bugHeight = 24;
-    const chipGap = -6;
+    const totalWidth = timerWidth + scoreWidth;
 
     const bugPanel = this.add.graphics().setDepth(2100);
     bugPanel.fillStyle(0xf8fafc, 0.96);
-    bugPanel.fillRoundedRect(bugLeft, bugTop, timerWidth, bugHeight, 8);
+    bugPanel.fillRoundedRect(bugLeft, bugTop, totalWidth, bugHeight, 8);
     bugPanel.lineStyle(1, 0x0f172a, 0.28);
-    bugPanel.strokeRoundedRect(bugLeft, bugTop, timerWidth, bugHeight, 8);
+    bugPanel.strokeRoundedRect(bugLeft, bugTop, totalWidth, bugHeight, 8);
 
-    const scoreLeft = bugLeft + timerWidth + chipGap;
+    const scoreLeft = bugLeft + timerWidth;
     bugPanel.fillStyle(0x031328, 0.62);
-    bugPanel.fillRoundedRect(scoreLeft, bugTop, scoreWidth, bugHeight, 8);
-    bugPanel.lineStyle(1, 0xe2f1ff, 0.45);
-    bugPanel.strokeRoundedRect(scoreLeft, bugTop, scoreWidth, bugHeight, 8);
+    bugPanel.fillRoundedRect(scoreLeft - 1, bugTop + 1, scoreWidth + 1, bugHeight - 2, 7);
 
     this.timerText = this.add
       .text(bugLeft + timerWidth / 2, bugTop + bugHeight / 2, startClock.clockText, {
