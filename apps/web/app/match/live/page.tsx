@@ -132,7 +132,6 @@ export default function MatchLivePage() {
   if (!prep) {
     return (
       <main className="page-panel page-panel-portrait">
-        <h2 className="page-title">Match Live</h2>
         <p className="feedback error">No active match prep found. Start from match prep first.</p>
         <div className="inline">
           <Link href="/match/prep" className="btn no-hover-lift">
@@ -145,12 +144,24 @@ export default function MatchLivePage() {
 
   return (
     <main className="page-panel page-panel-portrait">
-      <h2 className="page-title">Match Live</h2>
-      <p className="page-copy">Run the arcade simulation. Result submits automatically at full-time.</p>
+      <section className="onboarding-card section-pad match-live-metrics-top">
+        <div className="progress-stack compact">
+          <ProgressRow label="Team Strength" value={prep.yourTeamOverall} valueText={`${prep.yourTeamOverall}`} tone="cyan" />
+          <ProgressRow
+            label="Attack Matchup"
+            value={Math.max(0, Math.min(100, 50 + (prep.yourArcadeRatings.attack - prep.opponentArcadeRatings.defense) * 5))}
+            tone="green"
+          />
+          <ProgressRow
+            label="Defensive Matchup"
+            value={Math.max(0, Math.min(100, 50 + (prep.yourArcadeRatings.defense - prep.opponentArcadeRatings.attack) * 5))}
+            tone="gold"
+          />
+        </div>
+      </section>
 
       {!hasSessionStarted ? (
         <section className="onboarding-card section-pad">
-          <h3>Live Setup</h3>
           <div className="match-kickoff-pitch" role="img" aria-label="Kick-off pitch preview">
             <div className="match-kickoff-meta">
               <span className="label-pill">Opponent: {prep.opponentName}</span>
@@ -165,19 +176,6 @@ export default function MatchLivePage() {
               {isRunning ? "Starting..." : "Kick Off"}
             </button>
           </div>
-          <div className="progress-stack compact">
-            <ProgressRow label="Team Strength" value={prep.yourTeamOverall} valueText={`${prep.yourTeamOverall}`} tone="cyan" />
-            <ProgressRow
-              label="Attack Matchup"
-              value={Math.max(0, Math.min(100, 50 + (prep.yourArcadeRatings.attack - prep.opponentArcadeRatings.defense) * 5))}
-              tone="green"
-            />
-            <ProgressRow
-              label="Defensive Matchup"
-              value={Math.max(0, Math.min(100, 50 + (prep.yourArcadeRatings.defense - prep.opponentArcadeRatings.attack) * 5))}
-              tone="gold"
-            />
-          </div>
         </section>
       ) : null}
 
@@ -185,7 +183,6 @@ export default function MatchLivePage() {
         <div ref={containerRef} className="match-sim-root" />
       </div>
 
-      {isRunning ? <p className="feedback">Match running. Auto-submit starts at full-time.</p> : null}
       {submitState.isLoading ? <p className="feedback">Full-time reached. Submitting match result...</p> : null}
       {simulation && !submitState.isLoading ? (
         <p className="feedback">

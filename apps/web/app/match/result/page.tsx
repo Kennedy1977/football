@@ -2,14 +2,30 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { MATCH_DURATION_SECONDS, type MatchChanceOutcome, type SubmitMatchResponse } from "../../../../../packages/game-core/src";
 import { useClaimPromotionRewardMutation } from "../../../src/state/apis/gameApi";
-import { ProgressRow } from "../../../src/components/progress-row";
 import { readApiErrorMessage } from "../../../src/lib/api-error";
 import type { RootState } from "../../../src/state/store";
 import { clearMatchState } from "../../../src/state/slices/matchSlice";
-import { StatCard } from "../../../src/components/stat-card";
+
+type ResultTab = "timeline" | "lineups" | "stats";
+
+interface TimelineEntry {
+  id: string;
+  minute: string;
+  side: "HOME" | "AWAY";
+  detail: string;
+  isGoal: boolean;
+}
+
+interface TeamStatRow {
+  label: string;
+  home: string;
+  away: string;
+  winner: "HOME" | "AWAY" | "EVEN";
+}
 
 export default function MatchResultPage() {
   const router = useRouter();
@@ -17,31 +33,18 @@ export default function MatchResultPage() {
   const prep = useSelector((state: RootState) => state.match.matchPrep);
   const result = useSelector((state: RootState) => state.match.lastSubmission);
   const runtimeResult = useSelector((state: RootState) => state.match.runtimeResult);
+  const yourClubName = useSelector((state: RootState) => state.club.club?.name ?? "Your Club");
   const [claimPromotion, promotionState] = useClaimPromotionRewardMutation();
-  const [stage, setStage] = useState(1);
-  const chanceOutcomes = runtimeResult?.chanceOutcomes || [];
-  const chanceCount = chanceOutcomes.length;
-  const convertedChances = chanceOutcomes.filter((entry) => entry.scored).length;
-  const conversionPct = chanceCount ? `${Math.round((convertedChances / chanceCount) * 100)}%` : "-";
-  const perfectTaps = chanceOutcomes.filter((entry) => entry.tapQuality === "PERFECT").length;
-  const goodTaps = chanceOutcomes.filter((entry) => entry.tapQuality === "GOOD").length;
-  const poorTaps = chanceOutcomes.filter((entry) => entry.tapQuality === "POOR").length;
+  const [activeTab, setActiveTab] = useState<ResultTab>("stats");
+
+  const chanceOutcomes = runtimeResult?.chanceOutcomes ?? [];
+  const homeBadgeCode = toClubCode(yourClubName);
+  const awayBadgeCode = toClubCode(prep?.opponentName ?? "Opponent");
+  const matchDateLabel = useMemo(() => formatUiDate(new Date()), []);
 
   useEffect(() => {
-    setStage(1);
+    setActiveTab("stats");
   }, [result?.goals.club, result?.goals.opponent, result?.result]);
-
-  useEffect(() => {
-    if (!result || stage >= 4) {
-      return;
-    }
-
-    const timeout = setTimeout(() => {
-      setStage((value) => Math.min(4, value + 1));
-    }, 900);
-
-    return () => clearTimeout(timeout);
-  }, [result, stage]);
 
   if (!prep || !result) {
     return (
@@ -57,109 +60,147 @@ export default function MatchResultPage() {
     );
   }
 
-  return (
-    <main className="page-panel page-panel-portrait">
-      <h2 className="page-title">Full Time</h2>
-      <p className="page-copy">Rewards, stamina impact and league movement are revealed in stages.</p>
+  const homeGoalMoments = buildGoalMoments("HOME", chanceOutcomes, result.goals.club);
+  const awayGoalMoments = buildGoalMoments("AWAY", chanceOutcomes, result.goals.opponent);
+  const timeline = buildTimelineEntries(chanceOutcomes, result);
+  const teamStats = buildTeamStats(prep, result, chanceOutcomes);
 
-      <div className="inline" style={{ marginBottom: 10 }}>
-        <span className="label-pill">Stage {stage}/4</span>
-        {stage < 4 ? (
-          <button type="button" className="no-hover-lift" onClick={() => setStage(4)}>
-            Skip Reveal
-          </button>
-        ) : null}
+  return (
+    <main className="page-panel page-panel-portrait fulltime-layout">
+      <section className="onboarding-card section-pad fulltime-hero">
+        <div className="fulltime-meta-row">
+          <p className="fulltime-meta-copy">League Match · {matchDateLabel}</p>
+          <p className="fulltime-status">Full-time</p>
+        </div>
+
+        <div className="fulltime-score-row">
+          <div className="fulltime-team-block">
+            <FakeClubBadge code={homeBadgeCode} side="HOME" />
+            <p className="fulltime-team-name">{yourClubName}</p>
+          </div>
+
+          <div className="fulltime-scoreline" aria-label={`Final score ${result.goals.club} to ${result.goals.opponent}`}>
+            <span>{result.goals.club}</span>
+            <span className="fulltime-score-separator">-</span>
+            <span>{result.goals.opponent}</span>
+          </div>
+
+          <div className="fulltime-team-block">
+            <FakeClubBadge code={awayBadgeCode} side="AWAY" />
+            <p className="fulltime-team-name">{prep.opponentName}</p>
+          </div>
+        </div>
+
+        <p className="fulltime-round-copy">Rank #{prep.yourRank} vs Rank #{prep.opponentRank}</p>
+
+        <div className="fulltime-goal-row">
+          <div className="fulltime-goal-list">
+            {homeGoalMoments.length ? (
+              homeGoalMoments.map((minute, index) => (
+                <p key={`home-goal-${minute}-${index}`}>{`Goal ${index + 1} ${minute}`}</p>
+              ))
+            ) : (
+              <p>No goals</p>
+            )}
+          </div>
+
+          <p className="fulltime-goal-label">Goals</p>
+
+          <div className="fulltime-goal-list away">
+            {awayGoalMoments.length ? (
+              awayGoalMoments.map((minute, index) => (
+                <p key={`away-goal-${minute}-${index}`}>{`Goal ${index + 1} ${minute}`}</p>
+              ))
+            ) : (
+              <p>No goals</p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <div className="fulltime-tab-row" role="tablist" aria-label="Result detail tabs">
+        <button
+          type="button"
+          className={`fulltime-tab-button ${activeTab === "timeline" ? "is-active" : ""}`}
+          onClick={() => setActiveTab("timeline")}
+          role="tab"
+          aria-selected={activeTab === "timeline"}
+        >
+          Timeline
+        </button>
+        <button
+          type="button"
+          className={`fulltime-tab-button ${activeTab === "lineups" ? "is-active" : ""}`}
+          onClick={() => setActiveTab("lineups")}
+          role="tab"
+          aria-selected={activeTab === "lineups"}
+        >
+          Lineups
+        </button>
+        <button
+          type="button"
+          className={`fulltime-tab-button ${activeTab === "stats" ? "is-active" : ""}`}
+          onClick={() => setActiveTab("stats")}
+          role="tab"
+          aria-selected={activeTab === "stats"}
+        >
+          Stats
+        </button>
       </div>
 
-      {stage >= 1 ? (
-        <section className="grid cards" style={{ marginBottom: 12 }}>
-          <StatCard label="Opponent" value={prep.opponentName} />
-          <StatCard label="Result" value={result.result} tone={result.result === "WIN" ? "good" : result.result === "LOSS" ? "warn" : "neutral"} />
-          <StatCard label="Score" value={`${result.goals.club} - ${result.goals.opponent}`} />
-        </section>
-      ) : null}
-
-      {stage >= 2 ? (
+      {activeTab === "timeline" ? (
         <section className="onboarding-card section-pad">
-          <h3>Rewards</h3>
-          <div className="progress-stack">
-            <ProgressRow label="Coins" value={Math.min(100, (result.rewards.coins / 300) * 100)} valueText={`+${result.rewards.coins}`} tone="gold" />
-            <ProgressRow
-              label="Manager XP"
-              value={Math.min(100, result.rewards.managerExp)}
-              valueText={`+${result.rewards.managerExp}`}
-              tone="cyan"
-            />
-            <ProgressRow
-              label="Starter XP"
-              value={Math.min(100, result.rewards.starterExp * 5)}
-              valueText={`+${result.rewards.starterExp}`}
-              tone="violet"
-            />
-          </div>
-          <div className="grid cards" style={{ marginTop: 10 }}>
-            <StatCard label="League Points" value={String(result.rewards.points)} />
-            <StatCard label="Team Overall" value={String(result.teamOverall)} />
-            <StatCard label="Stamina Used" value={`-${Math.max(0, 100 - Math.round(result.teamOverall))}%`} tone="warn" />
-          </div>
+          <h3>Timeline</h3>
+          <ul className="fulltime-timeline-list">
+            {timeline.map((entry) => (
+              <li key={entry.id} className={`fulltime-timeline-item ${entry.isGoal ? "is-goal" : ""}`}>
+                <span className="fulltime-timeline-minute">{entry.minute}</span>
+                <span className="fulltime-timeline-side">{entry.side === "HOME" ? "You" : "Opp"}</span>
+                <span className="fulltime-timeline-detail">{entry.detail}</span>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
 
-      {stage >= 3 ? (
-        <section className="grid cards" style={{ marginTop: 12 }}>
-          <StatCard label="Chances" value={chanceCount ? String(chanceCount) : "-"} />
-          <StatCard label="Converted" value={chanceCount ? String(convertedChances) : "-"} />
-          <StatCard label="Conversion Rate" value={conversionPct} tone={chanceCount ? "good" : "neutral"} />
-          <StatCard label="Perfect Taps" value={chanceCount ? String(perfectTaps) : "-"} />
-          <StatCard label="Good Taps" value={chanceCount ? String(goodTaps) : "-"} />
-          <StatCard label="Poor Taps" value={chanceCount ? String(poorTaps) : "-"} tone={poorTaps > perfectTaps ? "warn" : "neutral"} />
-        </section>
-      ) : null}
-
-      {stage >= 4 ? (
-        <section className="grid cards" style={{ marginTop: 12 }}>
-          <StatCard label="Coins Earned" value={String(result.rewards.coins)} tone="good" />
-          <StatCard label="League Points" value={String(result.rewards.points)} />
-          <StatCard label="Manager EXP" value={String(result.rewards.managerExp)} />
-          <StatCard label="League Movement" value={result.promotionEligible ? "Promotion Ready" : "Stay In Current Tier"} tone={result.promotionEligible ? "good" : "neutral"} />
-          <StatCard label="Starter EXP" value={String(result.rewards.starterExp)} />
-        </section>
-      ) : null}
-
-      {stage >= 4 && chanceCount > 0 ? (
-        <section className="onboarding-card">
-          <h3>Replay Timeline</h3>
-          <div className="table-wrap" style={{ marginTop: 8 }}>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Time</th>
-                  <th>Side</th>
-                  <th>Chance</th>
-                  <th>Tap</th>
-                  <th>Prob</th>
-                  <th>Outcome</th>
-                </tr>
-              </thead>
-              <tbody>
-                {chanceOutcomes.map((entry) => (
-                  <tr key={`${entry.eventIndex}-${entry.second}`}>
-                    <td>{formatMatchClock(entry.second)}</td>
-                    <td>{entry.attackingSide === "HOME" ? "You" : "Opponent"}</td>
-                    <td>{readChanceTypeLabel(entry.chanceType)}</td>
-                    <td>{entry.tapped ? entry.tapQuality : "NO TAP"}</td>
-                    <td>{Math.round(entry.scoreProbability * 100)}%</td>
-                    <td>{entry.scored ? "GOAL" : "SAVED"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {activeTab === "lineups" ? (
+        <section className="onboarding-card section-pad">
+          <h3>Lineups</h3>
+          <p className="feedback">Detailed lineups replay is not available yet. Placeholder uses current team ratings.</p>
+          <div className="fulltime-lineup-placeholder">
+            <div>
+              <strong>{yourClubName}</strong>
+              <span>Overall {prep.yourTeamOverall}</span>
+            </div>
+            <div>
+              <strong>{prep.opponentName}</strong>
+              <span>Overall {prep.opponentTeamOverall}</span>
+            </div>
           </div>
         </section>
       ) : null}
 
-      {stage >= 4 && result.promotionEligible ? (
-        <section className="onboarding-card">
+      {activeTab === "stats" ? (
+        <section className="onboarding-card section-pad">
+          <div className="fulltime-stats-head">
+            <FakeClubBadge code={homeBadgeCode} side="HOME" compact />
+            <h3>Team Stats</h3>
+            <FakeClubBadge code={awayBadgeCode} side="AWAY" compact />
+          </div>
+          <div className="fulltime-stats-table">
+            {teamStats.map((row) => (
+              <div key={row.label} className="fulltime-stats-row">
+                <span className={`fulltime-stats-value home ${row.winner === "HOME" ? "is-leading" : ""}`}>{row.home}</span>
+                <span className="fulltime-stats-label">{row.label}</span>
+                <span className={`fulltime-stats-value away ${row.winner === "AWAY" ? "is-leading" : ""}`}>{row.away}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {result.promotionEligible ? (
+        <section className="onboarding-card section-pad">
           <h3>Promotion Reward</h3>
           <p className="feedback">Threshold reached. Claim promotion reward to advance league tier.</p>
           <div className="inline">
@@ -185,54 +226,231 @@ export default function MatchResultPage() {
         </section>
       ) : null}
 
-      {stage >= 4 ? (
-        <div className="inline" style={{ marginTop: 14 }}>
-          <button
-            type="button"
-            className="no-hover-lift"
-            onClick={() => {
-              dispatch(clearMatchState());
-              router.push("/match/prep");
-            }}
-          >
-            Play Next Match
-          </button>
-          <Link href="/home" className="btn no-hover-lift">
-            Back To Dashboard
-          </Link>
+      <section className="onboarding-card section-pad">
+        <h3>Rewards</h3>
+        <div className="fulltime-reward-grid">
+          <div className="fulltime-reward-tile">
+            <span>Coins</span>
+            <strong>+{result.rewards.coins}</strong>
+          </div>
+          <div className="fulltime-reward-tile">
+            <span>League Points</span>
+            <strong>+{result.rewards.points}</strong>
+          </div>
+          <div className="fulltime-reward-tile">
+            <span>Manager EXP</span>
+            <strong>+{result.rewards.managerExp}</strong>
+          </div>
+          <div className="fulltime-reward-tile">
+            <span>Starter EXP</span>
+            <strong>+{result.rewards.starterExp}</strong>
+          </div>
         </div>
-      ) : null}
-      {stage < 4 ? (
-        <div className="inline" style={{ marginTop: 14 }}>
-          <span className="feedback">Auto-revealing next stage...</span>
-        </div>
-      ) : null}
+      </section>
 
-      {stage < 4 ? (
-        <div className="inline" style={{ marginTop: 10 }}>
-          <button
-            type="button"
-            className="no-hover-lift"
-            onClick={() => {
-              setStage((value) => Math.min(4, value + 1));
-            }}
-          >
-            Next Stage
-          </button>
-        </div>
-      ) : null}
+      <div className="inline" style={{ marginTop: 2 }}>
+        <button
+          type="button"
+          className="no-hover-lift"
+          onClick={() => {
+            dispatch(clearMatchState());
+            router.push("/match/prep");
+          }}
+        >
+          Play Next Match
+        </button>
+        <Link href="/home" className="btn no-hover-lift">
+          Back To Dashboard
+        </Link>
+      </div>
     </main>
   );
 }
 
-function formatMatchClock(seconds: number): string {
-  const mins = Math.floor(seconds / 60)
-    .toString()
-    .padStart(2, "0");
-  const secs = Math.floor(seconds % 60)
-    .toString()
-    .padStart(2, "0");
-  return `${mins}:${secs}`;
+function FakeClubBadge({
+  code,
+  side,
+  compact = false,
+}: {
+  code: string;
+  side: "HOME" | "AWAY";
+  compact?: boolean;
+}) {
+  return (
+    <span className={`fulltime-fake-badge ${side === "HOME" ? "is-home" : "is-away"} ${compact ? "is-compact" : ""}`} aria-hidden="true">
+      {code}
+    </span>
+  );
+}
+
+function buildGoalMoments(side: "HOME" | "AWAY", outcomes: MatchChanceOutcome[], fallbackGoalCount: number): string[] {
+  const goals = outcomes
+    .filter((entry) => entry.attackingSide === side && entry.scored)
+    .sort((a, b) => a.second - b.second)
+    .map((entry) => formatMatchMinute(entry.second));
+
+  if (goals.length) {
+    return goals;
+  }
+
+  if (fallbackGoalCount <= 0) {
+    return [];
+  }
+
+  return Array.from({ length: fallbackGoalCount }, (_, index) => {
+    const minute = Math.round(((index + 1) * 90) / (fallbackGoalCount + 1));
+    return `${minute}'`;
+  });
+}
+
+function buildTimelineEntries(outcomes: MatchChanceOutcome[], result: SubmitMatchResponse): TimelineEntry[] {
+  const mapped = outcomes
+    .slice()
+    .sort((a, b) => a.second - b.second)
+    .map((entry, index) => ({
+      id: `tl-${entry.eventIndex}-${entry.second}-${index}`,
+      minute: formatMatchMinute(entry.second),
+      side: entry.attackingSide,
+      detail: entry.scored ? `${readChanceTypeLabel(entry.chanceType)} converted` : `${readChanceTypeLabel(entry.chanceType)} saved`,
+      isGoal: entry.scored,
+    }));
+
+  if (mapped.length) {
+    return mapped;
+  }
+
+  if (result.goals.club === 0 && result.goals.opponent === 0) {
+    return [
+      {
+        id: "tl-no-events",
+        minute: "90'",
+        side: "HOME",
+        detail: "No major chances recorded",
+        isGoal: false,
+      },
+    ];
+  }
+
+  const fallbackHome = buildGoalMoments("HOME", [], result.goals.club).map((minute, index) => ({
+    id: `tl-fallback-home-${index}`,
+    minute,
+    side: "HOME" as const,
+    detail: "Goal",
+    isGoal: true,
+  }));
+
+  const fallbackAway = buildGoalMoments("AWAY", [], result.goals.opponent).map((minute, index) => ({
+    id: `tl-fallback-away-${index}`,
+    minute,
+    side: "AWAY" as const,
+    detail: "Goal",
+    isGoal: true,
+  }));
+
+  return [...fallbackHome, ...fallbackAway].sort((a, b) => toMinuteValue(a.minute) - toMinuteValue(b.minute));
+}
+
+function buildTeamStats(prep: NonNullable<RootState["match"]["matchPrep"]>, result: SubmitMatchResponse, outcomes: MatchChanceOutcome[]): TeamStatRow[] {
+  const homeGoals = result.goals.club;
+  const awayGoals = result.goals.opponent;
+
+  const homeShots = outcomes.filter((entry) => entry.attackingSide === "HOME").length || homeGoals;
+  const awayShots = outcomes.filter((entry) => entry.attackingSide === "AWAY").length || awayGoals;
+
+  const homeOnTarget = Math.min(homeShots, Math.max(homeGoals, Math.round(homeShots * 0.7)));
+  const awayOnTarget = Math.min(awayShots, Math.max(awayGoals, Math.round(awayShots * 0.7)));
+
+  const homeXg = outcomes
+    .filter((entry) => entry.attackingSide === "HOME")
+    .reduce((sum, entry) => sum + Number(entry.scoreProbability || 0), 0);
+  const awayXg = outcomes
+    .filter((entry) => entry.attackingSide === "AWAY")
+    .reduce((sum, entry) => sum + Number(entry.scoreProbability || 0), 0);
+
+  const homeControl = prep.yourArcadeRatings.control;
+  const awayControl = prep.opponentArcadeRatings.control;
+  const controlTotal = Math.max(1, homeControl + awayControl);
+  const homePossession = clampInt(18, 82, Math.round((homeControl / controlTotal) * 100));
+  const awayPossession = 100 - homePossession;
+
+  const homePasses = Math.max(120, Math.round(homePossession * 5.6 + prep.yourTeamOverall * 2.2));
+  const awayPasses = Math.max(120, Math.round(awayPossession * 5.6 + prep.opponentTeamOverall * 2.2));
+
+  const homePassAccuracy = clampInt(
+    61,
+    95,
+    Math.round(57 + prep.yourArcadeRatings.control * 0.35 + prep.yourArcadeRatings.stamina * 0.18 - prep.opponentArcadeRatings.defense * 0.11)
+  );
+  const awayPassAccuracy = clampInt(
+    61,
+    95,
+    Math.round(57 + prep.opponentArcadeRatings.control * 0.35 + prep.opponentArcadeRatings.stamina * 0.18 - prep.yourArcadeRatings.defense * 0.11)
+  );
+
+  const homeCorners = Math.max(0, Math.round(homeShots * 0.38 + homeGoals * 0.4));
+  const awayCorners = Math.max(0, Math.round(awayShots * 0.38 + awayGoals * 0.4));
+
+  const homeBigChances = outcomes.filter((entry) => entry.attackingSide === "HOME" && Number(entry.scoreProbability || 0) >= 0.5).length;
+  const awayBigChances = outcomes.filter((entry) => entry.attackingSide === "AWAY" && Number(entry.scoreProbability || 0) >= 0.5).length;
+
+  return [
+    { label: "Shots", home: String(homeShots), away: String(awayShots), winner: pickHigher(homeShots, awayShots) },
+    { label: "Shots on target", home: String(homeOnTarget), away: String(awayOnTarget), winner: pickHigher(homeOnTarget, awayOnTarget) },
+    { label: "Possession", home: `${homePossession}%`, away: `${awayPossession}%`, winner: pickHigher(homePossession, awayPossession) },
+    { label: "xG", home: homeXg.toFixed(2), away: awayXg.toFixed(2), winner: pickHigher(homeXg, awayXg) },
+    { label: "Passes", home: String(homePasses), away: String(awayPasses), winner: pickHigher(homePasses, awayPasses) },
+    { label: "Pass accuracy", home: `${homePassAccuracy}%`, away: `${awayPassAccuracy}%`, winner: pickHigher(homePassAccuracy, awayPassAccuracy) },
+    { label: "Big chances", home: String(homeBigChances), away: String(awayBigChances), winner: pickHigher(homeBigChances, awayBigChances) },
+    { label: "Corners", home: String(homeCorners), away: String(awayCorners), winner: pickHigher(homeCorners, awayCorners) },
+  ];
+}
+
+function formatUiDate(date: Date): string {
+  return new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short" }).format(date);
+}
+
+function formatMatchMinute(seconds: number): string {
+  const totalVirtualSeconds = toVirtualSeconds(seconds);
+  const minute = Math.max(1, Math.min(90, Math.ceil(totalVirtualSeconds / 60)));
+  return `${minute}'`;
+}
+
+function toVirtualSeconds(seconds: number): number {
+  const clamped = Math.max(0, Math.min(seconds, MATCH_DURATION_SECONDS));
+  return Math.round((clamped / Math.max(1, MATCH_DURATION_SECONDS)) * 90 * 60);
+}
+
+function toMinuteValue(label: string): number {
+  const raw = Number(label.replace("'", ""));
+  return Number.isFinite(raw) ? raw : 999;
+}
+
+function pickHigher(home: number, away: number): "HOME" | "AWAY" | "EVEN" {
+  if (home > away) return "HOME";
+  if (away > home) return "AWAY";
+  return "EVEN";
+}
+
+function toClubCode(name: string): string {
+  const words = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (words.length === 0) {
+    return "FC";
+  }
+
+  if (words.length === 1) {
+    return words[0].slice(0, 3).toUpperCase();
+  }
+
+  const initials = words.slice(0, 3).map((word) => word[0] || "");
+  return initials.join("").toUpperCase();
+}
+
+function clampInt(min: number, max: number, value: number): number {
+  return Math.min(max, Math.max(min, Math.round(value)));
 }
 
 function readChanceTypeLabel(type: string): string {

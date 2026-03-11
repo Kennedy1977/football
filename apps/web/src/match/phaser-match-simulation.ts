@@ -246,10 +246,10 @@ class MatchSimulationScene extends Phaser.Scene {
   create() {
     const { width, height } = this.cameras.main;
 
-    this.pitchTop = 126;
+    this.pitchTop = 114;
     this.pitchLeft = 20;
     this.pitchWidth = width - 40;
-    this.pitchHeight = height - 230;
+    this.pitchHeight = height - 188;
 
     this.drawVerticalPitch();
     this.buildHud();
@@ -293,97 +293,62 @@ class MatchSimulationScene extends Phaser.Scene {
     const h = this.pitchHeight;
     const centerX = x + w / 2;
     const centerY = y + h / 2;
+    const borderRadius = 18;
+    const lineWidth = 6;
+    const centerCircleRadius = w * 0.17;
+    const penaltyArcRadius = w * 0.095;
+    const penaltyW = w * 0.68;
+    const penaltyH = h * 0.135;
+    const sixW = w * 0.35;
+    const sixH = h * 0.06;
+    const dashLength = w * 0.09;
+    const dashGap = dashLength * 0.75;
 
-    const pitch = this.add.graphics();
+    const base = this.add.graphics();
+    base.fillStyle(0x2f6e1f, 1);
+    base.fillRoundedRect(x, y, w, h, borderRadius);
 
-    pitch.fillStyle(0x2f6e1f, 1);
-    pitch.fillRoundedRect(x, y, w, h, 18);
-
+    const stripes = this.add.graphics();
     const stripeCount = 12;
     const stripeHeight = h / stripeCount;
     for (let i = 0; i < stripeCount; i += 1) {
-      pitch.fillStyle(i % 2 === 0 ? 0x66b53b : 0x5aa330, 0.95);
-      pitch.fillRect(x + 2, y + i * stripeHeight, w - 4, stripeHeight + 1);
+      stripes.fillStyle(i % 2 === 0 ? 0x66b53b : 0x5aa330, 0.95);
+      stripes.fillRect(x, y + i * stripeHeight, w, stripeHeight + 1);
+    }
+    const stripeMaskShape = this.add.graphics();
+    stripeMaskShape.setVisible(false);
+    stripeMaskShape.fillStyle(0xffffff, 1);
+    stripeMaskShape.fillRoundedRect(x, y, w, h, borderRadius);
+    stripes.setMask(stripeMaskShape.createGeometryMask());
+
+    const lines = this.add.graphics();
+    lines.lineStyle(lineWidth, 0xf8fafc, 1);
+    lines.strokeRoundedRect(x, y, w, h, borderRadius);
+
+    for (let dashX = x; dashX < x + w; dashX += dashLength + dashGap) {
+      const dashEnd = Math.min(dashX + dashLength, x + w);
+      lines.lineBetween(dashX, centerY, dashEnd, centerY);
     }
 
-    pitch.lineStyle(4, 0xf8fafc, 1);
-    pitch.strokeRoundedRect(x, y, w, h, 18);
+    lines.strokeCircle(centerX, centerY, centerCircleRadius);
 
-    pitch.lineStyle(4, 0xf8fafc, 1);
-    for (let i = 0; i < 9; i += 1) {
-      const segW = w / 18;
-      const segX = x + i * segW * 2;
-      pitch.lineBetween(segX, centerY, segX + segW, centerY);
-    }
+    lines.strokeRect(centerX - penaltyW / 2, y, penaltyW, penaltyH);
+    lines.strokeRect(centerX - sixW / 2, y, sixW, sixH);
 
-    pitch.strokeCircle(centerX, centerY, 74);
+    lines.beginPath();
+    lines.arc(centerX, y + penaltyH, penaltyArcRadius, Phaser.Math.DegToRad(20), Phaser.Math.DegToRad(160), false);
+    lines.strokePath();
 
-    const penaltyW = w * 0.68;
-    const penaltyH = h * 0.14;
-    const sixW = w * 0.35;
-    const sixH = h * 0.06;
+    lines.strokeRect(centerX - penaltyW / 2, y + h - penaltyH, penaltyW, penaltyH);
+    lines.strokeRect(centerX - sixW / 2, y + h - sixH, sixW, sixH);
 
-    pitch.strokeRect(centerX - penaltyW / 2, y, penaltyW, penaltyH);
-    pitch.strokeRect(centerX - sixW / 2, y, sixW, sixH);
+    lines.beginPath();
+    lines.arc(centerX, y + h - penaltyH, penaltyArcRadius, Phaser.Math.DegToRad(200), Phaser.Math.DegToRad(340), false);
+    lines.strokePath();
 
-    pitch.beginPath();
-    pitch.arc(centerX, y + penaltyH, 42, Phaser.Math.DegToRad(20), Phaser.Math.DegToRad(160), false);
-    pitch.strokePath();
-
-    pitch.strokeRect(centerX - penaltyW / 2, y + h - penaltyH, penaltyW, penaltyH);
-    pitch.strokeRect(centerX - sixW / 2, y + h - sixH, sixW, sixH);
-
-    pitch.beginPath();
-    pitch.arc(centerX, y + h - penaltyH, 42, Phaser.Math.DegToRad(200), Phaser.Math.DegToRad(340), false);
-    pitch.strokePath();
-
-    pitch.fillStyle(0xf8fafc, 1);
-    pitch.fillCircle(centerX, y + penaltyH - 28, 5);
-    pitch.fillCircle(centerX, y + h - penaltyH + 28, 5);
-
-    this.drawGoal(true);
-    this.drawGoal(false);
-  }
-
-  private drawGoal(top: boolean) {
-    const x = this.pitchLeft;
-    const y = this.pitchTop;
-    const w = this.pitchWidth;
-    const h = this.pitchHeight;
-    const centerX = x + w / 2;
-    const goalW = w * 0.32;
-    const goalDepth = 16;
-
-    const g = this.add.graphics();
-
-    if (top) {
-      const gy = y - 2;
-      g.lineStyle(3, 0xdbeafe, 1);
-      g.strokeRect(centerX - goalW / 2, gy - goalDepth, goalW, goalDepth);
-      g.lineStyle(1, 0xdbeafe, 0.7);
-      for (let i = 0; i <= 8; i += 1) {
-        const gx = centerX - goalW / 2 + (goalW / 8) * i;
-        g.lineBetween(gx, gy - goalDepth, gx, gy);
-      }
-      for (let i = 1; i <= 3; i += 1) {
-        const gyLine = gy - (goalDepth / 4) * i;
-        g.lineBetween(centerX - goalW / 2, gyLine, centerX + goalW / 2, gyLine);
-      }
-      return;
-    }
-
-    const gy = y + h + 2;
-    g.lineStyle(3, 0xdbeafe, 1);
-    g.strokeRect(centerX - goalW / 2, gy, goalW, goalDepth);
-    g.lineStyle(1, 0xdbeafe, 0.7);
-    for (let i = 0; i <= 8; i += 1) {
-      const gx = centerX - goalW / 2 + (goalW / 8) * i;
-      g.lineBetween(gx, gy, gx, gy + goalDepth);
-    }
-    for (let i = 1; i <= 3; i += 1) {
-      const gyLine = gy + (goalDepth / 4) * i;
-      g.lineBetween(centerX - goalW / 2, gyLine, centerX + goalW / 2, gyLine);
-    }
+    lines.fillStyle(0xf8fafc, 1);
+    lines.fillCircle(centerX, y + penaltyH - 28, 5);
+    lines.fillCircle(centerX, y + h - penaltyH + 28, 5);
   }
 
   private buildHud() {

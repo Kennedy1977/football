@@ -1815,6 +1815,10 @@ button[disabled] {
   width: 100%;
 }
 
+.match-live-metrics-top {
+  margin-bottom: 10px;
+}
+
 .match-sim-root {
   border: 0;
   border-radius: 0;
@@ -1885,6 +1889,321 @@ button[disabled] {
   color: var(--bad);
 }
 
+.fulltime-layout {
+  display: grid;
+  gap: 12px;
+}
+
+.fulltime-hero {
+  background:
+    linear-gradient(180deg, rgba(11, 31, 66, 0.92), rgba(6, 22, 47, 0.9)),
+    radial-gradient(circle at 80% -20%, rgba(96, 200, 255, 0.2), transparent 45%);
+}
+
+.fulltime-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.fulltime-meta-copy,
+.fulltime-status {
+  margin: 0;
+  color: #d8e8fb;
+  font-size: 14px;
+}
+
+.fulltime-status {
+  font-weight: 700;
+  color: #f3f8ff;
+}
+
+.fulltime-score-row {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.fulltime-team-block {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.fulltime-team-name {
+  margin: 0;
+  text-align: center;
+  font-family: "Barlow Condensed", "Exo 2", sans-serif;
+  font-size: 36px;
+  line-height: 1;
+  color: #f4f9ff;
+}
+
+.fulltime-scoreline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-family: "Barlow Condensed", "Exo 2", sans-serif;
+  font-size: 72px;
+  line-height: 0.88;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #f8fbff;
+}
+
+.fulltime-score-separator {
+  color: #c4d7ef;
+}
+
+.fulltime-round-copy {
+  margin: 10px 0 0;
+  text-align: center;
+  color: #bed2eb;
+  font-size: 15px;
+}
+
+.fulltime-goal-row {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(156, 204, 239, 0.2);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.fulltime-goal-label {
+  margin: 0;
+  color: #c8ddf4;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.fulltime-goal-list p {
+  margin: 0;
+  color: #e4eefb;
+  font-size: 13px;
+}
+
+.fulltime-goal-list {
+  display: grid;
+  gap: 5px;
+}
+
+.fulltime-goal-list.away p {
+  text-align: right;
+}
+
+.fulltime-fake-badge {
+  width: 64px;
+  height: 68px;
+  clip-path: polygon(50% 0%, 92% 22%, 92% 78%, 50% 100%, 8% 78%, 8% 22%);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Barlow Condensed", "Exo 2", sans-serif;
+  font-size: 21px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  box-shadow: inset 0 -8px 14px rgba(0, 0, 0, 0.25);
+}
+
+.fulltime-fake-badge.is-home {
+  color: #04162f;
+  background:
+    linear-gradient(180deg, rgba(255, 219, 74, 1), rgba(228, 175, 32, 1)),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.3), transparent 70%);
+}
+
+.fulltime-fake-badge.is-away {
+  color: #f8fbff;
+  background:
+    linear-gradient(180deg, rgba(255, 87, 119, 0.98), rgba(169, 19, 52, 0.96)),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.2), transparent 70%);
+}
+
+.fulltime-fake-badge.is-compact {
+  width: 34px;
+  height: 36px;
+  font-size: 12px;
+  border-width: 1px;
+}
+
+.fulltime-tab-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.fulltime-tab-button {
+  border-radius: 999px;
+  border: 1px solid rgba(132, 195, 238, 0.34);
+  background: rgba(9, 30, 59, 0.75);
+  color: #c2d8f2;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  min-height: 34px;
+}
+
+.fulltime-tab-button.is-active {
+  border-color: rgba(109, 227, 168, 0.6);
+  color: #eff7ff;
+  background: rgba(9, 48, 38, 0.72);
+}
+
+.fulltime-timeline-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.fulltime-timeline-item {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  border: 1px solid rgba(138, 197, 236, 0.2);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: rgba(8, 25, 51, 0.52);
+}
+
+.fulltime-timeline-item.is-goal {
+  border-color: rgba(125, 238, 177, 0.35);
+  background: rgba(15, 48, 39, 0.42);
+}
+
+.fulltime-timeline-minute {
+  color: #e8f4ff;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.fulltime-timeline-side {
+  border: 1px solid rgba(150, 204, 238, 0.22);
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: #c1d7f0;
+  font-size: 11px;
+}
+
+.fulltime-timeline-detail {
+  color: #dce9fa;
+  font-size: 13px;
+}
+
+.fulltime-lineup-placeholder {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.fulltime-lineup-placeholder > div {
+  border: 1px solid rgba(141, 198, 238, 0.24);
+  border-radius: 10px;
+  background: rgba(9, 28, 54, 0.5);
+  padding: 9px;
+  display: grid;
+  gap: 4px;
+}
+
+.fulltime-lineup-placeholder strong {
+  color: #eef5ff;
+  font-size: 14px;
+}
+
+.fulltime-lineup-placeholder span {
+  color: #b9d2ee;
+  font-size: 12px;
+}
+
+.fulltime-stats-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.fulltime-stats-head h3 {
+  margin: 0;
+}
+
+.fulltime-stats-table {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.fulltime-stats-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.fulltime-stats-label {
+  color: #d9e9fa;
+  font-size: 14px;
+  text-align: center;
+}
+
+.fulltime-stats-value {
+  color: #c5dbf3;
+  font-size: 20px;
+  font-family: "Barlow Condensed", "Exo 2", sans-serif;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.fulltime-stats-value.away {
+  text-align: right;
+}
+
+.fulltime-stats-value.is-leading {
+  color: #f6fbff;
+  font-weight: 800;
+}
+
+.fulltime-reward-grid {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.fulltime-reward-tile {
+  border: 1px solid rgba(141, 198, 238, 0.22);
+  border-radius: 10px;
+  background: rgba(8, 28, 54, 0.56);
+  padding: 9px;
+  display: grid;
+  gap: 3px;
+}
+
+.fulltime-reward-tile span {
+  color: #bcd4ed;
+  font-size: 12px;
+}
+
+.fulltime-reward-tile strong {
+  color: #f2f9ff;
+  font-family: "Barlow Condensed", "Exo 2", sans-serif;
+  font-size: 26px;
+  line-height: 1;
+}
+
 .build-footer {
   position: fixed;
   left: 50%;
@@ -1949,6 +2268,30 @@ button[disabled] {
 
   .match-kickoff-pitch {
     min-height: clamp(340px, calc(100dvh - 330px), 560px);
+  }
+
+  .fulltime-team-name {
+    font-size: 26px;
+  }
+
+  .fulltime-scoreline {
+    font-size: 52px;
+    gap: 8px;
+  }
+
+  .fulltime-fake-badge {
+    width: 52px;
+    height: 56px;
+    font-size: 16px;
+  }
+
+  .fulltime-goal-row {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .fulltime-stats-value {
+    font-size: 18px;
   }
 
   .lineup-slot {
