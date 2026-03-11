@@ -437,10 +437,10 @@ class MatchSimulationScene extends Phaser.Scene {
     const startClock = toDisplayClockState(0);
     const bugLeft = this.pitchLeft + HUD_PITCH_INSET_X;
     const bugTop = this.pitchTop + HUD_PITCH_INSET_Y;
-    const timerWidth = 64;
-    const scoreWidth = Math.round(clamp(156, 198, this.pitchWidth * 0.35));
+    const timerWidth = 60;
+    const scoreWidth = Math.round(clamp(132, 166, this.pitchWidth * 0.3));
     const bugHeight = 24;
-    const chipGap = 3;
+    const chipGap = -6;
 
     const bugPanel = this.add.graphics().setDepth(2100);
     bugPanel.fillStyle(0xf8fafc, 0.96);
@@ -465,13 +465,13 @@ class MatchSimulationScene extends Phaser.Scene {
       .setDepth(2200);
 
     const scoreCenterY = bugTop + bugHeight / 2;
-    const homeCodeX = scoreLeft + 26;
-    const awayCodeX = scoreLeft + scoreWidth - 12;
+    const homeCodeX = scoreLeft + 20;
+    const awayCodeX = scoreLeft + scoreWidth - 9;
 
     this.add
       .text(homeCodeX, scoreCenterY, this.ui.homeCode, {
         fontFamily: "Barlow Condensed, Arial",
-        fontSize: "17px",
+        fontSize: "16px",
         color: "#f8fafc",
         fontStyle: "bold",
       })
@@ -481,7 +481,7 @@ class MatchSimulationScene extends Phaser.Scene {
     const awayCodeText = this.add
       .text(awayCodeX, scoreCenterY, this.ui.awayCode, {
         fontFamily: "Barlow Condensed, Arial",
-        fontSize: "17px",
+        fontSize: "16px",
         color: "#f8fafc",
         fontStyle: "bold",
       })
@@ -489,18 +489,18 @@ class MatchSimulationScene extends Phaser.Scene {
       .setDepth(2201);
 
     this.add
-      .circle(homeCodeX - 10, scoreCenterY, 4, this.ui.homeColor, 1)
+      .circle(homeCodeX - 8, scoreCenterY, 3.5, this.ui.homeColor, 1)
       .setStrokeStyle(1, 0xf8fafc, 0.75)
       .setDepth(2202);
     this.add
-      .circle(awayCodeX - awayCodeText.width - 10, scoreCenterY, 4, this.ui.awayColor, 1)
+      .circle(awayCodeX - awayCodeText.width - 8, scoreCenterY, 3.5, this.ui.awayColor, 1)
       .setStrokeStyle(1, 0xf8fafc, 0.75)
       .setDepth(2202);
 
     this.scoreText = this.add
       .text(scoreLeft + scoreWidth / 2, scoreCenterY, `${this.homeGoals} - ${this.awayGoals}`, {
         fontFamily: "Barlow Condensed, Arial",
-        fontSize: "17px",
+        fontSize: "16px",
         color: "#f8fafc",
         fontStyle: "bold",
       })
