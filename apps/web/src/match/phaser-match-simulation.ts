@@ -213,7 +213,9 @@ class MatchSimulationScene extends Phaser.Scene {
 
   private timerText!: Phaser.GameObjects.Text;
   private scoreText!: Phaser.GameObjects.Text;
+  private commentaryBackdrop!: Phaser.GameObjects.Rectangle;
   private commentaryText!: Phaser.GameObjects.Text;
+  private commentaryMaxTextWidth = 0;
 
   private homePlayers: PitchPlayer[] = [];
   private awayPlayers: PitchPlayer[] = [];
@@ -283,17 +285,8 @@ class MatchSimulationScene extends Phaser.Scene {
     if (this.lastPossessor) {
       this.setBallPosition(this.lastPossessor.baseX, this.lastPossessor.baseY - 10, 0);
     }
-
-    this.commentaryText = this.add
-      .text(width / 2, height - 46, "Kick off!", {
-        fontFamily: "Barlow Condensed, Arial",
-        fontSize: "28px",
-        color: "#e6f3ff",
-        fontStyle: "bold",
-        align: "center",
-      })
-      .setOrigin(0.5, 0.5)
-      .setDepth(2000);
+    this.createCommentaryOverlay();
+    this.setCommentary("Kick off!");
 
     this.time.addEvent({
       delay: this.secondDurationMs,
@@ -306,6 +299,64 @@ class MatchSimulationScene extends Phaser.Scene {
       loop: true,
       callback: () => this.animateAmbientMovement(),
     });
+  }
+
+  private createCommentaryOverlay() {
+    const centerX = this.pitchLeft + this.pitchWidth / 2;
+    const centerY = this.pitchTop + this.pitchHeight / 2;
+    const horizontalMargin = Math.max(8, Math.round(this.pitchWidth * 0.015));
+    const overlayWidth = Math.max(220, this.pitchWidth - horizontalMargin * 2);
+    const overlayHeight = Math.round(clamp(36, 48, this.pitchHeight * 0.028));
+    const fontSize = Math.round(clamp(18, 30, this.pitchWidth * 0.043));
+
+    this.commentaryBackdrop = this.add
+      .rectangle(centerX, centerY, overlayWidth, overlayHeight, 0x031328, 0.56)
+      .setStrokeStyle(1.5, 0xe2f1ff, 0.42)
+      .setDepth(1990);
+
+    this.commentaryMaxTextWidth = overlayWidth - 22;
+    this.commentaryText = this.add
+      .text(centerX, centerY, "", {
+        fontFamily: "Barlow Condensed, Arial",
+        fontSize: `${fontSize}px`,
+        color: "#e6f3ff",
+        fontStyle: "bold",
+        align: "center",
+      })
+      .setOrigin(0.5, 0.5)
+      .setDepth(2000);
+  }
+
+  private setCommentary(message: string) {
+    const normalized = message.replace(/\s+/g, " ").trim();
+    if (!normalized) {
+      this.commentaryText.setText("");
+      return;
+    }
+
+    this.commentaryText.setText(normalized);
+    if (this.commentaryText.width <= this.commentaryMaxTextWidth) {
+      return;
+    }
+
+    const suffix = "...";
+    let low = 1;
+    let high = normalized.length;
+    let fit = "";
+
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      const candidate = `${normalized.slice(0, mid).trimEnd()}${suffix}`;
+      this.commentaryText.setText(candidate);
+      if (this.commentaryText.width <= this.commentaryMaxTextWidth) {
+        fit = candidate;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+
+    this.commentaryText.setText(fit || suffix);
   }
 
   private drawVerticalPitch() {
@@ -384,7 +435,7 @@ class MatchSimulationScene extends Phaser.Scene {
     const bugLeft = this.pitchLeft + HUD_PITCH_INSET_X;
     const bugTop = this.pitchTop + HUD_PITCH_INSET_Y;
     const timerWidth = 64;
-    const scoreWidth = Math.max(144, Math.min(188, this.pitchWidth - 104));
+    const scoreWidth = Math.round(clamp(132, 164, this.pitchWidth * 0.28));
     const bugHeight = 24;
     const chipGap = 3;
 
@@ -395,7 +446,7 @@ class MatchSimulationScene extends Phaser.Scene {
     bugPanel.strokeRoundedRect(bugLeft, bugTop, timerWidth, bugHeight, 8);
 
     const scoreLeft = bugLeft + timerWidth + chipGap;
-    bugPanel.fillStyle(0x031328, 0.9);
+    bugPanel.fillStyle(0x031328, 0.62);
     bugPanel.fillRoundedRect(scoreLeft, bugTop, scoreWidth, bugHeight, 8);
     bugPanel.lineStyle(1, 0xe2f1ff, 0.45);
     bugPanel.strokeRoundedRect(scoreLeft, bugTop, scoreWidth, bugHeight, 8);
@@ -550,12 +601,12 @@ class MatchSimulationScene extends Phaser.Scene {
     this.timerText.setText(displayClock.clockText);
 
     if (wasFirstHalf && this.elapsed === HALF_DURATION_SECONDS) {
-      this.commentaryText.setText("HALF-TIME");
+      this.setCommentary("HALF-TIME");
       return;
     }
 
     if (!wasFirstHalf && this.elapsed === HALF_DURATION_SECONDS + 1) {
-      this.commentaryText.setText("SECOND HALF UNDERWAY");
+      this.setCommentary("SECOND HALF UNDERWAY");
     }
 
     if (this.ambientAnimating) {
@@ -1033,18 +1084,18 @@ class MatchSimulationScene extends Phaser.Scene {
         this.possessionLane = this.classifyLane(winX);
         this.lastPossessor = closestDefender;
         const defensiveName = defendingSide === "HOME" ? this.ui.homeName : this.ui.awayName;
-        this.commentaryText.setText(`${defensiveName} press and win it back`);
+        this.setCommentary(`${defensiveName} press and win it back`);
         return;
       }
     }
 
     const sideName = attackingSide === "HOME" ? this.ui.homeName : this.ui.awayName;
     if (this.possessionProgress >= 0.8) {
-      this.commentaryText.setText(`${sideName} push into the final third`);
+      this.setCommentary(`${sideName} push into the final third`);
     } else if (commentary) {
-      this.commentaryText.setText(commentary);
+      this.setCommentary(commentary);
     } else if (hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:commentary`) < 0.62) {
-      this.commentaryText.setText(`${sideName} move the ball and probe for space`);
+      this.setCommentary(`${sideName} move the ball and probe for space`);
     }
   }
 
@@ -1054,7 +1105,7 @@ class MatchSimulationScene extends Phaser.Scene {
     const display = chanceTypeDisplayName(chanceType);
     const sideName = event.attackingSide === "HOME" ? this.ui.homeName : this.ui.awayName;
 
-    this.commentaryText.setText(`${display}: ${sideName} chance`);
+    this.setCommentary(`${display}: ${sideName} chance`);
 
     void this.resolveChanceEvent(event, eventIndex, chanceType);
   }
@@ -1710,14 +1761,14 @@ class MatchSimulationScene extends Phaser.Scene {
       }
 
       this.scoreText.setText(`${this.ui.homeCode} ${this.homeGoals} - ${this.awayGoals} ${this.ui.awayCode}`);
-      this.commentaryText.setText(
+      this.setCommentary(
         `${chanceTypeDisplayName(chanceType)}: GOAL for ${sideName} (${executionQuality})`
       );
       this.flashGoalBanner(sideName);
       return;
     }
 
-    this.commentaryText.setText(
+    this.setCommentary(
       `${chanceTypeDisplayName(chanceType)}: ${sideName} denied (${executionQuality})`
     );
   }
@@ -1773,7 +1824,7 @@ class MatchSimulationScene extends Phaser.Scene {
     this.timerText.setText(displayClock.clockText);
     this.scoreText.setText(`${this.ui.homeCode} ${finalResult.homeGoals} - ${finalResult.awayGoals} ${this.ui.awayCode}`);
 
-    this.commentaryText.setText(`FINAL: ${finalResult.result} (${finalResult.endReason.replaceAll("_", " ")})`);
+    this.setCommentary(`FINAL: ${finalResult.result} (${finalResult.endReason.replaceAll("_", " ")})`);
 
     this.onFinished(finalResult);
   }

@@ -38,6 +38,19 @@ export default function MatchLivePage() {
     };
   }, []);
 
+  useEffect(() => {
+    const className = "match-live-playing";
+    if (hasSessionStarted) {
+      document.body.classList.add(className);
+    } else {
+      document.body.classList.remove(className);
+    }
+
+    return () => {
+      document.body.classList.remove(className);
+    };
+  }, [hasSessionStarted]);
+
   const submitSimulationResult = async (resolved: MatchRuntimeResult) => {
     if (!prep) return;
 

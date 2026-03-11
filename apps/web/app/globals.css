@@ -107,6 +107,15 @@ a {
   animation: fade-up 420ms ease-out;
 }
 
+body.match-live-playing .app-shell {
+  padding: 0;
+}
+
+body.match-live-playing .app-topbar,
+body.match-live-playing .bottom-nav {
+  display: none;
+}
+
 .app-topbar {
   display: flex;
   align-items: center;
