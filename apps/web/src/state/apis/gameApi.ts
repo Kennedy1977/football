@@ -22,6 +22,8 @@ import type {
   SyncAuthSessionResponse,
   SubmitMatchRequest,
   SubmitMatchResponse,
+  UpdateManagerAvatarRequest,
+  UpdateManagerAvatarResponse,
   UpdateLineupRequest,
   UpdateLineupResponse,
 } from "../../../../../packages/game-core/src";
@@ -58,6 +60,10 @@ export const gameApi = createApi({
     }),
     createManager: builder.mutation<CreateManagerResponse, CreateManagerRequest>({
       query: (body) => ({ url: "/onboarding/manager", method: "POST", body }),
+      invalidatesTags: ["Dashboard"],
+    }),
+    updateManagerAvatar: builder.mutation<UpdateManagerAvatarResponse, UpdateManagerAvatarRequest>({
+      query: (body) => ({ url: "/onboarding/manager/avatar", method: "PUT", body }),
       invalidatesTags: ["Dashboard"],
     }),
     createClub: builder.mutation<CreateOrResetClubResponse, ClubIdentityPayload>({
@@ -125,6 +131,7 @@ export const gameApi = createApi({
 export const {
   useSyncAuthSessionMutation,
   useCreateManagerMutation,
+  useUpdateManagerAvatarMutation,
   useCreateClubMutation,
   useResetClubMutation,
   useGetDashboardSummaryQuery,

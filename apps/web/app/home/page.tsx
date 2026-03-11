@@ -3,6 +3,7 @@
 import { Coins, Flag, Shield, ShoppingBag, TrendingUp, Trophy, Users } from "lucide-react";
 import Link from "next/link";
 import { useClaimDailyRewardMutation, useGetDashboardSummaryQuery } from "../../src/state/apis/gameApi";
+import { ManagerAvatar } from "../../src/components/manager-avatar";
 import { ProgressRow } from "../../src/components/progress-row";
 import { StatCard } from "../../src/components/stat-card";
 import { isAccountMissingError, readApiErrorMessage } from "../../src/lib/api-error";
@@ -90,12 +91,17 @@ export default function HomePage() {
         <>
           <section className="home-summary-card">
             <div className="home-summary-head">
-              <h3>Manager Summary</h3>
+              <div className="home-summary-identity">
+                <ManagerAvatar avatar={manager.avatar} name={manager.name} className="home-summary-avatar" />
+                <div className="home-summary-text">
+                  <h3>Manager Summary</h3>
+                  <p className="home-summary-meta">
+                    {manager.name} • {club?.name || "No club"} • {formatLeagueLabel(club?.league)}
+                  </p>
+                </div>
+              </div>
               <span className="coin-pill">{club ? club.coins.toLocaleString() : 0} coins</span>
             </div>
-            <p className="home-summary-meta">
-              {manager.name} • {club?.name || "No club"} • {formatLeagueLabel(club?.league)}
-            </p>
             <div className="progress-stack compact">
               <ProgressRow label="Manager XP" value={managerXpProgress} valueText={`${manager.exp} XP`} tone="cyan" />
               <ProgressRow
@@ -167,4 +173,3 @@ export default function HomePage() {
     </main>
   );
 }
-

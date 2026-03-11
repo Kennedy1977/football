@@ -8,6 +8,8 @@ import {
   useCreateManagerMutation,
   useGetDashboardSummaryQuery,
 } from "../../src/state/apis/gameApi";
+import { ManagerAvatar, createManagerAvatar } from "../../src/components/manager-avatar";
+import { ManagerAvatarPicker } from "../../src/components/manager-avatar-picker";
 import { ProgressRow } from "../../src/components/progress-row";
 import { isAccountMissingError, readApiErrorMessage } from "../../src/lib/api-error";
 
@@ -21,6 +23,7 @@ export default function StartPage() {
   const [managerName, setManagerName] = useState("Manager");
   const [managerAge, setManagerAge] = useState("30");
   const [managerGender, setManagerGender] = useState("");
+  const [selectedAvatarFrame, setSelectedAvatarFrame] = useState(0);
 
   const [clubName, setClubName] = useState("City FC");
   const [city, setCity] = useState("Manchester");
@@ -103,6 +106,7 @@ export default function StartPage() {
                 name: managerName.trim(),
                 age: managerAge ? Number(managerAge) : undefined,
                 gender: managerGender.trim() || undefined,
+                avatar: createManagerAvatar(selectedAvatarFrame),
               }).unwrap();
 
               await refetch();
@@ -154,6 +158,15 @@ export default function StartPage() {
                   placeholder="Optional"
                 />
               </label>
+            </div>
+
+            <div className="field">
+              <span>Profile Picture</span>
+              <div className="manager-avatar-create-preview">
+                <ManagerAvatar avatar={createManagerAvatar(selectedAvatarFrame)} name={managerName} className="profile-avatar" />
+                <p className="manager-avatar-create-copy">Pick your manager portrait. You can change it later in Profile.</p>
+              </div>
+              <ManagerAvatarPicker selectedFrameIndex={selectedAvatarFrame} onSelect={setSelectedAvatarFrame} />
             </div>
 
             <div className="inline">

@@ -12,7 +12,7 @@ import type {
   MatchRuntimeResult,
   MatchTapQuality,
 } from "../../../../packages/game-core/src/phaser-contracts";
-import type { MatchChanceEvent, MatchSimulationOutput } from "../../../../packages/game-core/src/types";
+import type { FormationCode, MatchChanceEvent, MatchSimulationOutput } from "../../../../packages/game-core/src/types";
 
 export interface PhaserMatchOptions {
   width?: number;
@@ -32,6 +32,7 @@ export interface MountedPhaserMatch {
 interface RuntimeTeam {
   name: string;
   strength: number;
+  formation: FormationCode | string;
   attackRating: number;
   defenseRating: number;
   controlRating: number;
@@ -105,6 +106,88 @@ const TOP_FORMATION: FormationNode[] = [
   { x: 0.42, y: 0.54, role: "ATT" },
   { x: 0.58, y: 0.54, role: "ATT" },
 ];
+const SUPPORTED_FORMATIONS: FormationCode[] = ["4-4-2", "4-3-3", "4-5-1", "4-2-3-1", "3-5-2", "5-3-2", "4-2-4"];
+const TOP_FORMATION_LAYOUTS: Record<FormationCode, FormationNode[]> = {
+  "4-4-2": TOP_FORMATION,
+  "4-3-3": [
+    { x: 0.5, y: 0.1, role: "GK" },
+    { x: 0.14, y: 0.24, role: "DEF" },
+    { x: 0.36, y: 0.24, role: "DEF" },
+    { x: 0.64, y: 0.24, role: "DEF" },
+    { x: 0.86, y: 0.24, role: "DEF" },
+    { x: 0.26, y: 0.39, role: "MID" },
+    { x: 0.5, y: 0.41, role: "MID" },
+    { x: 0.74, y: 0.39, role: "MID" },
+    { x: 0.2, y: 0.54, role: "ATT" },
+    { x: 0.5, y: 0.57, role: "ATT" },
+    { x: 0.8, y: 0.54, role: "ATT" },
+  ],
+  "4-5-1": [
+    { x: 0.5, y: 0.1, role: "GK" },
+    { x: 0.14, y: 0.24, role: "DEF" },
+    { x: 0.36, y: 0.24, role: "DEF" },
+    { x: 0.64, y: 0.24, role: "DEF" },
+    { x: 0.86, y: 0.24, role: "DEF" },
+    { x: 0.12, y: 0.4, role: "MID" },
+    { x: 0.31, y: 0.4, role: "MID" },
+    { x: 0.5, y: 0.41, role: "MID" },
+    { x: 0.69, y: 0.4, role: "MID" },
+    { x: 0.88, y: 0.4, role: "MID" },
+    { x: 0.5, y: 0.56, role: "ATT" },
+  ],
+  "4-2-3-1": [
+    { x: 0.5, y: 0.1, role: "GK" },
+    { x: 0.14, y: 0.24, role: "DEF" },
+    { x: 0.36, y: 0.24, role: "DEF" },
+    { x: 0.64, y: 0.24, role: "DEF" },
+    { x: 0.86, y: 0.24, role: "DEF" },
+    { x: 0.37, y: 0.37, role: "MID" },
+    { x: 0.63, y: 0.37, role: "MID" },
+    { x: 0.2, y: 0.47, role: "MID" },
+    { x: 0.5, y: 0.49, role: "MID" },
+    { x: 0.8, y: 0.47, role: "MID" },
+    { x: 0.5, y: 0.58, role: "ATT" },
+  ],
+  "3-5-2": [
+    { x: 0.5, y: 0.1, role: "GK" },
+    { x: 0.22, y: 0.25, role: "DEF" },
+    { x: 0.5, y: 0.24, role: "DEF" },
+    { x: 0.78, y: 0.25, role: "DEF" },
+    { x: 0.12, y: 0.41, role: "MID" },
+    { x: 0.31, y: 0.41, role: "MID" },
+    { x: 0.5, y: 0.42, role: "MID" },
+    { x: 0.69, y: 0.41, role: "MID" },
+    { x: 0.88, y: 0.41, role: "MID" },
+    { x: 0.41, y: 0.56, role: "ATT" },
+    { x: 0.59, y: 0.56, role: "ATT" },
+  ],
+  "5-3-2": [
+    { x: 0.5, y: 0.1, role: "GK" },
+    { x: 0.1, y: 0.25, role: "DEF" },
+    { x: 0.28, y: 0.25, role: "DEF" },
+    { x: 0.5, y: 0.24, role: "DEF" },
+    { x: 0.72, y: 0.25, role: "DEF" },
+    { x: 0.9, y: 0.25, role: "DEF" },
+    { x: 0.26, y: 0.42, role: "MID" },
+    { x: 0.5, y: 0.43, role: "MID" },
+    { x: 0.74, y: 0.42, role: "MID" },
+    { x: 0.42, y: 0.56, role: "ATT" },
+    { x: 0.58, y: 0.56, role: "ATT" },
+  ],
+  "4-2-4": [
+    { x: 0.5, y: 0.1, role: "GK" },
+    { x: 0.14, y: 0.24, role: "DEF" },
+    { x: 0.36, y: 0.24, role: "DEF" },
+    { x: 0.64, y: 0.24, role: "DEF" },
+    { x: 0.86, y: 0.24, role: "DEF" },
+    { x: 0.38, y: 0.39, role: "MID" },
+    { x: 0.62, y: 0.39, role: "MID" },
+    { x: 0.1, y: 0.54, role: "ATT" },
+    { x: 0.35, y: 0.54, role: "ATT" },
+    { x: 0.65, y: 0.54, role: "ATT" },
+    { x: 0.9, y: 0.54, role: "ATT" },
+  ],
+};
 const DISABLED_EARLY_FINISH_GOAL_LEAD = 99;
 const HALF_DURATION_SECONDS = Math.floor(MATCH_DURATION_SECONDS / 2);
 const HALF_TIME_TRANSITION_MS = 2500;
@@ -514,15 +597,18 @@ class MatchSimulationScene extends Phaser.Scene {
   }
 
   private createTeams() {
+    const homeFormation = mirrorFormationVertically(resolveFormationLayout(this.teams.home.formation));
+    const awayFormation = resolveFormationLayout(this.teams.away.formation);
+
     this.homePlayers = this.createTeam(
       "HOME",
-      TOP_FORMATION.map((node) => ({ ...node, y: 1 - node.y })),
+      homeFormation,
       this.ui.homeColor,
       0xf4d03f,
       "up"
     );
 
-    this.awayPlayers = this.createTeam("AWAY", TOP_FORMATION, this.ui.awayColor, 0x2ecc71, "down");
+    this.awayPlayers = this.createTeam("AWAY", awayFormation, this.ui.awayColor, 0x2ecc71, "down");
   }
 
   private createTeam(
@@ -2577,6 +2663,7 @@ function resolveRuntimeTeam(team: MatchRuntimeConfig["homeTeam"]): RuntimeTeam {
   return {
     name: team.name,
     strength: team.strength,
+    formation: normalizeFormationCode(team.formation),
     attackRating: team.attackRating ?? team.strength,
     defenseRating: team.defenseRating ?? team.strength,
     controlRating: team.controlRating ?? team.strength,
@@ -2584,6 +2671,28 @@ function resolveRuntimeTeam(team: MatchRuntimeConfig["homeTeam"]): RuntimeTeam {
     staminaRating: team.staminaRating ?? 100,
     momentumBias: team.momentumBias,
   };
+}
+
+function normalizeFormationCode(value: unknown): FormationCode {
+  if (typeof value !== "string") {
+    return "4-4-2";
+  }
+
+  const normalized = value.trim() as FormationCode;
+  return SUPPORTED_FORMATIONS.includes(normalized) ? normalized : "4-4-2";
+}
+
+function resolveFormationLayout(code: unknown): FormationNode[] {
+  const formation = normalizeFormationCode(code);
+  const layout = TOP_FORMATION_LAYOUTS[formation] ?? TOP_FORMATION_LAYOUTS["4-4-2"];
+  return layout.map((node) => ({ ...node }));
+}
+
+function mirrorFormationVertically(formation: FormationNode[]): FormationNode[] {
+  return formation.map((node) => ({
+    ...node,
+    y: 1 - node.y,
+  }));
 }
 
 function darkenColor(input: number, ratio: number): number {

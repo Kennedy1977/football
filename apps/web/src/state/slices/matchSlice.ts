@@ -12,6 +12,8 @@ interface MatchPrepState {
   matchSeed: string;
   opponentClubId: number;
   opponentName: string;
+  yourFormation: string;
+  opponentFormation: string;
   yourTeamOverall: number;
   opponentTeamOverall: number;
   yourArcadeRatings: ArcadeTeamRatings;
@@ -59,6 +61,8 @@ const matchSlice = createSlice({
         matchSeed: action.payload.matchSeed,
         opponentClubId: action.payload.opponent.clubId,
         opponentName: action.payload.opponent.name,
+        yourFormation: action.payload.yourClub.formation || "4-4-2",
+        opponentFormation: action.payload.opponent.formation || "4-4-2",
         yourTeamOverall: action.payload.yourClub.teamOverall,
         opponentTeamOverall: action.payload.opponent.teamOverall,
         yourArcadeRatings: action.payload.yourClub.arcadeRatings,

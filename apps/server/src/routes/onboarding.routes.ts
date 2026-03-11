@@ -6,6 +6,7 @@ import type { FormationCode, PlayerCard } from "../../../../packages/game-core/s
 import { pool } from "../config/db";
 import { readClerkUserId, requireAccountId } from "../lib/auth";
 import { HttpError } from "../lib/errors";
+import { MANAGER_AVATAR_FRAME_COUNT, MANAGER_AVATAR_SPRITE_SHEET, normalizeManagerAvatar, readAvatarFromRequest, serializeManagerAvatar } from "../lib/manager-avatar";
 import { generateStarterSquad } from "../lib/starter-squad";
 import { ensureCpuLeaguePopulation, ensurePlayerPool } from "../lib/world-seeding";
 import { asyncHandler } from "../middleware/async-handler";
@@ -21,6 +22,8 @@ interface ManagerRow extends RowDataPacket {
   name: string;
   level: number;
   exp: number;
+  avatar_json?: unknown;
+  avatar_frame?: string | null;
 }
 
 interface ClubRow extends RowDataPacket {
@@ -40,13 +43,6 @@ interface LeagueTierRow extends RowDataPacket {
 interface ClubLeagueRow extends RowDataPacket {
   current_league_code: string;
 }
-
-const DEFAULT_AVATAR = {
-  faceShape: "oval",
-  skinTone: "medium",
-  hairStyle: "short",
-  hairColor: "brown",
-};
 
 const DEFAULT_BADGE = {
   shape: "shield",
@@ -75,7 +71,7 @@ onboardingRouter.post(
     const managerName = readRequiredString(req.body?.name, "name", 64);
     const age = readOptionalNumber(req.body?.age);
     const gender = readOptionalString(req.body?.gender, 24);
-    const avatar = req.body?.avatar && typeof req.body.avatar === "object" ? req.body.avatar : DEFAULT_AVATAR;
+    const avatar = serializeManagerAvatar(req.body?.avatar);
 
     const connection = await pool.getConnection();
 
@@ -85,25 +81,32 @@ onboardingRouter.post(
       const accountId = await upsertAccount(connection, clerkUserId, email);
 
       const [managerRows] = await connection.query<ManagerRow[]>(
-        "SELECT id, name, level, exp FROM managers WHERE account_id = ? LIMIT 1",
+        "SELECT id, name, level, exp, avatar_json, avatar_frame FROM managers WHERE account_id = ? LIMIT 1",
         [accountId]
       );
 
       if (managerRows.length) {
+        const existingManager = managerRows[0];
         await connection.commit();
         res.status(200).json({
           created: false,
-          manager: managerRows[0],
+          manager: {
+            id: existingManager.id,
+            name: existingManager.name,
+            level: existingManager.level,
+            exp: existingManager.exp,
+            avatar: normalizeManagerAvatar(existingManager.avatar_json, existingManager.avatar_frame),
+          },
         });
         return;
       }
 
       const [insertManager] = await connection.execute<ResultSetHeader>(
         `
-          INSERT INTO managers (account_id, name, age, gender, avatar_json)
-          VALUES (?, ?, ?, ?, ?)
+          INSERT INTO managers (account_id, name, age, gender, avatar_json, avatar_frame)
+          VALUES (?, ?, ?, ?, ?, ?)
         `,
-        [accountId, managerName, age, gender, JSON.stringify(avatar)]
+        [accountId, managerName, age, gender, avatar.avatarJson, avatar.avatarFrame]
       );
 
       await connection.execute(
@@ -124,6 +127,7 @@ onboardingRouter.post(
           name: managerName,
           level: 0,
           exp: 0,
+          avatar: avatar.avatar,
         },
       });
     } catch (error) {
@@ -132,6 +136,56 @@ onboardingRouter.post(
     } finally {
       connection.release();
     }
+  })
+);
+
+onboardingRouter.put(
+  "/manager/avatar",
+  asyncHandler(async (req, res) => {
+    const accountId = await requireAccountId(req);
+    const avatar = readAvatarFromRequest(req.body?.avatar);
+
+    if (!avatar) {
+      throw new HttpError(
+        400,
+        `avatar must include spriteSheet '${MANAGER_AVATAR_SPRITE_SHEET}' and frameIndex between 0 and ${
+          MANAGER_AVATAR_FRAME_COUNT - 1
+        }`
+      );
+    }
+
+    const serialized = serializeManagerAvatar(avatar);
+
+    const [updateResult] = await pool.execute<ResultSetHeader>(
+      "UPDATE managers SET avatar_json = ?, avatar_frame = ? WHERE account_id = ?",
+      [serialized.avatarJson, serialized.avatarFrame, accountId]
+    );
+
+    if (!updateResult.affectedRows) {
+      throw new HttpError(404, "Manager profile not found");
+    }
+
+    const [managerRows] = await pool.query<ManagerRow[]>(
+      "SELECT id, name, level, exp, avatar_json, avatar_frame FROM managers WHERE account_id = ? LIMIT 1",
+      [accountId]
+    );
+
+    if (!managerRows.length) {
+      throw new HttpError(404, "Manager profile not found");
+    }
+
+    const manager = managerRows[0];
+
+    res.status(200).json({
+      updated: true,
+      manager: {
+        id: manager.id,
+        name: manager.name,
+        level: manager.level,
+        exp: manager.exp,
+        avatar: normalizeManagerAvatar(manager.avatar_json, manager.avatar_frame),
+      },
+    });
   })
 );
 

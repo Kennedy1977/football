@@ -40,6 +40,10 @@ export default function MatchPrepPage() {
               <p className="stat-value">{prep.yourTeamOverall} vs {prep.opponentTeamOverall}</p>
             </div>
             <div className="stat-card">
+              <p className="stat-label">Formation</p>
+              <p className="stat-value">{prep.yourFormation} vs {prep.opponentFormation}</p>
+            </div>
+            <div className="stat-card">
               <p className="stat-label">Attack</p>
               <p className="stat-value">{prep.yourArcadeRatings.attack} vs {prep.opponentArcadeRatings.attack}</p>
             </div>

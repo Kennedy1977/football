@@ -11,13 +11,14 @@ import {
   Shield,
   ShoppingBag,
   Trophy,
-  UserCircle2,
   WalletCards,
   Users,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useGetDashboardSummaryQuery } from "../state/apis/gameApi";
+import { ManagerAvatar } from "./manager-avatar";
 
 interface AppFrameProps {
   children: React.ReactNode;
@@ -45,6 +46,8 @@ const bottomLinks = [
 export function AppFrame({ children, clerkConfigured }: AppFrameProps) {
   const pathname = usePathname();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const { data: dashboardSummary } = useGetDashboardSummaryQuery();
+  const manager = dashboardSummary?.manager;
 
   useEffect(() => {
     setIsDrawerOpen(false);
@@ -73,7 +76,7 @@ export function AppFrame({ children, clerkConfigured }: AppFrameProps) {
             className={`icon-btn ${isActivePath(pathname, "/profile") ? "is-active" : ""}`}
             aria-label="Profile"
           >
-            <UserCircle2 size={18} />
+            <ManagerAvatar avatar={manager?.avatar} name={manager?.name} className="topbar-profile-avatar" />
           </Link>
         </div>
       </header>

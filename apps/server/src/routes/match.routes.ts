@@ -31,6 +31,7 @@ export const matchRouter = Router();
 const MAX_SIMULATION_PAYLOAD_CHANCE_EVENTS = 64;
 const MAX_SIMULATION_PAYLOAD_BYTES = 120_000;
 const DISABLED_EARLY_FINISH_GOAL_LEAD = 99;
+const DEFAULT_FORMATION_CODE = "4-4-2";
 
 interface MatchContextRow extends RowDataPacket {
   club_id: number;
@@ -70,6 +71,10 @@ interface StartingPlayerRow extends RowDataPacket {
   is_starting: number;
 }
 
+interface LineupFormationRow extends RowDataPacket {
+  formation_code: string;
+}
+
 interface OpponentMembershipRow extends RowDataPacket {
   league_tier_id: number;
 }
@@ -84,6 +89,11 @@ matchRouter.post(
     const accountId = await requireAccountId(req);
     const context = await getMatchContext(accountId);
     await recoverClubStamina(context.club_id);
+    const [yourLineupRows] = await pool.query<LineupFormationRow[]>(
+      "SELECT formation_code FROM lineups WHERE club_id = ? LIMIT 1",
+      [context.club_id]
+    );
+    const yourFormation = normalizeFormationCode(yourLineupRows[0]?.formation_code);
 
     const [lineupRows] = await pool.query<StartingPlayerRow[]>(
       `
@@ -172,6 +182,11 @@ matchRouter.post(
       `,
       [picked.row.club_id]
     );
+    const [opponentLineupRows] = await pool.query<LineupFormationRow[]>(
+      "SELECT formation_code FROM lineups WHERE club_id = ? LIMIT 1",
+      [picked.row.club_id]
+    );
+    const opponentFormation = normalizeFormationCode(opponentLineupRows[0]?.formation_code);
     const opponentArcadeRatings = isValidStartingLineup(opponentStarterRows)
       ? deriveArcadeTeamRatings(
           opponentStarterRows.map((player) => toPlayerCard(player)),
@@ -192,6 +207,7 @@ matchRouter.post(
         clubId: context.club_id,
         teamOverall: Number(context.team_overall),
         rank: userRank,
+        formation: yourFormation,
         arcadeRatings: yourArcadeRatings,
       },
       opponent: {
@@ -199,6 +215,7 @@ matchRouter.post(
         name: picked.row.club_name,
         teamOverall: Number(picked.row.team_overall),
         rank: picked.rank,
+        formation: opponentFormation,
         arcadeRatings: opponentArcadeRatings,
       },
     });
@@ -891,6 +908,16 @@ function readTapQuality(value: unknown, field: string): MatchTapQuality {
   }
 
   throw new HttpError(400, `${field} is invalid`);
+}
+
+function normalizeFormationCode(value: unknown): string {
+  if (typeof value !== "string") {
+    return DEFAULT_FORMATION_CODE;
+  }
+
+  const normalized = value.trim();
+  const allowed = new Set(["4-4-2", "4-3-3", "4-5-1", "4-2-3-1", "3-5-2", "5-3-2", "4-2-4"]);
+  return allowed.has(normalized) ? normalized : DEFAULT_FORMATION_CODE;
 }
 
 async function unlockFormation(

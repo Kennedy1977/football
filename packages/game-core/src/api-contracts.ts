@@ -1,10 +1,16 @@
 import type { ArcadeTeamRatings, FormationCode, LeagueCode, MatchEndReason, MatchResult, Position, Rarity } from "./types";
 
+export interface ManagerAvatar {
+  spriteSheet: "manager-v1";
+  frameIndex: number;
+}
+
 export interface ApiManagerSummary {
   id: number;
   name: string;
   level: number;
   exp: number;
+  avatar: ManagerAvatar;
 }
 
 export interface ApiClubSummary {
@@ -37,11 +43,20 @@ export interface CreateManagerRequest {
   name: string;
   age?: number;
   gender?: string;
-  avatar?: Record<string, unknown>;
+  avatar?: ManagerAvatar;
 }
 
 export interface CreateManagerResponse {
   created: boolean;
+  manager: ApiManagerSummary;
+}
+
+export interface UpdateManagerAvatarRequest {
+  avatar: ManagerAvatar;
+}
+
+export interface UpdateManagerAvatarResponse {
+  updated: boolean;
   manager: ApiManagerSummary;
 }
 
@@ -150,6 +165,7 @@ export interface StartMatchResponse {
     clubId: number;
     teamOverall: number;
     rank: number;
+    formation: FormationCode | string;
     arcadeRatings: ArcadeTeamRatings;
   };
   opponent: {
@@ -157,6 +173,7 @@ export interface StartMatchResponse {
     name: string;
     teamOverall: number;
     rank: number;
+    formation: FormationCode | string;
     arcadeRatings: ArcadeTeamRatings;
   };
 }

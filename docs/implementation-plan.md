@@ -108,15 +108,15 @@ Implemented highlights:
 
 ## 7. Web Feature Surface (Current)
 
-- `/start`: manager + club onboarding flow.
-- `/home`: dashboard summary, reward CTA, quick actions.
+- `/start`: manager + club onboarding flow with manager portrait picker.
+- `/home`: dashboard summary, manager portrait, reward CTA, quick actions.
 - `/squad`: lineup editor with formation switching, XI/bench validation, drag/drop swaps, autopick.
 - `/match/prep`: pre-match setup and start.
 - `/match/live`: Phaser runtime host.
 - `/match/result`: full-time presentation + rewards/promotion.
 - `/league`: full table and rank context.
 - `/shop`: pack catalogue, purchase flow, reward decision flow.
-- `/profile`: manager/club summary.
+- `/profile`: manager/club summary + editable manager portrait picker.
 - `/playercards`: player card visual preview route.
 - `/settings`, `/help`: placeholder pages.
 
@@ -125,6 +125,7 @@ Implemented highlights:
 Auth + onboarding:
 - `POST /api/auth/session`
 - `POST /api/onboarding/manager`
+- `PUT /api/onboarding/manager/avatar`
 - `POST /api/onboarding/club`
 - `POST /api/onboarding/reset-club`
 - `POST /api/onboarding/bootstrap-world` (scope creep: world seeding utility)
@@ -178,6 +179,7 @@ Core:
 8. Result page upgraded to full-time presentation with fake badges + scorer attribution.
 9. Added world bootstrap endpoint (`/onboarding/bootstrap-world`) for CPU/player-pool seeding.
 10. Added player card preview route and card asset pipeline.
+11. Added manager avatar sprite system with onboarding selection + profile-time updates.
 
 ## 12. Remaining Gaps / Next Work
 
@@ -196,6 +198,8 @@ Core:
 
 Latest patch notes (newest first):
 <!-- PATCH_NOTES_FEED_START -->
+- [2026-03-11 - v0.0.63 - Add manager avatar sprite selection and profile updates](docs/patch-notes/2026-03-11-v0.0.63-add-manager-avatar-sprite-selection-and-profile-updates.md)
+- [2026-03-11 - v0.0.61 - Enhance manager profile dashboard and season insights](docs/patch-notes/2026-03-11-v0.0.61-enhance-manager-profile-dashboard-and-season-insights.md)
 - [2026-03-11 - v0.0.60 - Add walk-on sequences and compact commit message enforcement](docs/patch-notes/2026-03-11-v0.0.60-add-walk-on-sequences-and-compact-commit-message-enforcement.md)
 - [2026-03-11 - v0.0.59 - Fix footer version typing and confirm dependency currency](docs/patch-notes/2026-03-11-v0.0.59-fix-footer-version-typing-and-confirm-dependency-currency.md)
 - [2026-03-11 - v0.0.58 - Enforce commit protocol and runtime version file loading](docs/patch-notes/2026-03-11-v0.0.58-enforce-commit-protocol-and-runtime-version-file-loading.md)

@@ -108,6 +108,7 @@ export default function MatchLivePage() {
           homeTeam: {
             name: yourClubName,
             strength: prep.yourTeamOverall,
+            formation: prep.yourFormation,
             attackRating: prep.yourArcadeRatings.attack,
             defenseRating: prep.yourArcadeRatings.defense,
             controlRating: prep.yourArcadeRatings.control,
@@ -117,6 +118,7 @@ export default function MatchLivePage() {
           awayTeam: {
             name: prep.opponentName,
             strength: prep.opponentTeamOverall,
+            formation: prep.opponentFormation,
             attackRating: prep.opponentArcadeRatings.attack,
             defenseRating: prep.opponentArcadeRatings.defense,
             controlRating: prep.opponentArcadeRatings.control,

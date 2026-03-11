@@ -3,6 +3,7 @@ import type { RowDataPacket } from "mysql2";
 import { pool } from "../config/db";
 import { requireAccountId } from "../lib/auth";
 import { HttpError } from "../lib/errors";
+import { normalizeManagerAvatar } from "../lib/manager-avatar";
 import { getNextResetIso, getRewardDateKey } from "../lib/time";
 import { asyncHandler } from "../middleware/async-handler";
 
@@ -13,6 +14,8 @@ interface DashboardRow extends RowDataPacket {
   manager_name: string;
   manager_level: number;
   manager_exp: number;
+  manager_avatar_json: unknown;
+  manager_avatar_frame: string | null;
   club_id: number;
   club_name: string;
   city: string;
@@ -38,6 +41,8 @@ dashboardRouter.get(
           m.name AS manager_name,
           m.level AS manager_level,
           m.exp AS manager_exp,
+          m.avatar_json AS manager_avatar_json,
+          m.avatar_frame AS manager_avatar_frame,
           c.id AS club_id,
           c.club_name,
           c.city,
@@ -66,6 +71,7 @@ dashboardRouter.get(
           name: row.manager_name,
           level: row.manager_level,
           exp: row.manager_exp,
+          avatar: normalizeManagerAvatar(row.manager_avatar_json, row.manager_avatar_frame),
         },
         club: null,
         onboardingComplete: false,
@@ -86,6 +92,7 @@ dashboardRouter.get(
         name: row.manager_name,
         level: row.manager_level,
         exp: row.manager_exp,
+        avatar: normalizeManagerAvatar(row.manager_avatar_json, row.manager_avatar_frame),
       },
       club: {
         id: row.club_id,
