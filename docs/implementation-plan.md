@@ -74,6 +74,7 @@ Implemented highlights:
 - Match UI chrome (topbar, bottom nav, build footer) is hidden while live match runs.
 - Players animate with tactical ambient movement + chance-event transitions.
 - Teams swap ends at halftime with a short transition (`~2.5s`).
+- Team shape now honors each club's selected formation independently (e.g. `4-2-4` vs `4-3-3`).
 
 ### 5.3 HUD / overlays (scope-creep calibration)
 
@@ -110,7 +111,7 @@ Implemented highlights:
 
 - `/start`: manager + club onboarding flow with manager portrait picker.
 - `/home`: dashboard summary, manager portrait, reward CTA, quick actions.
-- `/squad`: lineup editor with formation switching, XI/bench validation, drag/drop swaps, autopick.
+- `/squad`: lineup editor with formation switching, XI/bench validation, drag/drop swaps, automatic best-XI pick on formation change, and auto-save.
 - `/match/prep`: pre-match setup and start.
 - `/match/live`: Phaser runtime host.
 - `/match/result`: full-time presentation + rewards/promotion.
@@ -198,6 +199,9 @@ Core:
 
 Latest patch notes (newest first):
 <!-- PATCH_NOTES_FEED_START -->
+- [2026-03-11 - v0.0.66 - Fix squad pitch player hover position jump](docs/patch-notes/2026-03-11-v0.0.66-fix-squad-pitch-player-hover-position-jump.md)
+- [2026-03-11 - v0.0.65 - Auto-pick and auto-save lineup when formation changes](docs/patch-notes/2026-03-11-v0.0.65-auto-pick-and-auto-save-lineup-when-formation-changes.md)
+- [2026-03-11 - v0.0.64 - Apply each team's own formation in match sim](docs/patch-notes/2026-03-11-v0.0.64-apply-each-team-s-own-formation-in-match-sim.md)
 - [2026-03-11 - v0.0.63 - Add manager avatar sprite selection and profile updates](docs/patch-notes/2026-03-11-v0.0.63-add-manager-avatar-sprite-selection-and-profile-updates.md)
 - [2026-03-11 - v0.0.61 - Enhance manager profile dashboard and season insights](docs/patch-notes/2026-03-11-v0.0.61-enhance-manager-profile-dashboard-and-season-insights.md)
 - [2026-03-11 - v0.0.60 - Add walk-on sequences and compact commit message enforcement](docs/patch-notes/2026-03-11-v0.0.60-add-walk-on-sequences-and-compact-commit-message-enforcement.md)

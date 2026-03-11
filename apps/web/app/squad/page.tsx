@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties, DragEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useGetSquadQuery, useSellPlayerMutation, useUpdateLineupMutation } from "../../src/state/apis/gameApi";
 import { ProgressRow } from "../../src/components/progress-row";
 import { readApiErrorMessage } from "../../src/lib/api-error";
@@ -64,6 +64,8 @@ export default function SquadPage() {
   const [draggingReservePlayerId, setDraggingReservePlayerId] = useState<number | null>(null);
   const [hoveredSlotIndex, setHoveredSlotIndex] = useState<number | null>(null);
   const [lineupFeedback, setLineupFeedback] = useState<string | null>(null);
+  const autoSaveTimerRef = useRef<number | null>(null);
+  const lastAutoSavePayloadKeyRef = useRef<string | null>(null);
 
   const players = useMemo(() => (data?.players || []) as SquadPlayer[], [data?.players]);
   const playerMap = useMemo(() => new Map(players.map((player) => [player.id, player])), [players]);
@@ -155,6 +157,10 @@ export default function SquadPage() {
     selectedFormation !== persistedSelection.formation ||
     !sameOrderedIds(selectedStartingIds, persistedSelection.startingIds) ||
     !sameIdSet(selectedBenchIds, persistedSelection.benchIds);
+  const currentSelectionPayloadKey = useMemo(
+    () => `${selectedFormation}|${selectedStartingIds.join(",")}|${selectedBenchIds.join(",")}`,
+    [selectedFormation, selectedStartingIds, selectedBenchIds]
+  );
 
   const lineupBlockingMessage = !players.length
     ? null
@@ -200,25 +206,18 @@ export default function SquadPage() {
   };
 
   const handleAutoPickBestXi = () => {
-    const picked = autoPickBestXi(players, selectedFormation);
-    if (!picked) {
+    const autoLineup = buildBestLineupForFormation(players, selectedFormation);
+    if (!autoLineup) {
       setLineupFeedback("Auto-pick failed: not enough available players (need 11 with at least one GK).");
       return;
     }
 
-    const orderedStarting = normalizeStarterOrderForFormation(picked.startingIds, players, selectedFormation);
-    const benchCandidates = players
-      .filter((player) => !orderedStarting.includes(player.id))
-      .sort((a, b) => b.overall - a.overall)
-      .slice(0, 5)
-      .map((player) => player.id);
-
-    setSelectedStartingIds(orderedStarting);
-    setSelectedBenchIds(benchCandidates);
+    setSelectedStartingIds(autoLineup.startingIds);
+    setSelectedBenchIds(autoLineup.benchIds);
     setSelectedReservePlayerId(null);
     setDraggingReservePlayerId(null);
     setHoveredSlotIndex(null);
-    setLineupFeedback(`Auto-picked best XI for ${selectedFormation}.`);
+    setLineupFeedback(`Auto-picked best XI for ${selectedFormation}. Auto-saving...`);
     updateLineupState.reset();
   };
 
@@ -277,23 +276,62 @@ export default function SquadPage() {
     handlePlaceReserveInSlot(slotIndex, reserveId);
   };
 
-  const handleSaveLineup = async () => {
-    if (!lineupReady) return;
+  useEffect(() => {
+    if (!players.length || !lineupReady || !hasLineupChanges || updateLineupState.isLoading) {
+      return;
+    }
 
-    setLineupFeedback(null);
+    if (currentSelectionPayloadKey === lastAutoSavePayloadKeyRef.current) {
+      return;
+    }
 
-    try {
-      await updateLineup({
+    if (autoSaveTimerRef.current) {
+      window.clearTimeout(autoSaveTimerRef.current);
+    }
+
+    autoSaveTimerRef.current = window.setTimeout(() => {
+      const payload = {
         formation: selectedFormation,
         startingPlayerIds: selectedStartingIds,
         benchPlayerIds: selectedBenchIds,
-      }).unwrap();
-      await refetch();
-      setLineupFeedback("Lineup updated.");
-    } catch {
-      // API message rendered below via updateLineupState.error
-    }
-  };
+      };
+      const payloadKey = `${payload.formation}|${payload.startingPlayerIds.join(",")}|${payload.benchPlayerIds.join(",")}`;
+
+      if (payloadKey === lastAutoSavePayloadKeyRef.current) {
+        return;
+      }
+
+      setLineupFeedback("Saving lineup...");
+      lastAutoSavePayloadKeyRef.current = payloadKey;
+      void updateLineup(payload)
+        .unwrap()
+        .then(async () => {
+          await refetch();
+          setLineupFeedback("Lineup auto-saved.");
+        })
+        .catch(() => {
+          lastAutoSavePayloadKeyRef.current = null;
+        });
+    }, 450);
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        window.clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+    };
+  }, [
+    players.length,
+    lineupReady,
+    hasLineupChanges,
+    updateLineupState.isLoading,
+    currentSelectionPayloadKey,
+    selectedFormation,
+    selectedStartingIds,
+    selectedBenchIds,
+    updateLineup,
+    refetch,
+  ]);
 
   return (
     <main className="page-panel page-panel-portrait">
@@ -322,9 +360,18 @@ export default function SquadPage() {
                 onChange={(event) => {
                   const nextFormation = resolveFormationCode(event.target.value, selectedFormation);
                   setSelectedFormation(nextFormation);
-                  setSelectedStartingIds((prev) => normalizeStarterOrderForFormation(prev, players, nextFormation));
+                  const autoLineup = buildBestLineupForFormation(players, nextFormation);
+                  if (autoLineup) {
+                    setSelectedStartingIds(autoLineup.startingIds);
+                    setSelectedBenchIds(autoLineup.benchIds);
+                    setLineupFeedback(`Auto-picked best XI for ${nextFormation}. Auto-saving...`);
+                  } else {
+                    setSelectedStartingIds((prev) => normalizeStarterOrderForFormation(prev, players, nextFormation));
+                    setLineupFeedback(`Formation changed to ${nextFormation}. Auto-pick unavailable.`);
+                  }
                   setSelectedReservePlayerId(null);
-                  setLineupFeedback(null);
+                  setDraggingReservePlayerId(null);
+                  setHoveredSlotIndex(null);
                   updateLineupState.reset();
                 }}
               >
@@ -360,14 +407,6 @@ export default function SquadPage() {
               disabled={updateLineupState.isLoading || players.length < 11}
             >
               Auto Pick Best XI
-            </button>
-            <button
-              type="button"
-              className="no-hover-lift"
-              onClick={handleSaveLineup}
-              disabled={updateLineupState.isLoading || !lineupReady || !hasLineupChanges}
-            >
-              {updateLineupState.isLoading ? "Saving..." : "Save Lineup"}
             </button>
             <button
               type="button"
@@ -411,7 +450,7 @@ export default function SquadPage() {
                   <button
                     key={slot.key}
                     type="button"
-                    className={`lineup-slot no-hover-lift ${player ? "is-filled" : "is-empty"} ${isDropTarget ? "is-target" : ""}`}
+                    className={`lineup-slot ${player ? "is-filled" : "is-empty"} ${isDropTarget ? "is-target" : ""}`}
                     style={slotStyle}
                     onDragOver={(event) => {
                       if (!activeReserveId) return;
@@ -833,6 +872,25 @@ function autoPickBestXi(players: SquadPlayer[], formation: FormationCode): { sta
   }
 
   return { startingIds: pickedIds };
+}
+
+function buildBestLineupForFormation(
+  players: SquadPlayer[],
+  formation: FormationCode
+): { startingIds: number[]; benchIds: number[] } | null {
+  const picked = autoPickBestXi(players, formation);
+  if (!picked) {
+    return null;
+  }
+
+  const startingIds = normalizeStarterOrderForFormation(picked.startingIds, players, formation);
+  const benchIds = players
+    .filter((player) => !startingIds.includes(player.id))
+    .sort((a, b) => b.overall - a.overall)
+    .slice(0, 5)
+    .map((player) => player.id);
+
+  return { startingIds, benchIds };
 }
 
 function canPlaySlot(slot: Position, playerPosition: Position): boolean {

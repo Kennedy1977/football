@@ -10,6 +10,9 @@ This project follows:
 
 Patch note entries:
 <!-- PATCH_NOTES_FEED_START -->
+- [2026-03-11 - v0.0.66 - Fix squad pitch player hover position jump](docs/patch-notes/2026-03-11-v0.0.66-fix-squad-pitch-player-hover-position-jump.md)
+- [2026-03-11 - v0.0.65 - Auto-pick and auto-save lineup when formation changes](docs/patch-notes/2026-03-11-v0.0.65-auto-pick-and-auto-save-lineup-when-formation-changes.md)
+- [2026-03-11 - v0.0.64 - Apply each team's own formation in match sim](docs/patch-notes/2026-03-11-v0.0.64-apply-each-team-s-own-formation-in-match-sim.md)
 - [2026-03-11 - v0.0.63 - Add manager avatar sprite selection and profile updates](docs/patch-notes/2026-03-11-v0.0.63-add-manager-avatar-sprite-selection-and-profile-updates.md)
 - [2026-03-11 - v0.0.61 - Enhance manager profile dashboard and season insights](docs/patch-notes/2026-03-11-v0.0.61-enhance-manager-profile-dashboard-and-season-insights.md)
 - [2026-03-11 - v0.0.60 - Add walk-on sequences and compact commit message enforcement](docs/patch-notes/2026-03-11-v0.0.60-add-walk-on-sequences-and-compact-commit-message-enforcement.md)
@@ -30,11 +33,16 @@ Patch note entries:
 ### Changed
 - Manager onboarding/profile/dashboard contracts now include typed avatar data.
 - Home/profile/topbar now render manager portraits from stored avatar selection.
+- Match start/live contracts now carry both clubs' formation codes into match runtime config.
+- Squad formation changes now auto-pick the best eligible XI for the selected shape.
+- Squad lineup and formation edits now auto-save when valid, without manual save action.
 - Added an explicit, reusable commit template file: `.gitmessage.txt`.
 - Version pipeline now treats `package.json` as source of truth and refreshes both build meta and runtime version file.
 - Living implementation spec now includes auto-maintained patch note feed.
 
 ### Fixed
+- Squad formation-pitch player markers no longer shift out of position on hover.
+- Live match simulation now applies independent home/away formation layouts instead of defaulting to a single shape.
 - Avatar normalization now gracefully handles legacy manager avatar JSON shapes.
 - Footer version can now update from runtime `version.json` on app load instead of relying only on static build constants.
 
