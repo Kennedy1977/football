@@ -212,7 +212,6 @@ class MatchSimulationScene extends Phaser.Scene {
   private pitchHeight = 0;
 
   private timerText!: Phaser.GameObjects.Text;
-  private halfText!: Phaser.GameObjects.Text;
   private scoreText!: Phaser.GameObjects.Text;
   private commentaryText!: Phaser.GameObjects.Text;
 
@@ -382,37 +381,29 @@ class MatchSimulationScene extends Phaser.Scene {
 
   private buildHud() {
     const startClock = toDisplayClockState(0);
-    const compactHalf = toCompactHalfLabel(startClock.halfLabel);
     const bugLeft = this.pitchLeft + HUD_PITCH_INSET_X;
     const bugTop = this.pitchTop + HUD_PITCH_INSET_Y;
-    const timerWidth = 72;
-    const scoreWidth = Math.max(154, Math.min(206, this.pitchWidth - 140));
-    const periodWidth = 38;
-    const bugHeight = 30;
-    const chipGap = 4;
+    const timerWidth = 64;
+    const scoreWidth = Math.max(144, Math.min(188, this.pitchWidth - 104));
+    const bugHeight = 24;
+    const chipGap = 3;
 
     const bugPanel = this.add.graphics().setDepth(2100);
     bugPanel.fillStyle(0xf8fafc, 0.96);
     bugPanel.fillRoundedRect(bugLeft, bugTop, timerWidth, bugHeight, 8);
-    bugPanel.lineStyle(1.5, 0x0f172a, 0.28);
+    bugPanel.lineStyle(1, 0x0f172a, 0.28);
     bugPanel.strokeRoundedRect(bugLeft, bugTop, timerWidth, bugHeight, 8);
 
     const scoreLeft = bugLeft + timerWidth + chipGap;
     bugPanel.fillStyle(0x031328, 0.9);
     bugPanel.fillRoundedRect(scoreLeft, bugTop, scoreWidth, bugHeight, 8);
-    bugPanel.lineStyle(1.5, 0xe2f1ff, 0.45);
+    bugPanel.lineStyle(1, 0xe2f1ff, 0.45);
     bugPanel.strokeRoundedRect(scoreLeft, bugTop, scoreWidth, bugHeight, 8);
-
-    const periodLeft = scoreLeft + scoreWidth + chipGap;
-    bugPanel.fillStyle(0xf8fafc, 0.96);
-    bugPanel.fillRoundedRect(periodLeft, bugTop, periodWidth, bugHeight, 8);
-    bugPanel.lineStyle(1.5, 0x0f172a, 0.28);
-    bugPanel.strokeRoundedRect(periodLeft, bugTop, periodWidth, bugHeight, 8);
 
     this.timerText = this.add
       .text(bugLeft + timerWidth / 2, bugTop + bugHeight / 2, startClock.clockText, {
         fontFamily: "Courier New",
-        fontSize: "14px",
+        fontSize: "12px",
         color: "#0f172a",
         fontStyle: "bold",
       })
@@ -422,18 +413,8 @@ class MatchSimulationScene extends Phaser.Scene {
     this.scoreText = this.add
       .text(scoreLeft + scoreWidth / 2, bugTop + bugHeight / 2, `${this.ui.homeCode} ${this.homeGoals} - ${this.awayGoals} ${this.ui.awayCode}`, {
         fontFamily: "Barlow Condensed, Arial",
-        fontSize: "21px",
+        fontSize: "18px",
         color: "#f8fafc",
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5, 0.5)
-      .setDepth(2200);
-
-    this.halfText = this.add
-      .text(periodLeft + periodWidth / 2, bugTop + bugHeight / 2, compactHalf, {
-        fontFamily: "Barlow Condensed, Arial",
-        fontSize: "17px",
-        color: "#0f172a",
         fontStyle: "bold",
       })
       .setOrigin(0.5, 0.5)
@@ -566,7 +547,6 @@ class MatchSimulationScene extends Phaser.Scene {
     const wasFirstHalf = this.elapsed < HALF_DURATION_SECONDS;
     this.elapsed += 1;
     const displayClock = toDisplayClockState(this.elapsed);
-    this.halfText.setText(toCompactHalfLabel(displayClock.halfLabel));
     this.timerText.setText(displayClock.clockText);
 
     if (wasFirstHalf && this.elapsed === HALF_DURATION_SECONDS) {
@@ -1790,7 +1770,6 @@ class MatchSimulationScene extends Phaser.Scene {
     );
 
     const displayClock = toDisplayClockState(Math.min(finalResult.durationSeconds, MATCH_DURATION_SECONDS));
-    this.halfText.setText("FT");
     this.timerText.setText(displayClock.clockText);
     this.scoreText.setText(`${this.ui.homeCode} ${finalResult.homeGoals} - ${finalResult.awayGoals} ${this.ui.awayCode}`);
 
@@ -1868,19 +1847,6 @@ function toDisplayClockState(seconds: number): DisplayClockState {
     halfLabel: half === 1 ? "1ST HALF" : "2ND HALF",
     clockText: `${mins}:${secs}`,
   };
-}
-
-function toCompactHalfLabel(halfLabel: string): string {
-  if (halfLabel.startsWith("1")) {
-    return "1H";
-  }
-  if (halfLabel.startsWith("2")) {
-    return "2H";
-  }
-  if (halfLabel.toUpperCase().includes("FULL")) {
-    return "FT";
-  }
-  return halfLabel;
 }
 
 function pickChanceType(seed: string, eventIndex: number, quality: number): ChanceType {

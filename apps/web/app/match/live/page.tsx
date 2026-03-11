@@ -145,7 +145,7 @@ export default function MatchLivePage() {
   }
 
   return (
-    <main className="page-panel page-panel-portrait">
+    <main className={`page-panel page-panel-portrait${hasSessionStarted ? " match-live-panel-live" : ""}`}>
       {!hasSessionStarted ? (
         <section className="onboarding-card section-pad match-live-metrics-top">
           <div className="progress-stack compact">
@@ -184,7 +184,7 @@ export default function MatchLivePage() {
         </section>
       ) : null}
 
-      <div className="match-sim-shell" style={{ marginTop: 12, display: hasSessionStarted ? "block" : "none" }}>
+      <div className="match-sim-shell" style={{ display: hasSessionStarted ? "block" : "none" }}>
         <div ref={containerRef} className="match-sim-root" />
       </div>
 

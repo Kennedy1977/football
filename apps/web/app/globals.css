@@ -328,6 +328,11 @@ a {
   width: 100%;
 }
 
+.match-live-panel-live {
+  padding: 0;
+  overflow: hidden;
+}
+
 .hero-panel {
   border: 1px solid var(--line);
   border-radius: 22px;
