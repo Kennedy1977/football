@@ -26,21 +26,12 @@ if (!headerPattern.test(headerLine)) {
   process.exit(1);
 }
 
-const requiredSections = ["Why:", "What:", "Validation:", "Patch-Notes:"];
-for (const section of requiredSections) {
-  const sectionPattern = new RegExp(`^${escapeRegex(section)}\\s*$`, "m");
-  if (!sectionPattern.test(commitMessage)) {
-    console.error(`Missing required commit section: ${section}`);
-    process.exit(1);
-  }
-}
-
 const patchNotesPathMatch = commitMessage.match(
-  /Patch-Notes:\s*(?:\r?\n)+-\s+(docs\/patch-notes\/\d{4}-\d{2}-\d{2}-v\d+\.\d+\.\d+-[a-z0-9-]+\.md)\s*$/m
+  /Patch-Notes:\s*(?:\r?\n-\s*)?(docs\/patch-notes\/\d{4}-\d{2}-\d{2}-v\d+\.\d+\.\d+-[a-z0-9-]+\.md)/m
 );
 
 if (!patchNotesPathMatch) {
-  console.error("Patch-Notes section must include exactly one patch note file path bullet.");
+  console.error("Commit message must include: Patch-Notes: docs/patch-notes/YYYY-MM-DD-vX.Y.Z-title.md");
   process.exit(1);
 }
 
@@ -50,8 +41,4 @@ const patchNotePath = path.resolve(repoRoot, patchNotesPathMatch[1]);
 if (!fs.existsSync(patchNotePath)) {
   console.error(`Patch note file does not exist: ${patchNotesPathMatch[1]}`);
   process.exit(1);
-}
-
-function escapeRegex(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

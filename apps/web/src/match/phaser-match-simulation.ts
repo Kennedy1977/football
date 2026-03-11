@@ -108,6 +108,9 @@ const TOP_FORMATION: FormationNode[] = [
 const DISABLED_EARLY_FINISH_GOAL_LEAD = 99;
 const HALF_DURATION_SECONDS = Math.floor(MATCH_DURATION_SECONDS / 2);
 const HALF_TIME_TRANSITION_MS = 2500;
+const TEAM_WALK_DURATION_MS = 900;
+const TEAM_WALK_STAGGER_MS = 34;
+const WIN_CELEBRATION_REPEAT = 4;
 const VIRTUAL_HALF_MINUTES = 45;
 const VIRTUAL_HALF_SECONDS = VIRTUAL_HALF_MINUTES * 60;
 const PITCH_WIDTH_UNITS = 1020;
@@ -230,6 +233,8 @@ class MatchSimulationScene extends Phaser.Scene {
   private possessionLane: Lane = 0;
   private sideSwapApplied = false;
   private halfTimeTransitionActive = false;
+  private walkOnSequenceActive = false;
+  private fullTimeSequenceActive = false;
 
   constructor(options: {
     simulation: MatchSimulationOutput;
@@ -283,13 +288,11 @@ class MatchSimulationScene extends Phaser.Scene {
     this.createTeams();
     this.createBall();
     this.possessionSide = hashUnit(`${this.matchSeed}:kickoff:side`) < 0.5 ? "HOME" : "AWAY";
-    const kickoffSidePlayers = this.getSidePlayers(this.possessionSide);
-    this.lastPossessor = kickoffSidePlayers.find((player) => player.role === "MID") ?? kickoffSidePlayers[0] ?? null;
-    if (this.lastPossessor) {
-      this.setBallPosition(this.lastPossessor.baseX, this.lastPossessor.baseY - 10, 0);
-    }
     this.createCommentaryOverlay();
-    this.setCommentary("Kick off!");
+    this.setCommentary("TEAMS WALK ON");
+    this.placeTeamsOffPitchLeft();
+    this.setBallVisible(false);
+    void this.runKickoffWalkOnSequence();
 
     this.time.addEvent({
       delay: this.secondDurationMs,
@@ -610,6 +613,112 @@ class MatchSimulationScene extends Phaser.Scene {
     this.ball.setDepth(800 + startY);
   }
 
+  private async runKickoffWalkOnSequence() {
+    if (this.walkOnSequenceActive) {
+      return;
+    }
+
+    this.walkOnSequenceActive = true;
+    try {
+      await this.walkBothTeamsToBase(TEAM_WALK_DURATION_MS);
+      this.assignKickoffPossessor(this.possessionSide);
+      this.setBallVisible(true);
+      this.setCommentary("KICK OFF");
+    } finally {
+      this.walkOnSequenceActive = false;
+    }
+  }
+
+  private placeTeamsOffPitchLeft() {
+    const offscreenX = this.pitchLeft - Math.max(72, this.pitchWidth * 0.13);
+    const allPlayers = [...this.homePlayers, ...this.awayPlayers].sort((a, b) => a.baseY - b.baseY);
+
+    allPlayers.forEach((player, idx) => {
+      const laneOffset = ((idx % 4) - 1.5) * 5;
+      const x = offscreenX - (idx % 3) * 8;
+      const y = this.clampPitchY(player.baseY + laneOffset);
+      player.container.setPosition(x, y);
+      player.container.setDepth(500 + y);
+    });
+  }
+
+  private async walkBothTeamsToBase(durationMs: number): Promise<void> {
+    await Promise.all([
+      this.walkTeamToBase("HOME", durationMs),
+      this.walkTeamToBase("AWAY", durationMs),
+    ]);
+  }
+
+  private async walkBothTeamsOffPitchLeft(durationMs: number): Promise<void> {
+    await Promise.all([
+      this.walkTeamOffPitchLeft("HOME", durationMs),
+      this.walkTeamOffPitchLeft("AWAY", durationMs),
+    ]);
+  }
+
+  private async walkTeamToBase(side: Side, durationMs: number): Promise<void> {
+    const team = this.getSidePlayers(side);
+    await Promise.all(
+      team.map((player, idx) =>
+        this.tweenPlayerToWithDelay(player, player.baseX, player.baseY, durationMs, idx * TEAM_WALK_STAGGER_MS)
+      )
+    );
+  }
+
+  private async walkTeamOffPitchLeft(side: Side, durationMs: number): Promise<void> {
+    const team = this.getSidePlayers(side);
+    const offscreenX = this.pitchLeft - Math.max(86, this.pitchWidth * 0.16);
+    await Promise.all(
+      team.map((player, idx) =>
+        this.tweenPlayerToWithDelay(
+          player,
+          offscreenX - (idx % 2) * 10,
+          this.clampPitchY(player.container.y + ((idx % 3) - 1) * 2),
+          durationMs,
+          idx * Math.max(16, Math.floor(TEAM_WALK_STAGGER_MS * 0.65))
+        )
+      )
+    );
+  }
+
+  private tweenPlayerToWithDelay(
+    player: PitchPlayer,
+    x: number,
+    y: number,
+    duration: number,
+    delay: number
+  ): Promise<void> {
+    return new Promise((resolve) => {
+      this.time.delayedCall(Math.max(0, delay), () => {
+        void this.tweenPlayerTo(player, x, y, duration).then(resolve);
+      });
+    });
+  }
+
+  private assignKickoffPossessor(side: Side) {
+    const sidePlayers = this.getSidePlayers(side);
+    this.lastPossessor =
+      sidePlayers.find((player) => player.role === "MID") ??
+      sidePlayers.find((player) => player.role === "ATT") ??
+      sidePlayers[0] ??
+      null;
+    this.possessionSide = side;
+    this.possessionProgress = 0.14;
+    this.possessionLane = 0;
+
+    if (this.lastPossessor) {
+      this.setBallPosition(this.lastPossessor.baseX, this.lastPossessor.baseY - 10, 0);
+      return;
+    }
+
+    this.setBallPosition(this.pitchLeft + this.pitchWidth / 2, this.pitchTop + this.pitchHeight / 2, 0);
+  }
+
+  private setBallVisible(isVisible: boolean) {
+    this.ball.setVisible(isVisible);
+    this.ballShadow.setVisible(isVisible);
+  }
+
   private setBallPosition(x: number, y: number, loft = 0) {
     const clampedLoft = Math.max(0, loft);
     this.ball.setPosition(x, y - clampedLoft);
@@ -624,7 +733,13 @@ class MatchSimulationScene extends Phaser.Scene {
   }
 
   private tickSecond() {
-    if (this.finished || this.resolvingChance || this.halfTimeTransitionActive) {
+    if (
+      this.finished ||
+      this.resolvingChance ||
+      this.halfTimeTransitionActive ||
+      this.walkOnSequenceActive ||
+      this.fullTimeSequenceActive
+    ) {
       return;
     }
 
@@ -639,12 +754,8 @@ class MatchSimulationScene extends Phaser.Scene {
     this.timerText.setText(displayClock.clockText);
 
     if (wasFirstHalf && this.elapsed === HALF_DURATION_SECONDS) {
-      this.startHalfTimeTransition();
+      void this.startHalfTimeTransition();
       return;
-    }
-
-    if (!wasFirstHalf && this.elapsed === HALF_DURATION_SECONDS + 1) {
-      this.setCommentary("SECOND HALF UNDERWAY");
     }
 
     if (this.ambientAnimating) {
@@ -666,7 +777,14 @@ class MatchSimulationScene extends Phaser.Scene {
   }
 
   private animateAmbientMovement() {
-    if (this.resolvingChance || this.finished || this.ambientAnimating || this.halfTimeTransitionActive) {
+    if (
+      this.resolvingChance ||
+      this.finished ||
+      this.ambientAnimating ||
+      this.halfTimeTransitionActive ||
+      this.walkOnSequenceActive ||
+      this.fullTimeSequenceActive
+    ) {
       return;
     }
 
@@ -676,18 +794,29 @@ class MatchSimulationScene extends Phaser.Scene {
     });
   }
 
-  private startHalfTimeTransition() {
+  private async startHalfTimeTransition() {
     if (this.halfTimeTransitionActive) {
       return;
     }
 
     this.halfTimeTransitionActive = true;
-    this.applyHalfTimeSideSwap();
-    this.setCommentary("HALF-TIME: TEAMS SWITCH ENDS");
+    try {
+      this.setCommentary("HALF-TIME: TEAMS WALK OFF");
+      this.setBallVisible(false);
+      await this.walkBothTeamsOffPitchLeft(TEAM_WALK_DURATION_MS);
 
-    this.time.delayedCall(HALF_TIME_TRANSITION_MS, () => {
+      this.applyHalfTimeSideSwap();
+      this.possessionSide = this.possessionSide === "HOME" ? "AWAY" : "HOME";
+
+      this.setCommentary("SECOND HALF: TEAMS WALK ON");
+      await this.walkBothTeamsToBase(TEAM_WALK_DURATION_MS);
+      this.assignKickoffPossessor(this.possessionSide);
+      this.setBallVisible(true);
+      this.setCommentary("SECOND HALF UNDERWAY");
+      await this.waitMs(Math.max(300, HALF_TIME_TRANSITION_MS - TEAM_WALK_DURATION_MS * 2));
+    } finally {
       this.halfTimeTransitionActive = false;
-    });
+    }
   }
 
   private async runAmbientPossessionPhase(): Promise<void> {
@@ -742,10 +871,20 @@ class MatchSimulationScene extends Phaser.Scene {
     const centerX = this.pitchLeft + this.pitchWidth / 2;
     const forwardDir = this.getForwardDirection(attackingSide);
     const defendingRetreatDir = -this.getForwardDirection(defendingSide);
-    const candidateReceiverIndex = Math.floor(
-      hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:receiver`) * Math.min(receiverOptions.length, 4)
+    const carrierForwardAxis = this.toForwardAxis(attackingSide, carrier.container.y);
+    const forwardReceiverOptions = receiverOptions.filter(
+      (player) => this.toForwardAxis(attackingSide, player.container.y) >= carrierForwardAxis - 2
     );
-    const receiver = receiverOptions[candidateReceiverIndex] ?? receiverOptions[0];
+    const receiverChoicePool =
+      carrier.role === "ATT" || this.possessionProgress >= 0.58
+        ? forwardReceiverOptions.length
+          ? forwardReceiverOptions
+          : receiverOptions
+        : receiverOptions;
+    const candidateReceiverIndex = Math.floor(
+      hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:receiver`) * Math.max(1, Math.min(receiverChoicePool.length, 4))
+    );
+    const receiver = receiverChoicePool[candidateReceiverIndex] ?? receiverChoicePool[0] ?? receiverOptions[0];
     const receiverAnchor = this.getAnchorPosition(tacticalAnchors, receiver);
     const support = this.pickSupportPair(attackingSide, receiver, this.elapsed).filter((player) => player !== carrier);
     const pressureDefenders = this.pickNearestDefenders(defendingSide, carrier, 3);
@@ -777,13 +916,15 @@ class MatchSimulationScene extends Phaser.Scene {
       supportRun * 18 -
       pressure * 26 +
       (carrier.role === "MID" ? 9 : 0) +
-      (carrier.role === "ATT" ? 8 : 0);
+      (carrier.role === "ATT" ? 6 : 0) +
+      (carrier.role === "ATT" && this.possessionProgress >= 0.58 ? -24 : 0);
     const dribbleScore =
       28 +
       space * 30 -
       pressure * 30 +
       (carrier.role === "ATT" ? 24 : carrier.role === "MID" ? 7 : 2) +
-      (this.possessionProgress > 0.6 ? 5 : 0);
+      (this.possessionProgress > 0.6 ? 5 : 0) +
+      (carrier.role === "ATT" && this.possessionProgress >= 0.58 ? 14 : 0);
     const throughBallScore =
       this.possessionProgress > 0.42
         ? 19 +
@@ -791,14 +932,16 @@ class MatchSimulationScene extends Phaser.Scene {
           supportRun * 24 -
           pressure * 34 +
           (carrier.role === "ATT" ? 14 : 0) +
-          (this.possessionProgress > 0.62 ? 4 : 0)
+          (this.possessionProgress > 0.62 ? 4 : 0) +
+          (carrier.role === "ATT" && this.possessionProgress >= 0.58 ? 12 : 0)
         : -999;
     const recycleScore =
       24 +
       pressure * 18 +
       (carrier.role === "DEF" ? 10 : 0) +
-      (carrier.role === "ATT" ? -44 : 0) +
-      (this.possessionProgress > 0.62 ? -14 : 0);
+      (carrier.role === "ATT" ? -88 : 0) +
+      (this.possessionProgress > 0.62 ? -14 : 0) +
+      (carrier.role === "ATT" && this.possessionProgress >= 0.58 ? -36 : 0);
 
     const rankedActions: Array<{ action: AmbientAction; score: number }> = (
       [
@@ -812,22 +955,28 @@ class MatchSimulationScene extends Phaser.Scene {
       .sort((a, b) => b.score - a.score);
 
     const actionRoll = hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:action`);
-    const directActions = rankedActions.filter((entry) => entry.action !== "RECYCLE");
+    const inAttackingKillZone = carrier.role === "ATT" && this.possessionProgress >= 0.58;
+    const directActions = rankedActions.filter(
+      (entry) => entry.action !== "RECYCLE" && (!inAttackingKillZone || entry.action !== "PASS")
+    );
     const shouldForceDirectPlay = carrier.role === "ATT" && this.possessionProgress >= 0.52;
     const preferredDirect =
       directActions.find((entry) => entry.action === "DRIBBLE" || entry.action === "THROUGH_BALL") ??
       directActions[0] ??
       rankedActions[0];
+    const rankedFallback = rankedActions[0] ?? { action: "PASS" as AmbientAction, score: 0 };
+    const secondFallback = rankedActions[1] ?? rankedFallback;
+    const thirdFallback = rankedActions[2] ?? secondFallback;
 
     const action = shouldForceDirectPlay
       ? actionRoll < 0.84
         ? preferredDirect.action
-        : (directActions[1] ?? directActions[0] ?? rankedActions[0]).action
+        : (directActions[1] ?? directActions[0] ?? rankedFallback).action
       : actionRoll < 0.66
-        ? rankedActions[0].action
+        ? rankedFallback.action
         : actionRoll < 0.89
-          ? rankedActions[1].action
-          : rankedActions[2].action;
+          ? secondFallback.action
+          : thirdFallback.action;
 
     let activeX = carrier.container.x;
     let activeY = carrier.container.y;
@@ -837,9 +986,20 @@ class MatchSimulationScene extends Phaser.Scene {
       const receiverAdvance = 8 + this.possessionProgress * 24 + this.roleAdvanceBoost(receiver.role) * 0.9 + supportRun * 16;
       const carrierAdvance = 4 + this.possessionProgress * 14 + this.roleAdvanceBoost(carrier.role) * 0.5;
 
+      const advancedSupportOptions = receiverOptions
+        .filter(
+          (player) =>
+            (player.role === "ATT" || player.role === "MID") &&
+            this.toForwardAxis(attackingSide, player.container.y) >= carrierForwardAxis - 1
+        )
+        .sort(
+          (a, b) =>
+            this.toForwardAxis(attackingSide, b.container.y) -
+            this.toForwardAxis(attackingSide, a.container.y)
+        );
       const effectiveReceiver =
         carrier.role === "ATT" && this.possessionProgress >= 0.56
-          ? receiverOptions.find((player) => player.role === "ATT" || player.role === "MID") ?? receiver
+          ? advancedSupportOptions[0] ?? receiver
           : receiver;
       const effectiveReceiverAnchor = this.getAnchorPosition(tacticalAnchors, effectiveReceiver);
       const receiverTargetX = this.clampPitchX(
@@ -1806,6 +1966,12 @@ class MatchSimulationScene extends Phaser.Scene {
     });
   }
 
+  private waitMs(durationMs: number): Promise<void> {
+    return new Promise((resolve) => {
+      this.time.delayedCall(Math.max(0, durationMs), () => resolve());
+    });
+  }
+
   private moveBallTo(x: number, y: number, duration: number, arcHeight = 0): Promise<void> {
     const startX = this.ball.x;
     const startY = this.ball.y;
@@ -1904,10 +2070,71 @@ class MatchSimulationScene extends Phaser.Scene {
     const displayClock = toDisplayClockState(Math.min(finalResult.durationSeconds, MATCH_DURATION_SECONDS));
     this.timerText.setText(displayClock.clockText);
     this.refreshScoreHud(finalResult.homeGoals, finalResult.awayGoals);
+    void this.runFullTimeSequence(finalResult);
+  }
 
-    this.setCommentary(`FINAL: ${finalResult.result} (${finalResult.endReason.replaceAll("_", " ")})`);
+  private async runFullTimeSequence(finalResult: MatchRuntimeResult) {
+    if (this.fullTimeSequenceActive) {
+      return;
+    }
 
-    this.onFinished(finalResult);
+    this.fullTimeSequenceActive = true;
+    this.setBallVisible(false);
+
+    try {
+      const homeName = this.ui.homeName;
+      const awayName = this.ui.awayName;
+      const homeWon = finalResult.homeGoals > finalResult.awayGoals;
+      const awayWon = finalResult.awayGoals > finalResult.homeGoals;
+
+      if (homeWon || awayWon) {
+        const winningSide: Side = homeWon ? "HOME" : "AWAY";
+        const losingSide: Side = winningSide === "HOME" ? "AWAY" : "HOME";
+        const winnerName = winningSide === "HOME" ? homeName : awayName;
+        const loserName = losingSide === "HOME" ? homeName : awayName;
+
+        this.setCommentary(`FULL-TIME: ${loserName} WALK OFF`);
+        await this.walkTeamOffPitchLeft(losingSide, TEAM_WALK_DURATION_MS);
+
+        this.setCommentary(`FULL-TIME: ${winnerName} CELEBRATE`);
+        await this.celebrateWinningTeam(winningSide);
+      } else {
+        this.setCommentary("FULL-TIME: DRAW - BOTH TEAMS WALK OFF");
+        await this.walkBothTeamsOffPitchLeft(TEAM_WALK_DURATION_MS);
+      }
+    } finally {
+      this.fullTimeSequenceActive = false;
+      this.onFinished(finalResult);
+    }
+  }
+
+  private async celebrateWinningTeam(side: Side): Promise<void> {
+    const winners = this.getSidePlayers(side);
+    await Promise.all(
+      winners.map(
+        (player, idx) =>
+          new Promise<void>((resolve) => {
+            const startY = player.container.y;
+            this.tweens.add({
+              targets: player.container,
+              y: startY - 9,
+              duration: 150,
+              delay: idx * 26,
+              yoyo: true,
+              repeat: WIN_CELEBRATION_REPEAT,
+              ease: "Sine.easeInOut",
+              onUpdate: () => {
+                player.container.setDepth(500 + player.container.y);
+              },
+              onComplete: () => {
+                player.container.setY(startY);
+                player.container.setDepth(500 + player.container.y);
+                resolve();
+              },
+            });
+          })
+      )
+    );
   }
 }
 

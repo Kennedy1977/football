@@ -38,21 +38,12 @@ Examples:
 
 ## 2. Commit body format
 
-Use these sections in every commit body:
+Use a compact body. Only `Patch-Notes` is mandatory.
 
 ```text
-Why:
-- <problem being solved>
-
-What:
-- <change 1>
-- <change 2>
-
-Validation:
-- <command/result>
-
-Patch-Notes:
-- docs/patch-notes/<filename>.md
+- <optional short detail>
+- <optional short detail>
+Patch-Notes: docs/patch-notes/<filename>.md
 ```
 
 ## 3. Branch naming format
@@ -117,17 +108,7 @@ Manual commit message example:
 ```text
 fix(match-live): center pitch and compact TV HUD
 
-Why:
-- HUD and pitch framing were misaligned.
-
-What:
 - Centered sim layout and reduced HUD footprint.
 - Updated match commentary overlay behavior.
-
-Validation:
-- npm run typecheck
-- Manual QA on /match/live
-
-Patch-Notes:
-- docs/patch-notes/2026-03-11-v0.0.57-center-live-pitch-and-compact-tv-hud.md
+Patch-Notes: docs/patch-notes/2026-03-11-v0.0.57-center-live-pitch-and-compact-tv-hud.md
 ```
