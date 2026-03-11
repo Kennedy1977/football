@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { APP_VERSION_LABEL } from "../lib/build-meta";
 
 export function BuildFooter() {
-  const [versionLabel, setVersionLabel] = useState(APP_VERSION_LABEL);
+  const [versionLabel, setVersionLabel] = useState<string>(APP_VERSION_LABEL);
 
   useEffect(() => {
     let active = true;
