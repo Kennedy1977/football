@@ -109,6 +109,10 @@ a {
 
 body.match-live-playing .app-shell {
   padding: 0;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 body.match-live-playing .app-topbar,
@@ -344,6 +348,8 @@ body.match-live-playing .build-footer {
 .match-live-panel-live {
   padding: 0;
   overflow: hidden;
+  margin: 0;
+  width: 100%;
 }
 
 .hero-panel {

@@ -107,6 +107,7 @@ const TOP_FORMATION: FormationNode[] = [
 ];
 const DISABLED_EARLY_FINISH_GOAL_LEAD = 99;
 const HALF_DURATION_SECONDS = Math.floor(MATCH_DURATION_SECONDS / 2);
+const HALF_TIME_TRANSITION_MS = 2500;
 const VIRTUAL_HALF_MINUTES = 45;
 const VIRTUAL_HALF_SECONDS = VIRTUAL_HALF_MINUTES * 60;
 const PITCH_WIDTH_UNITS = 1020;
@@ -227,6 +228,8 @@ class MatchSimulationScene extends Phaser.Scene {
   private lastPossessor: PitchPlayer | null = null;
   private possessionProgress = 0.12;
   private possessionLane: Lane = 0;
+  private sideSwapApplied = false;
+  private halfTimeTransitionActive = false;
 
   constructor(options: {
     simulation: MatchSimulationOutput;
@@ -435,7 +438,7 @@ class MatchSimulationScene extends Phaser.Scene {
     const bugLeft = this.pitchLeft + HUD_PITCH_INSET_X;
     const bugTop = this.pitchTop + HUD_PITCH_INSET_Y;
     const timerWidth = 64;
-    const scoreWidth = Math.round(clamp(132, 164, this.pitchWidth * 0.28));
+    const scoreWidth = Math.round(clamp(156, 198, this.pitchWidth * 0.35));
     const bugHeight = 24;
     const chipGap = 3;
 
@@ -461,15 +464,52 @@ class MatchSimulationScene extends Phaser.Scene {
       .setOrigin(0.5, 0.5)
       .setDepth(2200);
 
-    this.scoreText = this.add
-      .text(scoreLeft + scoreWidth / 2, bugTop + bugHeight / 2, `${this.ui.homeCode} ${this.homeGoals} - ${this.awayGoals} ${this.ui.awayCode}`, {
+    const scoreCenterY = bugTop + bugHeight / 2;
+    const homeCodeX = scoreLeft + 26;
+    const awayCodeX = scoreLeft + scoreWidth - 12;
+
+    this.add
+      .text(homeCodeX, scoreCenterY, this.ui.homeCode, {
         fontFamily: "Barlow Condensed, Arial",
-        fontSize: "18px",
+        fontSize: "17px",
+        color: "#f8fafc",
+        fontStyle: "bold",
+      })
+      .setOrigin(0, 0.5)
+      .setDepth(2201);
+
+    const awayCodeText = this.add
+      .text(awayCodeX, scoreCenterY, this.ui.awayCode, {
+        fontFamily: "Barlow Condensed, Arial",
+        fontSize: "17px",
+        color: "#f8fafc",
+        fontStyle: "bold",
+      })
+      .setOrigin(1, 0.5)
+      .setDepth(2201);
+
+    this.add
+      .circle(homeCodeX - 10, scoreCenterY, 4, this.ui.homeColor, 1)
+      .setStrokeStyle(1, 0xf8fafc, 0.75)
+      .setDepth(2202);
+    this.add
+      .circle(awayCodeX - awayCodeText.width - 10, scoreCenterY, 4, this.ui.awayColor, 1)
+      .setStrokeStyle(1, 0xf8fafc, 0.75)
+      .setDepth(2202);
+
+    this.scoreText = this.add
+      .text(scoreLeft + scoreWidth / 2, scoreCenterY, `${this.homeGoals} - ${this.awayGoals}`, {
+        fontFamily: "Barlow Condensed, Arial",
+        fontSize: "17px",
         color: "#f8fafc",
         fontStyle: "bold",
       })
       .setOrigin(0.5, 0.5)
       .setDepth(2200);
+  }
+
+  private refreshScoreHud(homeGoals = this.homeGoals, awayGoals = this.awayGoals) {
+    this.scoreText.setText(`${homeGoals} - ${awayGoals}`);
   }
 
   private createTeams() {
@@ -586,7 +626,7 @@ class MatchSimulationScene extends Phaser.Scene {
   }
 
   private tickSecond() {
-    if (this.finished || this.resolvingChance) {
+    if (this.finished || this.resolvingChance || this.halfTimeTransitionActive) {
       return;
     }
 
@@ -601,7 +641,7 @@ class MatchSimulationScene extends Phaser.Scene {
     this.timerText.setText(displayClock.clockText);
 
     if (wasFirstHalf && this.elapsed === HALF_DURATION_SECONDS) {
-      this.setCommentary("HALF-TIME");
+      this.startHalfTimeTransition();
       return;
     }
 
@@ -628,13 +668,27 @@ class MatchSimulationScene extends Phaser.Scene {
   }
 
   private animateAmbientMovement() {
-    if (this.resolvingChance || this.finished || this.ambientAnimating) {
+    if (this.resolvingChance || this.finished || this.ambientAnimating || this.halfTimeTransitionActive) {
       return;
     }
 
     this.ambientAnimating = true;
     void this.runAmbientPossessionPhase().finally(() => {
       this.ambientAnimating = false;
+    });
+  }
+
+  private startHalfTimeTransition() {
+    if (this.halfTimeTransitionActive) {
+      return;
+    }
+
+    this.halfTimeTransitionActive = true;
+    this.applyHalfTimeSideSwap();
+    this.setCommentary("HALF-TIME: TEAMS SWITCH ENDS");
+
+    this.time.delayedCall(HALF_TIME_TRANSITION_MS, () => {
+      this.halfTimeTransitionActive = false;
     });
   }
 
@@ -688,7 +742,7 @@ class MatchSimulationScene extends Phaser.Scene {
     }
 
     const centerX = this.pitchLeft + this.pitchWidth / 2;
-    const forwardDir = attackingSide === "HOME" ? -1 : 1;
+    const forwardDir = this.getForwardDirection(attackingSide);
     const defendingRetreatDir = -this.getForwardDirection(defendingSide);
     const candidateReceiverIndex = Math.floor(
       hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:receiver`) * Math.min(receiverOptions.length, 4)
@@ -1070,7 +1124,7 @@ class MatchSimulationScene extends Phaser.Scene {
         const winX = this.clampPitchX(closestDefender.container.x + this.pickSignedOffset(this.elapsed + 55, 10));
         const winY = this.clampPitchY(
           closestDefender.container.y +
-            (defendingSide === "HOME" ? -1 : 1) * (6 + this.possessionProgress * 8) +
+            this.getForwardDirection(defendingSide) * (6 + this.possessionProgress * 8) +
             (hashUnit(`${this.matchSeed}:${this.elapsed}:steal:y`) * 2 - 1) * 4
         );
 
@@ -1287,7 +1341,7 @@ class MatchSimulationScene extends Phaser.Scene {
   private createMinigameActors(layer: Phaser.GameObjects.Container, attackingSide: Side): MinigameActorSet {
     const { width, height } = this.cameras.main;
 
-    if (attackingSide === "HOME") {
+    if (this.getForwardDirection(attackingSide) < 0) {
       const shooter = this.createMinigameAvatar(width / 2, height - 310, this.ui.homeColor, "up", 1.28);
       const keeper = this.createMinigameAvatar(width / 2, 132, 0xf4d03f, "down", 1.05);
       const ball = this.createMiniBall(width / 2 + 24, height - 292, 1.3);
@@ -1328,8 +1382,9 @@ class MatchSimulationScene extends Phaser.Scene {
 
     const ballStartX = actors.ball.x;
     const ballStartY = actors.ball.y;
-    const goalY = attackingSide === "HOME" ? 136 : height - 286;
-    const keeperDiveY = attackingSide === "HOME" ? 140 : height - 270;
+    const attacksUp = this.getForwardDirection(attackingSide) < 0;
+    const goalY = attacksUp ? 136 : height - 286;
+    const keeperDiveY = attacksUp ? 140 : height - 270;
 
     return new Promise((resolve) => {
       this.tweens.add({
@@ -1365,7 +1420,7 @@ class MatchSimulationScene extends Phaser.Scene {
   ) {
     const attackingSide = event.attackingSide;
     const defendingSide: Side = attackingSide === "HOME" ? "AWAY" : "HOME";
-    const attackDir = attackingSide === "HOME" ? -1 : 1;
+    const attackDir = this.getForwardDirection(attackingSide);
 
     const attacker = this.pickAttacker(attackingSide, chanceType, eventIndex);
     const support = this.pickSupport(attackingSide, attacker, eventIndex);
@@ -1404,7 +1459,7 @@ class MatchSimulationScene extends Phaser.Scene {
     const shotX = this.pickShotTargetX(eventIndex, attackingSide);
     const goalLineOffset = Math.max(8, Math.round(this.pitchHeight * GOAL_LINE_BALL_OFFSET_RATIO));
     const goalY =
-      attackingSide === "HOME"
+      attackDir < 0
         ? this.pitchTop + goalLineOffset
         : this.pitchTop + this.pitchHeight - goalLineOffset;
 
@@ -1414,20 +1469,20 @@ class MatchSimulationScene extends Phaser.Scene {
         this.tweenPlayerTo(
           goalkeeper,
           goalkeeper.baseX + Phaser.Math.Clamp(shotX - goalkeeper.baseX, -48, 48),
-          goalkeeper.baseY + (attackingSide === "HOME" ? 8 : -8),
+          goalkeeper.baseY + (attackDir < 0 ? 8 : -8),
           380
         ),
       ]);
     } else {
       const saveX = goalkeeper.baseX + Phaser.Math.Clamp(shotX - goalkeeper.baseX, -42, 42);
-      const saveY = goalkeeper.baseY + (attackingSide === "HOME" ? 12 : -12);
+      const saveY = goalkeeper.baseY + (attackDir < 0 ? 12 : -12);
 
       await Promise.all([
         this.tweenPlayerTo(goalkeeper, saveX, saveY, 360),
         this.moveBallTo(saveX, saveY - 10, 440, 22),
       ]);
 
-      await this.moveBallTo(saveX + this.pickSignedOffset(eventIndex + 15, 14), saveY + (attackingSide === "HOME" ? 20 : -20), 230, 7);
+      await this.moveBallTo(saveX + this.pickSignedOffset(eventIndex + 15, 14), saveY + (attackDir < 0 ? 20 : -20), 230, 7);
     }
 
     const resetPlayers = [attacker, support, ...defenders, goalkeeper].filter((player): player is PitchPlayer => Boolean(player));
@@ -1519,18 +1574,46 @@ class MatchSimulationScene extends Phaser.Scene {
     return 0;
   }
 
+  private sideAttacksUp(side: Side): boolean {
+    const homeAttacksUp = !this.sideSwapApplied;
+    return side === "HOME" ? homeAttacksUp : !homeAttacksUp;
+  }
+
+  private applyHalfTimeSideSwap() {
+    if (this.sideSwapApplied) {
+      return;
+    }
+
+    this.sideSwapApplied = true;
+    const midY = this.pitchTop + this.pitchHeight / 2;
+    const players = [...this.homePlayers, ...this.awayPlayers];
+    for (const player of players) {
+      player.baseY = midY - (player.baseY - midY);
+      const mirroredY = midY - (player.container.y - midY);
+      player.container.y = mirroredY;
+      player.container.setDepth(500 + mirroredY);
+    }
+
+    const mirroredBallY = midY - (this.ball.y - midY);
+    const mirroredShadowY = midY - (this.ballShadow.y - midY);
+    this.ball.setY(mirroredBallY);
+    this.ball.setDepth(800 + mirroredBallY);
+    this.ballShadow.setY(mirroredShadowY);
+    this.ballShadow.setDepth(700 + mirroredShadowY);
+  }
+
   private getForwardDirection(side: Side): number {
-    return side === "HOME" ? -1 : 1;
+    return this.sideAttacksUp(side) ? -1 : 1;
   }
 
   private toForwardAxis(side: Side, y: number): number {
     const bottom = this.pitchTop + this.pitchHeight;
-    return side === "HOME" ? bottom - y : y - this.pitchTop;
+    return this.sideAttacksUp(side) ? bottom - y : y - this.pitchTop;
   }
 
   private fromForwardAxis(side: Side, axis: number): number {
     const bottom = this.pitchTop + this.pitchHeight;
-    return side === "HOME" ? bottom - axis : this.pitchTop + axis;
+    return this.sideAttacksUp(side) ? bottom - axis : this.pitchTop + axis;
   }
 
   private averageRoleAxis(side: Side, role: Role, perspective: Side, fallback: number): number {
@@ -1760,7 +1843,7 @@ class MatchSimulationScene extends Phaser.Scene {
         this.awayGoals += 1;
       }
 
-      this.scoreText.setText(`${this.ui.homeCode} ${this.homeGoals} - ${this.awayGoals} ${this.ui.awayCode}`);
+      this.refreshScoreHud();
       this.setCommentary(
         `${chanceTypeDisplayName(chanceType)}: GOAL for ${sideName} (${executionQuality})`
       );
@@ -1822,7 +1905,7 @@ class MatchSimulationScene extends Phaser.Scene {
 
     const displayClock = toDisplayClockState(Math.min(finalResult.durationSeconds, MATCH_DURATION_SECONDS));
     this.timerText.setText(displayClock.clockText);
-    this.scoreText.setText(`${this.ui.homeCode} ${finalResult.homeGoals} - ${finalResult.awayGoals} ${this.ui.awayCode}`);
+    this.refreshScoreHud(finalResult.homeGoals, finalResult.awayGoals);
 
     this.setCommentary(`FINAL: ${finalResult.result} (${finalResult.endReason.replaceAll("_", " ")})`);
 
@@ -1878,18 +1961,16 @@ function drawNet(graphics: Phaser.GameObjects.Graphics, x: number, y: number, w:
 
 function toDisplayClockState(seconds: number): DisplayClockState {
   const clamped = Math.max(0, Math.min(seconds, MATCH_DURATION_SECONDS));
-  const firstHalf = clamped <= HALF_DURATION_SECONDS;
-  const half: 1 | 2 = firstHalf ? 1 : 2;
-  const halfSecondsElapsed = firstHalf ? clamped : clamped - HALF_DURATION_SECONDS;
-  const virtualHalfSeconds = clamp(
+  const virtualMatchSeconds = clamp(
     0,
-    VIRTUAL_HALF_SECONDS,
-    Math.round((halfSecondsElapsed / Math.max(1, HALF_DURATION_SECONDS)) * VIRTUAL_HALF_SECONDS)
+    VIRTUAL_HALF_SECONDS * 2,
+    Math.round((clamped / Math.max(1, MATCH_DURATION_SECONDS)) * VIRTUAL_HALF_SECONDS * 2)
   );
-  const mins = Math.floor(virtualHalfSeconds / 60)
+  const half: 1 | 2 = virtualMatchSeconds <= VIRTUAL_HALF_SECONDS ? 1 : 2;
+  const mins = Math.floor(virtualMatchSeconds / 60)
     .toString()
     .padStart(2, "0");
-  const secs = Math.floor(virtualHalfSeconds % 60)
+  const secs = Math.floor(virtualMatchSeconds % 60)
     .toString()
     .padStart(2, "0");
 
