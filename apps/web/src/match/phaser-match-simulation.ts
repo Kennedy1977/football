@@ -93,22 +93,33 @@ interface DisplayClockState {
 }
 
 const TOP_FORMATION: FormationNode[] = [
-  { x: 0.5, y: 0.07, role: "GK" },
-  { x: 0.14, y: 0.19, role: "DEF" },
-  { x: 0.36, y: 0.19, role: "DEF" },
-  { x: 0.64, y: 0.19, role: "DEF" },
-  { x: 0.86, y: 0.19, role: "DEF" },
-  { x: 0.14, y: 0.35, role: "MID" },
-  { x: 0.36, y: 0.35, role: "MID" },
-  { x: 0.64, y: 0.35, role: "MID" },
-  { x: 0.86, y: 0.35, role: "MID" },
-  { x: 0.42, y: 0.49, role: "ATT" },
-  { x: 0.58, y: 0.49, role: "ATT" },
+  { x: 0.5, y: 0.1, role: "GK" },
+  { x: 0.14, y: 0.24, role: "DEF" },
+  { x: 0.36, y: 0.24, role: "DEF" },
+  { x: 0.64, y: 0.24, role: "DEF" },
+  { x: 0.86, y: 0.24, role: "DEF" },
+  { x: 0.14, y: 0.4, role: "MID" },
+  { x: 0.36, y: 0.4, role: "MID" },
+  { x: 0.64, y: 0.4, role: "MID" },
+  { x: 0.86, y: 0.4, role: "MID" },
+  { x: 0.42, y: 0.54, role: "ATT" },
+  { x: 0.58, y: 0.54, role: "ATT" },
 ];
 const DISABLED_EARLY_FINISH_GOAL_LEAD = 99;
 const HALF_DURATION_SECONDS = Math.floor(MATCH_DURATION_SECONDS / 2);
 const VIRTUAL_HALF_MINUTES = 45;
 const VIRTUAL_HALF_SECONDS = VIRTUAL_HALF_MINUTES * 60;
+const PITCH_WIDTH_UNITS = 1020;
+const PITCH_HEIGHT_UNITS = 1670;
+const PITCH_HEIGHT_RATIO = PITCH_HEIGHT_UNITS / PITCH_WIDTH_UNITS;
+const SIM_PITCH_TOP_OFFSET = 12;
+const SIM_PITCH_BOTTOM_PADDING = 42;
+const HUD_PITCH_INSET_X = 10;
+const HUD_PITCH_INSET_Y = 10;
+const PLAYER_EDGE_X_PADDING_RATIO = 0.024;
+const PLAYER_EDGE_Y_PADDING_RATIO = 0.016;
+const GOAL_LINE_BALL_OFFSET_RATIO = 0.009;
+const SHOT_TARGET_SPREAD_RATIO = 0.19;
 
 export function mountPhaserMatchSimulation(
   container: HTMLElement,
@@ -256,10 +267,10 @@ class MatchSimulationScene extends Phaser.Scene {
 
     this.pitchLeft = 0;
     this.pitchWidth = width;
-    const pitchTopMin = 132;
-    const pitchBottomPadding = 74;
+    const pitchTopMin = SIM_PITCH_TOP_OFFSET;
+    const pitchBottomPadding = SIM_PITCH_BOTTOM_PADDING;
     const availablePitchHeight = Math.max(420, height - pitchTopMin - pitchBottomPadding);
-    const targetPitchHeight = Math.round(this.pitchWidth * 1.5);
+    const targetPitchHeight = Math.round(this.pitchWidth * PITCH_HEIGHT_RATIO);
     this.pitchHeight = Math.min(availablePitchHeight, targetPitchHeight);
     this.pitchTop = pitchTopMin + Math.max(0, Math.floor((availablePitchHeight - this.pitchHeight) / 2));
 
@@ -370,44 +381,59 @@ class MatchSimulationScene extends Phaser.Scene {
   }
 
   private buildHud() {
-    const centerX = this.cameras.main.width / 2;
     const startClock = toDisplayClockState(0);
-    const hudTop = 14;
-    const hudHeight = 104;
-    const hudWidth = Math.min(this.cameras.main.width - 28, 420);
-    const hudLeft = centerX - hudWidth / 2;
+    const compactHalf = toCompactHalfLabel(startClock.halfLabel);
+    const bugLeft = this.pitchLeft + HUD_PITCH_INSET_X;
+    const bugTop = this.pitchTop + HUD_PITCH_INSET_Y;
+    const timerWidth = 72;
+    const scoreWidth = Math.max(154, Math.min(206, this.pitchWidth - 140));
+    const periodWidth = 38;
+    const bugHeight = 30;
+    const chipGap = 4;
 
-    const hudPanel = this.add.graphics().setDepth(2100);
-    hudPanel.fillStyle(0x04162f, 0.48);
-    hudPanel.fillRoundedRect(hudLeft, hudTop, hudWidth, hudHeight, 16);
-    hudPanel.lineStyle(2, 0x2f7cae, 0.5);
-    hudPanel.strokeRoundedRect(hudLeft, hudTop, hudWidth, hudHeight, 16);
+    const bugPanel = this.add.graphics().setDepth(2100);
+    bugPanel.fillStyle(0xf8fafc, 0.96);
+    bugPanel.fillRoundedRect(bugLeft, bugTop, timerWidth, bugHeight, 8);
+    bugPanel.lineStyle(1.5, 0x0f172a, 0.28);
+    bugPanel.strokeRoundedRect(bugLeft, bugTop, timerWidth, bugHeight, 8);
 
-    this.halfText = this.add
-      .text(centerX, hudTop + 24, startClock.halfLabel, {
-        fontFamily: "Barlow Condensed, Arial",
-        fontSize: "19px",
-        color: "#c7ddf8",
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5, 0.5)
-      .setDepth(2200);
+    const scoreLeft = bugLeft + timerWidth + chipGap;
+    bugPanel.fillStyle(0x031328, 0.9);
+    bugPanel.fillRoundedRect(scoreLeft, bugTop, scoreWidth, bugHeight, 8);
+    bugPanel.lineStyle(1.5, 0xe2f1ff, 0.45);
+    bugPanel.strokeRoundedRect(scoreLeft, bugTop, scoreWidth, bugHeight, 8);
+
+    const periodLeft = scoreLeft + scoreWidth + chipGap;
+    bugPanel.fillStyle(0xf8fafc, 0.96);
+    bugPanel.fillRoundedRect(periodLeft, bugTop, periodWidth, bugHeight, 8);
+    bugPanel.lineStyle(1.5, 0x0f172a, 0.28);
+    bugPanel.strokeRoundedRect(periodLeft, bugTop, periodWidth, bugHeight, 8);
 
     this.timerText = this.add
-      .text(centerX, hudTop + 52, startClock.clockText, {
+      .text(bugLeft + timerWidth / 2, bugTop + bugHeight / 2, startClock.clockText, {
         fontFamily: "Courier New",
-        fontSize: "30px",
-        color: "#99f6e4",
+        fontSize: "14px",
+        color: "#0f172a",
         fontStyle: "bold",
       })
       .setOrigin(0.5, 0.5)
       .setDepth(2200);
 
     this.scoreText = this.add
-      .text(centerX, hudTop + 86, `${this.ui.homeCode} 0 - 0 ${this.ui.awayCode}`, {
+      .text(scoreLeft + scoreWidth / 2, bugTop + bugHeight / 2, `${this.ui.homeCode} ${this.homeGoals} - ${this.awayGoals} ${this.ui.awayCode}`, {
         fontFamily: "Barlow Condensed, Arial",
-        fontSize: "42px",
+        fontSize: "21px",
         color: "#f8fafc",
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5, 0.5)
+      .setDepth(2200);
+
+    this.halfText = this.add
+      .text(periodLeft + periodWidth / 2, bugTop + bugHeight / 2, compactHalf, {
+        fontFamily: "Barlow Condensed, Arial",
+        fontSize: "17px",
+        color: "#0f172a",
         fontStyle: "bold",
       })
       .setOrigin(0.5, 0.5)
@@ -540,7 +566,7 @@ class MatchSimulationScene extends Phaser.Scene {
     const wasFirstHalf = this.elapsed < HALF_DURATION_SECONDS;
     this.elapsed += 1;
     const displayClock = toDisplayClockState(this.elapsed);
-    this.halfText.setText(displayClock.halfLabel);
+    this.halfText.setText(toCompactHalfLabel(displayClock.halfLabel));
     this.timerText.setText(displayClock.clockText);
 
     if (wasFirstHalf && this.elapsed === HALF_DURATION_SECONDS) {
@@ -1345,7 +1371,11 @@ class MatchSimulationScene extends Phaser.Scene {
     });
 
     const shotX = this.pickShotTargetX(eventIndex, attackingSide);
-    const goalY = attackingSide === "HOME" ? this.pitchTop + 16 : this.pitchTop + this.pitchHeight - 16;
+    const goalLineOffset = Math.max(8, Math.round(this.pitchHeight * GOAL_LINE_BALL_OFFSET_RATIO));
+    const goalY =
+      attackingSide === "HOME"
+        ? this.pitchTop + goalLineOffset
+        : this.pitchTop + this.pitchHeight - goalLineOffset;
 
     if (scored) {
       await Promise.all([
@@ -1624,16 +1654,18 @@ class MatchSimulationScene extends Phaser.Scene {
   }
 
   private clampPitchX(value: number): number {
-    return clamp(this.pitchLeft + 20, this.pitchLeft + this.pitchWidth - 20, value);
+    const edgePad = Math.max(18, this.pitchWidth * PLAYER_EDGE_X_PADDING_RATIO);
+    return clamp(this.pitchLeft + edgePad, this.pitchLeft + this.pitchWidth - edgePad, value);
   }
 
   private clampPitchY(value: number): number {
-    return clamp(this.pitchTop + 24, this.pitchTop + this.pitchHeight - 24, value);
+    const edgePad = Math.max(22, this.pitchHeight * PLAYER_EDGE_Y_PADDING_RATIO);
+    return clamp(this.pitchTop + edgePad, this.pitchTop + this.pitchHeight - edgePad, value);
   }
 
   private pickShotTargetX(eventIndex: number, side: Side): number {
     const center = this.pitchLeft + this.pitchWidth / 2;
-    const spread = this.pitchWidth * 0.22;
+    const spread = this.pitchWidth * SHOT_TARGET_SPREAD_RATIO;
     const unit = hashUnit(`${this.matchSeed}:${eventIndex}:${side}:shot-target`);
     return center - spread + spread * 2 * unit;
   }
@@ -1713,12 +1745,14 @@ class MatchSimulationScene extends Phaser.Scene {
   private flashGoalBanner(sideName: string) {
     const bannerX = this.pitchLeft + this.pitchWidth / 2;
     const bannerY = this.pitchTop + this.pitchHeight / 2;
-    const bannerWidth = Math.max(220, this.pitchWidth - 10);
+    const bannerHorizontalMargin = Math.max(8, Math.round(this.pitchWidth * 0.015));
+    const bannerWidth = Math.max(220, this.pitchWidth - bannerHorizontalMargin * 2);
+    const bannerHeight = Math.round(clamp(40, 48, this.pitchHeight * 0.028));
     const goalLabel = `GOAL - ${sideName}`;
-    const fontSize = Math.round(Phaser.Math.Clamp(38 - Math.max(0, goalLabel.length - 18), 24, 36));
+    const fontSize = Math.round(Phaser.Math.Clamp(34 - Math.max(0, goalLabel.length - 18), 21, 32));
 
     const banner = this.add
-      .rectangle(bannerX, bannerY, bannerWidth, 50, 0x8d2c24, 0.95)
+      .rectangle(bannerX, bannerY, bannerWidth, bannerHeight, 0x8d2c24, 0.95)
       .setStrokeStyle(2, 0xf8fafc, 1);
     const text = this.add
       .text(bannerX, bannerY, goalLabel, {
@@ -1756,7 +1790,7 @@ class MatchSimulationScene extends Phaser.Scene {
     );
 
     const displayClock = toDisplayClockState(Math.min(finalResult.durationSeconds, MATCH_DURATION_SECONDS));
-    this.halfText.setText("FULL TIME");
+    this.halfText.setText("FT");
     this.timerText.setText(displayClock.clockText);
     this.scoreText.setText(`${this.ui.homeCode} ${finalResult.homeGoals} - ${finalResult.awayGoals} ${this.ui.awayCode}`);
 
@@ -1834,6 +1868,19 @@ function toDisplayClockState(seconds: number): DisplayClockState {
     halfLabel: half === 1 ? "1ST HALF" : "2ND HALF",
     clockText: `${mins}:${secs}`,
   };
+}
+
+function toCompactHalfLabel(halfLabel: string): string {
+  if (halfLabel.startsWith("1")) {
+    return "1H";
+  }
+  if (halfLabel.startsWith("2")) {
+    return "2H";
+  }
+  if (halfLabel.toUpperCase().includes("FULL")) {
+    return "FT";
+  }
+  return halfLabel;
 }
 
 function pickChanceType(seed: string, eventIndex: number, quality: number): ChanceType {

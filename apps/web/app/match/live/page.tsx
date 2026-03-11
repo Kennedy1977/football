@@ -215,13 +215,15 @@ export default function MatchLivePage() {
 function getSimulationViewport(container: HTMLDivElement): { width: number; height: number } {
   const rect = container.getBoundingClientRect();
   const width = Math.max(320, Math.floor(rect.width));
-  const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 900;
-  const topOffset = Math.floor(rect.top || 0);
-  const availableHeight = Math.max(520, viewportHeight - topOffset - 18);
+  const pitchHeightRatio = 1670 / 1020;
+  const simPitchTopOffset = 12;
+  const simPitchBottomPadding = 42;
+  const idealPitchHeight = Math.round(width * pitchHeightRatio);
+  const preferredHeight = idealPitchHeight + simPitchTopOffset + simPitchBottomPadding;
 
   return {
     width,
-    height: availableHeight,
+    height: preferredHeight,
   };
 }
 

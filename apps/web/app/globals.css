@@ -899,11 +899,11 @@ button[disabled] {
 .lineup-pitch {
   position: relative;
   width: 100%;
-  max-width: 420px;
+  max-width: none;
   margin-inline: auto;
-  aspect-ratio: 2 / 3;
+  aspect-ratio: 1020 / 1670;
   border: 0;
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
   background-image: url("/assets/pitch/vertical-pitch.svg");
   background-size: 100% 100%;
@@ -1808,10 +1808,10 @@ button[disabled] {
 }
 
 .match-sim-shell {
-  border: 1px solid var(--line);
-  border-radius: 14px;
+  border: 0;
+  border-radius: 0;
   overflow: hidden;
-  background: rgba(3, 17, 40, 0.85);
+  background: transparent;
   width: 100%;
 }
 
@@ -1824,18 +1824,19 @@ button[disabled] {
   border-radius: 0;
   overflow: hidden;
   width: 100%;
-  min-height: clamp(560px, calc(100dvh - 200px), 980px);
+  min-height: 0;
+  line-height: 0;
 }
 
 .match-kickoff-pitch {
   position: relative;
   margin-bottom: 10px;
   width: 100%;
-  max-width: 460px;
+  max-width: none;
   margin-inline: auto;
-  aspect-ratio: 2 / 3;
+  aspect-ratio: 1020 / 1670;
   border: 0;
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
   background-image: url("/assets/pitch/vertical-pitch.svg");
   background-size: 100% 100%;
@@ -2307,11 +2308,11 @@ button[disabled] {
   }
 
   .match-sim-root {
-    min-height: clamp(520px, calc(100dvh - 180px), 840px);
+    min-height: 0;
   }
 
   .match-kickoff-pitch {
-    max-width: 420px;
+    max-width: none;
   }
 
   .fulltime-team-name {
