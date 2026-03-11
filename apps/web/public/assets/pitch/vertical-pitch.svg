@@ -1,20 +1,15 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg
     xmlns="http://www.w3.org/2000/svg"
-    width="1200"
-    height="1800"
-    viewBox="0 0 1200 1800"
+    width="1020"
+    height="1670"
+    viewBox="90 65 1020 1670"
     role="img"
     aria-labelledby="title desc">
   <title id="title">Top-down realistic football pitch in portrait orientation</title>
   <desc id="desc">A scalable vector graphic showing a realistic full-size football pitch from directly above, in portrait format, with alternating grass stripes, pitch markings, goals, and subtle shading.</desc>
 
   <defs>
-    <linearGradient id="outerBg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#2f6312"/>
-      <stop offset="100%" stop-color="#22480c"/>
-    </linearGradient>
-
     <linearGradient id="pitchFill" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#5e9e20"/>
       <stop offset="50%" stop-color="#4f8c18"/>
@@ -27,19 +22,10 @@
       <stop offset="100%" stop-color="#000000" stop-opacity="0.10"/>
     </linearGradient>
 
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000000" flood-opacity="0.25"/>
-    </filter>
-
     <clipPath id="pitchClip">
       <rect x="90" y="65" width="1020" height="1670"/>
     </clipPath>
   </defs>
-
-  <rect width="1200" height="1800" fill="url(#outerBg)"/>
-
-  <rect x="48" y="28" width="1104" height="1744" rx="22" fill="#335f15" filter="url(#shadow)"/>
-  <rect x="68" y="46" width="1064" height="1708" rx="16" fill="#2f5a12"/>
 
   <rect x="90" y="65" width="1020" height="1670" fill="url(#pitchFill)"/>
 
@@ -89,24 +75,4 @@
     <path d="M 494.086 1473.571 A 118.286 118.286 0 0 1 705.914 1473.571"/>
   </g>
 
-  <!-- Goals -->
-  <g>
-    <rect x="541.2" y="58" width="117.6" height="14" fill="#fbfbfb" opacity="0.95"/>
-    <rect x="541.2" y="1728" width="117.6" height="14" fill="#fbfbfb" opacity="0.95"/>
-    <g stroke="#e6e6e6" stroke-width="1.3" opacity="0.55">
-      <line x1="541.2" y1="58" x2="541.2" y2="72"/>
-      <line x1="570.6" y1="58" x2="570.6" y2="72"/>
-      <line x1="600" y1="58" x2="600" y2="72"/>
-      <line x1="629.4" y1="58" x2="629.4" y2="72"/>
-      <line x1="658.8" y1="58" x2="658.8" y2="72"/>
-
-      <line x1="541.2" y1="1728" x2="541.2" y2="1742"/>
-      <line x1="570.6" y1="1728" x2="570.6" y2="1742"/>
-      <line x1="600" y1="1728" x2="600" y2="1742"/>
-      <line x1="629.4" y1="1728" x2="629.4" y2="1742"/>
-      <line x1="658.8" y1="1728" x2="658.8" y2="1742"/>
-    </g>
-  </g>
-
-  <rect x="90" y="65" width="1020" height="1670" fill="none" stroke="#000000" stroke-opacity="0.12" stroke-width="10"/>
 </svg>

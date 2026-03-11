@@ -166,6 +166,8 @@ export function mountPhaserMatchSimulation(
 }
 
 class MatchSimulationScene extends Phaser.Scene {
+  private static readonly PITCH_TEXTURE_KEY = "match-portrait-pitch";
+
   private readonly simulation: MatchSimulationOutput;
   private readonly baseRuntimeResult: MatchRuntimeResult;
   private readonly matchSeed: string;
@@ -243,13 +245,23 @@ class MatchSimulationScene extends Phaser.Scene {
     this.onFinished = options.onFinished;
   }
 
+  preload() {
+    if (!this.textures.exists(MatchSimulationScene.PITCH_TEXTURE_KEY)) {
+      this.load.image(MatchSimulationScene.PITCH_TEXTURE_KEY, "/assets/pitch/vertical-pitch.svg");
+    }
+  }
+
   create() {
     const { width, height } = this.cameras.main;
 
-    this.pitchTop = 132;
-    this.pitchLeft = 20;
-    this.pitchWidth = width - 40;
-    this.pitchHeight = height - 206;
+    this.pitchLeft = 0;
+    this.pitchWidth = width;
+    const pitchTopMin = 132;
+    const pitchBottomPadding = 74;
+    const availablePitchHeight = Math.max(420, height - pitchTopMin - pitchBottomPadding);
+    const targetPitchHeight = Math.round(this.pitchWidth * 1.5);
+    this.pitchHeight = Math.min(availablePitchHeight, targetPitchHeight);
+    this.pitchTop = pitchTopMin + Math.max(0, Math.floor((availablePitchHeight - this.pitchHeight) / 2));
 
     this.drawVerticalPitch();
     this.buildHud();
@@ -293,6 +305,12 @@ class MatchSimulationScene extends Phaser.Scene {
     const h = this.pitchHeight;
     const centerX = x + w / 2;
     const centerY = y + h / 2;
+
+    if (this.textures.exists(MatchSimulationScene.PITCH_TEXTURE_KEY)) {
+      this.add.image(centerX, centerY, MatchSimulationScene.PITCH_TEXTURE_KEY).setDisplaySize(w, h).setDepth(0);
+      return;
+    }
+
     const borderRadius = 18;
     const lineWidth = 6;
     const centerCircleRadius = w * 0.17;
