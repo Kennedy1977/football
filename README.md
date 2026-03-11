@@ -29,9 +29,19 @@ npm start
 ```
 
 Versioning and cache-bust:
-- Semantic version is from `package.json` (current `1.0.1`).
+- Semantic version is from `package.json`.
 - Build metadata file is generated at build time via `npm run build:meta`.
+- Runtime version file is generated at build time: `apps/web/public/version.json`.
 - Version bump helpers: `npm run version:patch`, `npm run version:minor`, `npm run version:major`.
+
+Patch notes and git workflow:
+- Changelog: `CHANGELOG.md`
+- Patch note templates: `docs/patch-notes/`
+- Generate a new patch note: `npm run notes:new -- --title "Your update title"`
+- Commit/push format: `docs/git-commit-and-push-format.md`
+- Optional git commit template: `git config commit.template .gitmessage.txt`
+- One-time protocol hook install: `npm run protocol:install`
+- Per-update prep: `npm run protocol:prepare`
 
 This serves:
 - Next.js frontend on `/`

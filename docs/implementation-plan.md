@@ -1,184 +1,135 @@
-# Football Manager Arcade v1 - Updated Phaser Implementation Plan
+# Football Manager Arcade v1 - Living Implementation Spec (As-Built + Scope Creep)
 
-## 1. Product + Tech Constraints (Source of Truth)
+Last updated: 2026-03-11
 
-- Single monorepo
-- Web app shell: Next.js
-- Mobile app shell: Expo / React Native
-- Backend: Express wrapper around Next.js runtime
-- Database: MySQL
-- Auth: Clerk (email/password, Google, Apple, Facebook)
-- State: Redux Toolkit + RTK Query
-- Shared logic package: TypeScript rules/types/formulas/validators
-- Match gameplay runtime: Phaser only (portrait-first)
+## 1. Purpose
 
-Non-negotiable architecture boundaries:
-- Phaser handles match presentation + gameplay interactions only.
-- Phaser never talks to DB or backend directly.
-- App shell (Next/Expo) owns API calls, session, navigation, and persistence.
-- Shared rules package is the only source for deterministic gameplay formulas.
+This document is now the **as-built source of truth** for what is currently implemented, including post-MVP scope creep and UX calibration work completed after the original plan.
 
-## 2. Monorepo Structure
+## 2. Product + Tech Constraints
+
+- Monorepo architecture.
+- Web shell: Next.js App Router.
+- Mobile shell: Expo/React Native (currently scaffold-only).
+- API: Express mounted at `/api` in the same deployment.
+- Database: MySQL.
+- Auth: Clerk (with local dev fallback header).
+- State: Redux Toolkit + RTK Query.
+- Shared package: TypeScript contracts/formulas/sim logic in `packages/game-core`.
+- Match runtime: Phaser (portrait-first), mounted by web shell.
+
+Boundary rules:
+- Phaser handles rendering/gameplay and emits result callback.
+- Phaser does not call API/DB directly.
+- Next/Expo shell owns auth/session, API calls, navigation, persistence.
+
+## 3. Current Monorepo Status
 
 ```text
 football/
   apps/
-    web/                        # Next.js app shell
-      app/
-      src/
-        components/
-        state/
-        match/                  # Phaser integration layer (web canvas host)
-    mobile/                     # Expo app shell
-      src/
-        screens/
-        state/
-        match/                  # Phaser alternative adapter / scene host bridge
-    server/                     # Express API (mounted under /api)
-      src/
-        routes/
-        middleware/
-        lib/
-        config/
+    web/            # Production app shell + Phaser host (implemented)
+    server/         # API routes + DB logic (implemented)
+    mobile/         # Minimal scaffold only (not feature-complete)
   packages/
-    game-core/                  # shared deterministic rules + contracts
-      src/
-        api-contracts.ts
-        constants.ts
-        types.ts
-        formulas.ts
-        validation/
-          lineup.ts
-          match-submit.ts
-        engine/
-          simulateMatch.ts
-          chance-model.ts
-          momentum-model.ts
-        phaser-contracts.ts     # scene config/output contracts (no Phaser imports)
+    game-core/      # shared types, constants, formulas, sim + phaser contracts
   database/
     schema.sql
     migrations/
-  docs/
-    implementation-plan.md
 ```
 
-## 3. Gameplay Architecture (Phaser Included)
+Implemented highlights:
+- Full web route surface for onboarding, dashboard, squad, match flow, league, shop, profile.
+- Fully mounted API route surface for auth/onboarding/dashboard/squad/match/shop/rewards/league.
+- Match runtime contract wiring (`MatchRuntimeConfig` -> Phaser -> `MatchRuntimeResult`).
+- Anti-replay protection on match submit via unique `(club_id, simulation_seed)`.
 
-### App Shell vs Phaser Responsibilities
+## 4. Current User Flow
 
-- App Shell (Next/Expo):
-  - Auth, onboarding, dashboard, squad/shop/league screens
-  - Pre-match setup and API start call
-  - Starts Phaser with `MatchRuntimeConfig`
-  - Receives `MatchRuntimeResult` callback
-  - Calls `POST /api/match/submit`
+1. Sign-in/sign-up (Clerk).
+2. `POST /api/auth/session` syncs/creates account row.
+3. Onboarding creates manager and club.
+4. Club creation seeds starter squad and league membership.
+5. Home loop: claim daily reward, manage squad, buy packs, play matches, check league.
+6. Match loop:
+   - `POST /api/match/start`
+   - Phaser live simulation
+   - `POST /api/match/submit`
+7. Result UI shows full-time card, timeline/lineups/stats, rewards, promotion claim.
 
-- Phaser Runtime:
-  - Top-down mini-sim in portrait mode
-  - Score/time HUD + commentary ticker
-  - Chance-event transitions
-  - Shot/save timing-bar minigame scenes
-  - Emits final result object only
+## 5. Match Runtime Spec (As Implemented)
 
-### Data Contract Boundary
+### 5.1 Runtime rules
 
-From app shell into Phaser:
-- `matchSeed`
-- team snapshots (overall/formation/fatigue modifiers)
-- rules (3-minute timer, max 10 goals, 3-goal lead)
-- chance interval rules (max 20s)
+- Real-time duration: `60s` (`MATCH_DURATION_SECONDS`).
+- Virtual clock mapping: real-time maps to `0-90` match minutes.
+- Chance cadence guard: max gap `20s`.
+- Max total goals: `10`.
+- Early finish by 3-goal lead is currently disabled in runtime/start payload (`earlyFinishGoalLead = 99`).
 
-From Phaser back to app shell:
-- final score
-- duration
-- end reason (`THREE_GOAL_LEAD` | `TEN_TOTAL_GOALS` | `TIMER_EXPIRED`)
-- compact simulation payload (events, timings, chance outcomes)
+### 5.2 Pitch + simulation presentation
 
-## 4. Core Flow Mapping
+- Portrait pitch uses `/assets/pitch/vertical-pitch.svg`.
+- Pitch fills the simulation container edge-to-edge (no inner card/padding effect).
+- Match UI chrome (topbar, bottom nav, build footer) is hidden while live match runs.
+- Players animate with tactical ambient movement + chance-event transitions.
+- Teams swap ends at halftime with a short transition (`~2.5s`).
 
-1. Sign in/up (Clerk)
-2. `POST /api/auth/session` creates/syncs account row only
-3. Create manager profile
-4. Create club identity
-5. Generate starter squad (15 players, all Common)
-6. Dashboard loop (daily claim, squad, shop, league, profile)
-7. Match loop:
-   - `/api/match/start`
-   - Phaser runtime
-   - `/api/match/submit`
-8. Result flow + league movement + optional promotion claim
+### 5.3 HUD / overlays (scope-creep calibration)
 
-## 5. Database Scope
+- TV-style scoreboard bug is rendered inside top-left of the pitch.
+- Connected timer + score unit (single combined visual group).
+- Team abbreviations shown in score bug.
+- Team color dots shown beside each abbreviation.
+- Half label was removed from the compact HUD to save space.
+- Commentary strip is centered on pitch with semi-transparent backdrop.
+- Commentary is forced to single-line fit with ellipsis truncation.
+- GOAL banner appears centered across middle of pitch, single-line emphasis.
 
-Keep and use current schema as the v1 base:
-- `accounts`, `managers`, `clubs`
-- `league_tiers`, `league_memberships`
-- `players`, `lineups`, `formation_unlocks`
-- `matches`
-- `daily_reward_claims`, `promotion_reward_claims`
-- `pack_catalogue`, `pack_purchases`, `pack_rewards`
-- `economy_transactions`
+### 5.4 Pre-kickoff and match-state behavior
 
-Additional v1 recommendation for inactive CPU automation:
-- Add a scheduled worker (or cron-trigger endpoint) to:
-  - toggle inactive clubs to CPU after 30 days
-  - mark reusable CPU slots after 90 days
+- Before kickoff, top metrics panel shows:
+  - Team Strength
+  - Attack Matchup
+  - Defensive Matchup
+- Kickoff preview card includes club/opponent/rank pills over pitch.
+- During active sim, kickoff UI and menus are hidden; only in-pitch HUD + overlays remain.
 
-## 6. Shared Rule Modules (`packages/game-core`)
+## 6. Match Result UX (As Implemented)
 
-Required deterministic modules:
-- `engine/simulateMatch.ts`
-  - chance cadence (<= 20 seconds)
-  - momentum bursts
-  - underdog adjustment (mild)
-  - early stop conditions
-- `engine/chance-model.ts`
-  - chance ownership probability using team quality + fatigue + momentum
-- `engine/minigame-resolution.ts`
-  - timing bar outcome resolution with stat-based green zone + variance
-- `formulas.ts`
-  - league points
-  - coin rewards
-  - manager/starter EXP gains
-  - stamina drain/recovery
-  - sell values
-  - team overall with formation/out-of-position penalties
-- `validation/*`
-  - lineup validity (11 starters + GK)
-  - squad sale constraints
-  - match submit bounds (duration/goals/end reason)
+- Full-time hero card modeled after broadcast/score-app layout.
+- Uses fake placeholder badges for clubs.
+- Uses real club/opponent names; abbreviations used where compact display is needed.
+- Goal lists include scorer names + minute labels.
+- Timeline/Lineups/Stats tabbed sections.
+- Timeline does not show a TAP column.
+- Match event times displayed as virtual 90-minute timeline.
+- Promotion claim panel shown when threshold reached (claim-once enforcement server-side).
 
-## 7. Phaser Scene Plan (Portrait)
+## 7. Web Feature Surface (Current)
 
-Scenes:
-1. `MatchIntroScene`
-   - team names, kick-off transition
-2. `PitchSimScene`
-   - lightweight top-down movement
-   - timer and score overlay
-   - commentary callouts
-3. `ChanceTransitionScene`
-   - quick zoom/spotlight animation into chance type
-4. `ShotMinigameScene`
-   - attacker timing-bar
-5. `SaveMinigameScene`
-   - goalkeeper timing-bar
-6. `MatchOutroScene`
-   - final whistle + emit result callback
+- `/start`: manager + club onboarding flow.
+- `/home`: dashboard summary, reward CTA, quick actions.
+- `/squad`: lineup editor with formation switching, XI/bench validation, drag/drop swaps, autopick.
+- `/match/prep`: pre-match setup and start.
+- `/match/live`: Phaser runtime host.
+- `/match/result`: full-time presentation + rewards/promotion.
+- `/league`: full table and rank context.
+- `/shop`: pack catalogue, purchase flow, reward decision flow.
+- `/profile`: manager/club summary.
+- `/playercards`: player card visual preview route.
+- `/settings`, `/help`: placeholder pages.
 
-Phaser integration wrappers:
-- Web: mount canvas in `/match/live` React host
-- Mobile: RN-hosted WebView/bridge adapter (same runtime config + result contract)
-
-## 8. API Surface (v1)
+## 8. API Surface (Current)
 
 Auth + onboarding:
 - `POST /api/auth/session`
 - `POST /api/onboarding/manager`
 - `POST /api/onboarding/club`
 - `POST /api/onboarding/reset-club`
+- `POST /api/onboarding/bootstrap-world` (scope creep: world seeding utility)
 
-Core loop:
+Core:
 - `GET /api/dashboard/summary`
 - `GET /api/squad/players`
 - `PUT /api/squad/lineup`
@@ -193,73 +144,58 @@ Core loop:
 - `POST /api/shop/packs/purchase`
 - `POST /api/shop/packs/reward-decision`
 
-## 9. State Model (Redux + RTK Query)
+## 9. Data/Validation/Hardening (Current)
 
-Slices:
-- `authSlice`: Clerk user identity + session-sync status
-- `clubSlice`: manager, club, onboarding completion, coins/team overall
-- `squadSlice`: players, lineup, unlocked formations
-- `matchSlice`: prep state, live events, final submission
-- `leagueSlice`: table snapshot + legends nearby
-- `shopSlice`: packs, purchases, reward decisions
-- `rewardsSlice`: daily + promotion statuses
-- `uiSlice`: modals, toasts, staged result flow progress
+- DB includes league, players, lineups, matches, economy, rewards, pack systems, and `player_pool`.
+- Match submit sanitizes and bounds simulation payload size/content.
+- Replay prevention:
+  - App-layer duplicate seed rejection.
+  - DB unique key on `(club_id, simulation_seed)`.
+- Reward idempotency:
+  - Unique daily claim per date.
+  - Unique promotion claim per tier.
 
-RTK Query:
-- single `gameApi` with tag invalidation by domain (`Dashboard`, `Squad`, `League`, `Packs`)
+## 10. Build + Versioning
 
-## 10. Phaser-Specific Acceptance Criteria
+- Root scripts include:
+  - `prebuild:web`: `version:patch` + `build:meta`
+  - `build:meta`: writes:
+    - `apps/web/src/lib/build-meta.ts`
+    - `apps/web/public/version.json`
+- Runtime app footer reads version from `version.json` on load (with build-meta fallback).
+- Package version in `package.json` is the single version source of truth.
+- Commit protocol requires version artifact updates + patch notes + changelog + living spec updates per commit.
 
-- Portrait runtime with stable 60fps target on modern phones
-- Chance intervals never exceed 20s
-- Early match stop rules always respected
-- Minigame result reproducible from seed + input + config
-- Phaser returns result via callback only; no network calls from scenes
-- Match submit rejects invalid payloads and replays
+## 11. Scope-Creep Delta vs Original Plan
 
-## 11. MVP Delivery Phases
+1. Match duration changed from 3-minute runtime to 60-second runtime with 90-minute virtual display mapping.
+2. Early 3-goal lead finish effectively disabled for current gameplay.
+3. Phaser implementation consolidated around one orchestrated simulation scene (instead of strict multi-scene storyboard).
+4. Broadcast-style in-pitch HUD introduced (compact top-left bug).
+5. Centered single-line commentary and centered GOAL bar added.
+6. Halftime side-swap transition implemented.
+7. App chrome hidden during live sim to maximize pitch area.
+8. Result page upgraded to full-time presentation with fake badges + scorer attribution.
+9. Added world bootstrap endpoint (`/onboarding/bootstrap-world`) for CPU/player-pool seeding.
+10. Added player card preview route and card asset pipeline.
 
-Phase 1: Foundation
-- Repo wiring, shared package, Clerk session sync, MySQL connectivity
+## 12. Remaining Gaps / Next Work
 
-Phase 2: Onboarding
-- Manager + club creation
-- starter squad generation
-- default 4-4-2 lineup
-
-Phase 3: Dashboard + Core Modules
-- home summary
-- squad management
-- league table
-- shop list + purchase flow skeleton
-- daily reward claim
-
-Phase 4: Phaser Match Runtime
-- portrait pitch sim scene
-- chance transitions
-- shot/save timing bars
-- callback contract wired to `/api/match/submit`
-
-Phase 5: Progression
-- EXP/stamina/coins/post-match staging
-- formation unlocks (3 wins and 5 wins)
-- promotion flow + claim-once enforcement
-
-Phase 6: Hardening
-- idempotent reward handling
-- anti-replay checks
-- edge-case validation (GK minimum, squad minimum, full squad conversions)
-- telemetry/logging for match runtime + submit failures
-
-## 12. Immediate Next Tasks
-
-1. Finalize Clerk production env config and verified session flow on live domain.
-2. Complete squad lineup editor for full 11+bench management (starter integrity checks).
-3. Lock Phaser live scene contract to a single `MatchRuntimeConfig` + `MatchRuntimeResult` interface and consume it in web match flow.
-4. Add promotion staging screen after result + condensed 9-team table.
-5. Add automated inactive-club CPU toggle process (30/90-day lifecycle).
+1. Mobile app implementation (Expo screens + match runtime bridge) is still pending.
+2. Shared `game-core` module split is incomplete (`chance-model`, `momentum-model`, `minigame-resolution`, standalone `validation/*` files are not fully separated yet).
+3. Post-result promotion staging flow with condensed 9-team table still needs dedicated implementation.
+4. Automated inactive-club lifecycle process (30/90-day scheduler) still pending.
+5. Telemetry/logging pipeline for runtime/submit failures still pending.
 
 ## 13. Deployment Base URLs
 
 - App: `https://football.andrewkennedydev.com/`
 - API: `https://football.andrewkennedydev.com/api`
+
+## 14. Patch Notes Feed
+
+Latest patch notes (newest first):
+<!-- PATCH_NOTES_FEED_START -->
+- [2026-03-11 - v0.0.58 - Enforce commit protocol and runtime version file loading](docs/patch-notes/2026-03-11-v0.0.58-enforce-commit-protocol-and-runtime-version-file-loading.md)
+- [2026-03-11 - v0.0.57 - Introduce patch notes and git workflow format](docs/patch-notes/2026-03-11-v0.0.57-introduce-patch-notes-and-git-workflow-format.md)
+<!-- PATCH_NOTES_FEED_END -->

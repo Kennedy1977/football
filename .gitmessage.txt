@@ -1,0 +1,14 @@
+<type>(<scope>): <short imperative summary>
+
+Why:
+- <problem being solved>
+
+What:
+- <change 1>
+- <change 2>
+
+Validation:
+- <command and result>
+
+Patch-Notes:
+- docs/patch-notes/<filename>.md

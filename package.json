@@ -1,6 +1,6 @@
 {
   "name": "football",
-  "version": "0.0.57",
+  "version": "0.0.58",
   "description": "Football Manager Arcade MVP scaffold",
   "main": "server.js",
   "engines": {
@@ -8,6 +8,11 @@
   },
   "scripts": {
     "postinstall": "npm run build",
+    "notes:new": "node scripts/notes-new.mjs",
+    "protocol:install": "node scripts/setup-git-protocol.mjs",
+    "protocol:check:staged": "node scripts/protocol-check-staged.mjs",
+    "protocol:check:commit-msg": "node scripts/protocol-check-commit-msg.mjs",
+    "protocol:prepare": "npm run version:patch && npm run build:meta",
     "assets:card-frames": "node scripts/prepare-player-card-frames.mjs",
     "assets:card-portraits": "node scripts/prepare-player-card-portraits.mjs",
     "build:meta": "node scripts/generate-build-meta.mjs",

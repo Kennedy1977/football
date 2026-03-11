@@ -1,0 +1,36 @@
+# Changelog
+
+All notable product and technical changes should be documented here.
+
+This project follows:
+- Semantic Versioning (`major.minor.patch`)
+- Keep a Changelog style categories (`Added`, `Changed`, `Fixed`, `Removed`, `Security`)
+
+## [Unreleased]
+
+Patch note entries:
+<!-- PATCH_NOTES_FEED_START -->
+- [2026-03-11 - v0.0.58 - Enforce commit protocol and runtime version file loading](docs/patch-notes/2026-03-11-v0.0.58-enforce-commit-protocol-and-runtime-version-file-loading.md)
+- [2026-03-11 - v0.0.57 - Introduce patch notes and git workflow format](docs/patch-notes/2026-03-11-v0.0.57-introduce-patch-notes-and-git-workflow-format.md)
+<!-- PATCH_NOTES_FEED_END -->
+
+### Added
+- Patch notes workflow with templates under `docs/patch-notes/`.
+- Commit/push format guide in `docs/git-commit-and-push-format.md`.
+- Patch note generator script: `npm run notes:new`.
+- Git protocol hook system (`.githooks` + validation scripts).
+- Runtime version file generation: `apps/web/public/version.json`.
+
+### Changed
+- Added an explicit, reusable commit template file: `.gitmessage.txt`.
+- Version pipeline now treats `package.json` as source of truth and refreshes both build meta and runtime version file.
+- Living implementation spec now includes auto-maintained patch note feed.
+
+### Fixed
+- Footer version can now update from runtime `version.json` on app load instead of relying only on static build constants.
+
+## [0.0.57] - 2026-03-11
+
+### Changed
+- Historic entries prior to this point are not fully backfilled.
+- As-built implementation details are documented in `docs/implementation-plan.md`.
