@@ -116,6 +116,10 @@ body.match-live-playing .bottom-nav {
   display: none;
 }
 
+body.match-live-playing .build-footer {
+  display: none;
+}
+
 .app-topbar {
   display: flex;
   align-items: center;

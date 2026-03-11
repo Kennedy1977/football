@@ -229,8 +229,8 @@ function getSimulationViewport(container: HTMLDivElement): { width: number; heig
   const rect = container.getBoundingClientRect();
   const width = Math.max(320, Math.floor(rect.width));
   const pitchHeightRatio = 1670 / 1020;
-  const simPitchTopOffset = 12;
-  const simPitchBottomPadding = 42;
+  const simPitchTopOffset = 0;
+  const simPitchBottomPadding = 0;
   const idealPitchHeight = Math.round(width * pitchHeightRatio);
   const preferredHeight = idealPitchHeight + simPitchTopOffset + simPitchBottomPadding;
 
