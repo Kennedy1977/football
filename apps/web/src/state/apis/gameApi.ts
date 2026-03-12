@@ -7,6 +7,7 @@ import type {
   DailyClaimResponse,
   DashboardSummaryResponse,
   GetPacksResponse,
+  GetPendingPackRewardsResponse,
   LeagueTableResponse,
   LegendsTableResponse,
   PromotionClaimResponse,
@@ -107,6 +108,10 @@ export const gameApi = createApi({
       query: () => ({ url: "/shop/packs" }),
       providesTags: ["Packs"],
     }),
+    getPendingPackRewards: builder.query<GetPendingPackRewardsResponse, void>({
+      query: () => ({ url: "/shop/packs/pending" }),
+      providesTags: ["Packs"],
+    }),
     purchasePack: builder.mutation<PurchasePackResponse, PurchasePackRequest>({
       query: (body) => ({ url: "/shop/packs/purchase", method: "POST", body }),
       invalidatesTags: ["Dashboard", "Packs", "Squad"],
@@ -148,6 +153,7 @@ export const {
   useStartMatchMutation,
   useSubmitMatchMutation,
   useGetPacksQuery,
+  useGetPendingPackRewardsQuery,
   usePurchasePackMutation,
   useDecidePackRewardMutation,
   useClaimDailyRewardMutation,

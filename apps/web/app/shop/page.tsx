@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useDecidePackRewardMutation,
+  useGetPendingPackRewardsQuery,
   useGetPacksQuery,
   usePurchasePackMutation,
 } from "../../src/state/apis/gameApi";
@@ -11,21 +12,30 @@ import { toRarityFrame } from "../../src/lib/rarity-frame";
 type ChestTier = "green" | "blue" | "purple" | "epic" | "gold" | "legend";
 
 export default function ShopPage() {
+  const [activeTab, setActiveTab] = useState("chests");
   const { data, isLoading, error, refetch } = useGetPacksQuery();
+  const { data: pendingData, isLoading: pendingLoading, refetch: refetchPending } = useGetPendingPackRewardsQuery();
   const [purchasePack, purchaseState] = usePurchasePackMutation();
   const [decideReward, rewardDecisionState] = useDecidePackRewardMutation();
   const [purchasingPackId, setPurchasingPackId] = useState<number | null>(null);
-  const [lastRewards, setLastRewards] = useState<
-    Array<{
-      rewardId: number;
-      playerName: string;
-      rarity: string;
-      overall: number;
-      keepAvailable: boolean;
-      convertCoins: number;
-      convertExp: number;
-    }>
-  >([]);
+  const pendingSectionRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    setActiveTab((tab || "chests").toLowerCase());
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== "pending") {
+      return;
+    }
+
+    pendingSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [activeTab, pendingData?.rewards?.length]);
 
   return (
     <main className="page-panel page-panel-portrait">
@@ -81,18 +91,8 @@ export default function ShopPage() {
                   onClick={async () => {
                     setPurchasingPackId(pack.id);
                     try {
-                      const response = await purchasePack({ packId: pack.id }).unwrap();
-                      setLastRewards(
-                        response.rewards.map((reward) => ({
-                          rewardId: reward.rewardId,
-                          playerName: reward.player.name,
-                          rarity: reward.player.rarity,
-                          overall: reward.player.overall,
-                          keepAvailable: reward.keepAvailable,
-                          convertCoins: reward.convertCoins,
-                          convertExp: reward.convertExp,
-                        }))
-                      );
+                      await purchasePack({ packId: pack.id }).unwrap();
+                      await refetchPending();
                     } finally {
                       setPurchasingPackId(null);
                     }
@@ -108,18 +108,25 @@ export default function ShopPage() {
 
       {purchaseState.isError && <p className="feedback error">Chest purchase failed.</p>}
 
-      {lastRewards.length ? (
-        <section className="onboarding-card section-pad" style={{ marginTop: 16 }}>
-          <h3>Chest Opened</h3>
+      <section
+        ref={pendingSectionRef}
+        className={`onboarding-card section-pad ${activeTab === "pending" ? "shop-pending-focus" : ""}`}
+        style={{ marginTop: 16 }}
+      >
+        <h3>Unfinished Chests</h3>
+        <p className="page-copy">Complete your reward decisions for unopened chest pulls.</p>
+        {pendingLoading ? <p className="feedback">Loading unfinished rewards...</p> : null}
+        {pendingData?.rewards?.length ? (
           <div className="player-grid">
-            {lastRewards.map((reward) => (
-              <article key={reward.rewardId} className={`player-card rarity-${toRarityFrame(reward.rarity)}`}>
+            {pendingData.rewards.map((reward) => (
+              <article key={reward.rewardId} className={`player-card rarity-${toRarityFrame(reward.player.rarity)}`}>
                 <div className="player-card-head">
                   <div>
-                    <h3>{reward.playerName}</h3>
-                    <p>{reward.rarity}</p>
+                    <h3>{reward.player.name}</h3>
+                    <p>{reward.player.rarity}</p>
+                    <p>{reward.pack.name}</p>
                   </div>
-                  <div className="player-overall">{reward.overall}</div>
+                  <div className="player-overall">{reward.player.overall}</div>
                 </div>
                 <div className="inline">
                   <button
@@ -127,6 +134,7 @@ export default function ShopPage() {
                     disabled={rewardDecisionState.isLoading || !reward.keepAvailable}
                     onClick={async () => {
                       await decideReward({ rewardId: reward.rewardId, decision: "KEEP" }).unwrap();
+                      await refetchPending();
                     }}
                   >
                     Keep
@@ -136,6 +144,7 @@ export default function ShopPage() {
                     disabled={rewardDecisionState.isLoading}
                     onClick={async () => {
                       await decideReward({ rewardId: reward.rewardId, decision: "CONVERT_COINS" }).unwrap();
+                      await refetchPending();
                     }}
                   >
                     +{reward.convertCoins} Coins
@@ -144,10 +153,12 @@ export default function ShopPage() {
               </article>
             ))}
           </div>
-          {rewardDecisionState.isError && <p className="feedback error">Reward decision failed.</p>}
-          {rewardDecisionState.isSuccess && <p className="feedback">Reward decision saved.</p>}
-        </section>
-      ) : null}
+        ) : (
+          <p className="feedback">No unfinished chest rewards.</p>
+        )}
+        {rewardDecisionState.isError && <p className="feedback error">Reward decision failed.</p>}
+        {rewardDecisionState.isSuccess && <p className="feedback">Reward decision saved.</p>}
+      </section>
 
     </main>
   );
@@ -165,7 +176,7 @@ function getChestPresentation(priceCoins: number, rewardFocus: string, rarityHin
   const focus = simplifyFocusLabel(rewardFocus);
   const rarity = simplifyRarityHint(rarityHint);
 
-  const base = {
+  const base: Record<ChestTier, { name: string; copy: string; ribbon?: string }> = {
     green: {
       name: "Scout Chest",
       copy: "Entry chest with fast squad-building rewards.",
@@ -191,7 +202,7 @@ function getChestPresentation(priceCoins: number, rewardFocus: string, rarityHin
       copy: "Top-tier vault with the best reward ceiling.",
       ribbon: "Top Tier",
     },
-  } satisfies Record<ChestTier, { name: string; copy: string; ribbon?: string }>;
+  };
 
   return {
     tier,
@@ -215,9 +226,9 @@ function getChestTier(priceCoins: number): ChestTier {
 function simplifyFocusLabel(value: string): string {
   const normalized = value.trim().toLowerCase();
   if (!normalized) return "Balanced";
-  if (normalized.includes("exp")) return "EXP Focus";
-  if (normalized.includes("player")) return "Player Focus";
-  if (normalized.includes("coin")) return "Coin Focus";
+  if (normalized.includes("exp")) return "EXP Chest";
+  if (normalized.includes("player")) return "Player Chest";
+  if (normalized.includes("coin")) return "Coin Chest";
   if (normalized.includes("balance")) return "Balanced";
   if (normalized.length > 22) {
     return `${value.slice(0, 22).trim()}...`;

@@ -250,6 +250,41 @@ export interface GetPacksResponse {
   packs: PackDefinition[];
 }
 
+export interface PendingPackReward {
+  rewardId: number;
+  purchaseId: number;
+  pack: {
+    id: number;
+    code: string;
+    name: string;
+    priceCoins: number;
+  };
+  player: {
+    name: string;
+    age: number;
+    position: Position;
+    rarity: Rarity;
+    overall: number;
+    shirtNumber: number;
+    stats: {
+      pace: number;
+      shooting: number;
+      passing: number;
+      dribbling: number;
+      defending: number;
+      strength: number;
+      goalkeeping: number;
+    };
+  };
+  keepAvailable: boolean;
+  convertCoins: number;
+  convertExp: number;
+}
+
+export interface GetPendingPackRewardsResponse {
+  rewards: PendingPackReward[];
+}
+
 export interface PurchasePackRequest {
   packCode?: string;
   packId?: number;

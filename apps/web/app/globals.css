@@ -2182,6 +2182,11 @@ button[disabled] {
   min-height: 38px;
 }
 
+.shop-pending-focus {
+  border-color: rgba(255, 211, 101, 0.72);
+  box-shadow: 0 0 0 1px rgba(255, 211, 101, 0.22) inset;
+}
+
 .chest-visual {
   --chest-top: #6a7f93;
   --chest-top-hi: #8fa5ba;

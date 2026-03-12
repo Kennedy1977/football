@@ -10,6 +10,7 @@ This project follows:
 
 Patch note entries:
 <!-- PATCH_NOTES_FEED_START -->
+- [2026-03-12 - v0.0.78 - fix shop chest build typing and add unfinished chest notifications](docs/patch-notes/2026-03-12-v0.0.78-fix-shop-chest-build-typing-and-add-unfinished-chest-notifications.md)
 - [2026-03-12 - v0.0.76 - add manager home-away kit picker with color lock](docs/patch-notes/2026-03-12-v0.0.76-add-manager-home-away-kit-picker-with-color-lock.md)
 - [2026-03-12 - v0.0.74 - prevent striker back-passes when shot is on](docs/patch-notes/2026-03-12-v0.0.74-prevent-striker-back-passes-when-shot-is-on.md)
 - [2026-03-12 - v0.0.73 - add emergent support-triangle behavior in live sim](docs/patch-notes/2026-03-12-v0.0.73-add-emergent-support-triangle-behavior-in-live-sim.md)

@@ -176,9 +176,9 @@ function buildNotifications(values: {
     items.push({
       id: "free-packs",
       type: "FREE_PACKS",
-      title: "Free packs available",
-      detail: `${values.freePacksAvailable} free pack${values.freePacksAvailable === 1 ? "" : "s"} ready to open.`,
-      href: "/shop",
+      title: "Free chests available",
+      detail: `${values.freePacksAvailable} free chest${values.freePacksAvailable === 1 ? "" : "s"} ready to open.`,
+      href: "/shop?tab=chests",
       count: values.freePacksAvailable,
     });
   }
@@ -187,9 +187,9 @@ function buildNotifications(values: {
     items.push({
       id: "unopened-packs",
       type: "UNOPENED_PACKS",
-      title: "Unopened pack rewards",
+      title: "Unfinished chest rewards",
       detail: `${values.pendingPackRewards} reward${values.pendingPackRewards === 1 ? "" : "s"} still need a decision.`,
-      href: "/shop",
+      href: "/shop?tab=pending",
       count: values.pendingPackRewards,
     });
   }

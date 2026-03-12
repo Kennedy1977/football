@@ -48,6 +48,18 @@ interface PackRewardRow extends RowDataPacket {
   resolved_at: Date | null;
 }
 
+interface PendingPackRewardRow extends RowDataPacket {
+  reward_id: number;
+  pack_purchase_id: number;
+  reward_payload_json: string | null;
+  coin_amount: number | null;
+  exp_amount: number | null;
+  pack_id: number;
+  pack_code: string;
+  pack_name: string;
+  pack_price_coins: number;
+}
+
 interface PlayerStatsRow extends RowDataPacket {
   id: number;
   name: string;
@@ -107,6 +119,73 @@ shopRouter.get(
         rewardFocus: row.reward_focus,
         odds: tryParseJson(row.odds_json),
       })),
+    });
+  })
+);
+
+shopRouter.get(
+  "/packs/pending",
+  asyncHandler(async (req, res) => {
+    const accountId = await requireAccountId(req);
+
+    const [clubRows] = await pool.query<ClubRow[]>(
+      "SELECT id AS club_id, coins, team_overall FROM clubs WHERE account_id = ? LIMIT 1",
+      [accountId]
+    );
+
+    if (!clubRows.length) {
+      throw new HttpError(400, "Club must be created before opening chests");
+    }
+
+    const club = clubRows[0];
+    const [countRows] = await pool.query<(RowDataPacket & { total: number })[]>(
+      "SELECT COUNT(*) AS total FROM players WHERE club_id = ?",
+      [club.club_id]
+    );
+    const keepAvailable = Number(countRows[0]?.total ?? 0) < 28;
+
+    const [rows] = await pool.query<PendingPackRewardRow[]>(
+      `
+        SELECT
+          pr.id AS reward_id,
+          pr.pack_purchase_id,
+          pr.reward_payload_json,
+          pr.coin_amount,
+          pr.exp_amount,
+          pc.id AS pack_id,
+          pc.code AS pack_code,
+          pc.name AS pack_name,
+          pc.price_coins AS pack_price_coins
+        FROM pack_rewards pr
+        INNER JOIN pack_purchases pp ON pp.id = pr.pack_purchase_id
+        INNER JOIN pack_catalogue pc ON pc.id = pp.pack_id
+        WHERE pp.club_id = ? AND pr.resolved_at IS NULL AND pr.reward_type = 'PLAYER'
+        ORDER BY pp.created_at DESC, pr.id ASC
+      `,
+      [club.club_id]
+    );
+
+    res.status(200).json({
+      rewards: rows.map((row) => {
+        const payload = parseRewardPayload(row.reward_payload_json);
+        const projectedValue = playerSellValue(toPreviewCard(payload));
+        const convertAmount = Math.max(1, Math.round(projectedValue * 0.2));
+
+        return {
+          rewardId: row.reward_id,
+          purchaseId: row.pack_purchase_id,
+          pack: {
+            id: row.pack_id,
+            code: row.pack_code,
+            name: row.pack_name,
+            priceCoins: row.pack_price_coins,
+          },
+          player: payload,
+          keepAvailable,
+          convertCoins: Number(row.coin_amount ?? convertAmount),
+          convertExp: Number(row.exp_amount ?? convertAmount),
+        };
+      }),
     });
   })
 );
