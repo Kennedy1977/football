@@ -151,6 +151,16 @@ export default function SquadPage() {
     () => selectedStartingPlayers.filter((player) => player.stamina <= 0),
     [selectedStartingPlayers]
   );
+  const starterAverageOverall = useMemo(() => {
+    if (!selectedStartingPlayers.length) return 0;
+    return selectedStartingPlayers.reduce((total, player) => total + player.overall, 0) / selectedStartingPlayers.length;
+  }, [selectedStartingPlayers]);
+  const starterAverageStamina = useMemo(() => {
+    if (!selectedStartingPlayers.length) return 0;
+    return selectedStartingPlayers.reduce((total, player) => total + player.stamina, 0) / selectedStartingPlayers.length;
+  }, [selectedStartingPlayers]);
+  const availablePlayersCount = useMemo(() => players.filter((player) => player.stamina > 0).length, [players]);
+  const unavailablePlayersCount = players.length - availablePlayersCount;
   const lineupReady =
     startersCount === 11 && selectedBenchIds.length <= 5 && starterGkCount >= 1 && unavailableStarters.length === 0;
   const hasLineupChanges =
@@ -175,6 +185,13 @@ export default function SquadPage() {
             : null;
 
   const activeReserveId = draggingReservePlayerId || selectedReservePlayerId;
+  const selectedReservePlayer = useMemo(
+    () => (activeReserveId ? playerMap.get(activeReserveId) ?? null : null),
+    [activeReserveId, playerMap]
+  );
+  const pitchSwapHint = selectedReservePlayer
+    ? `${selectedReservePlayer.name} selected. Tap a highlighted starter slot to swap.`
+    : "Select a reserve then tap a starter slot, or drag directly onto the pitch.";
 
   const handleToggleBench = (player: SquadPlayer) => {
     setLineupFeedback(null);
@@ -336,16 +353,36 @@ export default function SquadPage() {
   return (
     <main className="page-panel page-panel-portrait">
       <h2 className="page-title">Squad Management</h2>
-      <p className="page-copy">Interactive pitch editor with drag-and-drop starters.</p>
-
-      <div className="inline" style={{ marginBottom: 10 }}>
-        <span className="label-pill">Squad Size: {data?.squadSize ?? "-"}</span>
-        <span className="label-pill">Starters: {startersCount}</span>
-        <span className="label-pill">Formation: {selectedFormation}</span>
-      </div>
+      <p className="page-copy">Build your XI, tune shape, and swap players with clear role guidance.</p>
 
       {isLoading && <p className="feedback">Loading squad...</p>}
       {error && <p className="feedback error">Unable to load squad.</p>}
+
+      {players.length ? (
+        <section className="onboarding-card section-pad squad-overview-card">
+          <div className="squad-overview-grid">
+            <div className="squad-overview-item">
+              <span>Formation</span>
+              <strong>{selectedFormation}</strong>
+            </div>
+            <div className="squad-overview-item">
+              <span>Starting XI OVR</span>
+              <strong>{starterAverageOverall.toFixed(1)}</strong>
+            </div>
+            <div className="squad-overview-item">
+              <span>Starting XI Stamina</span>
+              <strong>{Math.round(starterAverageStamina)}%</strong>
+            </div>
+            <div className="squad-overview-item">
+              <span>Available Players</span>
+              <strong>
+                {availablePlayersCount}/{players.length}
+              </strong>
+              {unavailablePlayersCount > 0 ? <em>{unavailablePlayersCount} unavailable</em> : null}
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {players.length ? (
         <section className="onboarding-card section-pad lineup-editor">
@@ -429,9 +466,7 @@ export default function SquadPage() {
       {players.length ? (
         <section className="onboarding-card section-pad lineup-pitch-panel">
           <h3>Formation Pitch</h3>
-          <p className="lineup-panel-copy">
-            Drag a reserve card onto a position, or tap a reserve card then tap a pitch slot to replace that starter.
-          </p>
+          <p className={`lineup-panel-copy ${selectedReservePlayer ? "is-active" : ""}`}>{pitchSwapHint}</p>
 
           <div className="lineup-pitch-shell">
             <div className="lineup-pitch" role="img" aria-label={`Pitch view in ${selectedFormation} formation`}>
@@ -450,7 +485,9 @@ export default function SquadPage() {
                   <button
                     key={slot.key}
                     type="button"
-                    className={`lineup-slot ${player ? "is-filled" : "is-empty"} ${isDropTarget ? "is-target" : ""}`}
+                    className={`lineup-slot ${player ? "is-filled" : "is-empty"} ${canDrop ? "is-replaceable" : ""} ${
+                      isDropTarget ? "is-target" : ""
+                    }`}
                     style={slotStyle}
                     onDragOver={(event) => {
                       if (!activeReserveId) return;
@@ -477,7 +514,9 @@ export default function SquadPage() {
                     }}
                     aria-label={
                       player
-                        ? `Slot ${slot.label}. Current player ${player.name}. ${canDrop ? "Tap to replace with selected reserve." : ""}`
+                        ? `Position ${slot.label}. Current player ${player.name}. ${
+                            canDrop ? "Tap to replace with selected reserve." : ""
+                          }`
                         : `Empty ${slot.label} slot`
                     }
                   >
@@ -508,7 +547,7 @@ export default function SquadPage() {
       {players.length ? (
         <section className="onboarding-card section-pad lineup-carousel-panel">
           <h3>Bench & Reserves</h3>
-          <p className="lineup-panel-copy">Cards overlap for quick scanning. Drag one onto the pitch to swap in.</p>
+          <p className="lineup-panel-copy">Select a reserve to swap onto the pitch. Keep a maximum of 5 on the bench.</p>
 
           {remainingPlayers.length ? (
             <div className="lineup-carousel" role="list" aria-label="Bench and reserve players">
@@ -519,16 +558,22 @@ export default function SquadPage() {
                 const isBench = selectedBenchSet.has(player.id);
                 const isSelectedReserve = selectedReservePlayerId === player.id;
                 const isDraggingReserve = draggingReservePlayerId === player.id;
+                const isUnavailable = player.stamina <= 0;
 
                 return (
                   <article
                     key={player.id}
                     className={`lineup-carousel-card rarity-${toRarityFrame(player.rarity)} ${
                       isBench ? "is-bench" : ""
-                    } ${isSelectedReserve ? "is-selected" : ""} ${isDraggingReserve ? "is-dragging" : ""}`}
+                    } ${isSelectedReserve ? "is-selected" : ""} ${isDraggingReserve ? "is-dragging" : ""} ${
+                      isUnavailable ? "is-unavailable" : ""
+                    }`}
                     role="listitem"
-                    draggable={player.stamina > 0}
+                    draggable={!isUnavailable}
                     onClick={() => {
+                      if (isUnavailable) {
+                        return;
+                      }
                       setSelectedReservePlayerId((prev) => (prev === player.id ? null : player.id));
                       setLineupFeedback(null);
                     }}
@@ -560,25 +605,41 @@ export default function SquadPage() {
                     </div>
 
                     <div className="lineup-carousel-meta">
-                      <span className="label-pill">OVR {Math.round(player.overall)}</span>
-                      <span className="label-pill">STA {Math.round(player.stamina)}%</span>
+                      <span className="lineup-meta-pill">OVR {Math.round(player.overall)}</span>
+                      <span className={`lineup-meta-pill ${isUnavailable ? "is-low" : ""}`}>STA {Math.round(player.stamina)}%</span>
+                      <span className="lineup-meta-pill">{isBench ? "Bench" : "Reserve"}</span>
                     </div>
 
                     <div className="lineup-carousel-actions">
                       <button
                         type="button"
-                        className={`lineup-role-button no-hover-lift ${isBench ? "active-bench" : ""}`}
+                        className={`lineup-role-button lineup-role-primary no-hover-lift ${isSelectedReserve ? "is-selected" : ""}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (isUnavailable) {
+                            return;
+                          }
+                          setSelectedReservePlayerId((prev) => (prev === player.id ? null : player.id));
+                          setLineupFeedback(null);
+                        }}
+                        disabled={isUnavailable}
+                      >
+                        {isSelectedReserve ? "Selected" : "Select to Swap"}
+                      </button>
+                      <button
+                        type="button"
+                        className={`lineup-role-button lineup-role-secondary no-hover-lift ${isBench ? "active-bench" : ""}`}
                         onClick={(event) => {
                           event.stopPropagation();
                           handleToggleBench(player);
                         }}
                         disabled={updateLineupState.isLoading}
                       >
-                        {isBench ? "Unbench" : "Bench"}
+                        {isBench ? "Unbench" : "Add Bench"}
                       </button>
                       <button
                         type="button"
-                        className="no-hover-lift"
+                        className="lineup-role-button lineup-role-tertiary no-hover-lift"
                         onClick={async (event) => {
                           event.stopPropagation();
                           setSellingId(player.id);
@@ -745,18 +806,18 @@ function buildFormationSlots(formation: FormationCode): FormationSlot[] {
 
   const pushRow = (
     role: Exclude<Position, "GK">,
-    count: number,
+    labels: string[],
     y: number,
-    labelPrefix: string,
     xMin = 16,
     xMax = 84
   ) => {
-    const xValues = spreadX(count, xMin, xMax);
+    const xValues = spreadX(labels.length, xMin, xMax);
     xValues.forEach((x, index) => {
+      const label = labels[index] ?? role;
       slots.push({
-        key: `${role}-${labelPrefix}-${index + 1}`,
+        key: `${role}-${label}-${index + 1}`,
         role,
-        label: `${labelPrefix}${index + 1}`,
+        label,
         x,
         y,
       });
@@ -765,45 +826,45 @@ function buildFormationSlots(formation: FormationCode): FormationSlot[] {
 
   switch (formation) {
     case "4-4-2":
-      pushRow("DEF", 4, 72, "D");
-      pushRow("MID", 4, 53, "M");
-      pushRow("ATT", 2, 34, "A", 30, 70);
+      pushRow("DEF", ["LB", "LCB", "RCB", "RB"], 72);
+      pushRow("MID", ["LM", "LCM", "RCM", "RM"], 53);
+      pushRow("ATT", ["LS", "RS"], 34, 30, 70);
       break;
     case "4-3-3":
-      pushRow("DEF", 4, 72, "D");
-      pushRow("MID", 3, 53, "M", 24, 76);
-      pushRow("ATT", 3, 34, "A", 24, 76);
+      pushRow("DEF", ["LB", "LCB", "RCB", "RB"], 72);
+      pushRow("MID", ["LCM", "CM", "RCM"], 53, 24, 76);
+      pushRow("ATT", ["LW", "ST", "RW"], 34, 24, 76);
       break;
     case "4-5-1":
-      pushRow("DEF", 4, 72, "D");
-      pushRow("MID", 5, 53, "M");
-      pushRow("ATT", 1, 34, "A");
+      pushRow("DEF", ["LB", "LCB", "RCB", "RB"], 72);
+      pushRow("MID", ["LM", "LCM", "CDM", "RCM", "RM"], 53);
+      pushRow("ATT", ["ST"], 34);
       break;
     case "4-2-3-1":
-      pushRow("DEF", 4, 72, "D");
-      pushRow("MID", 2, 59, "DM", 35, 65);
-      pushRow("MID", 3, 47, "AM", 24, 76);
-      pushRow("ATT", 1, 33, "A");
+      pushRow("DEF", ["LB", "LCB", "RCB", "RB"], 72);
+      pushRow("MID", ["LDM", "RDM"], 59, 35, 65);
+      pushRow("MID", ["LAM", "CAM", "RAM"], 47, 24, 76);
+      pushRow("ATT", ["ST"], 33);
       break;
     case "3-5-2":
-      pushRow("DEF", 3, 72, "D", 24, 76);
-      pushRow("MID", 5, 53, "M");
-      pushRow("ATT", 2, 34, "A", 30, 70);
+      pushRow("DEF", ["LCB", "CB", "RCB"], 72, 24, 76);
+      pushRow("MID", ["LWB", "LCM", "CM", "RCM", "RWB"], 53);
+      pushRow("ATT", ["LS", "RS"], 34, 30, 70);
       break;
     case "5-3-2":
-      pushRow("DEF", 5, 72, "D");
-      pushRow("MID", 3, 53, "M", 24, 76);
-      pushRow("ATT", 2, 34, "A", 30, 70);
+      pushRow("DEF", ["LWB", "LCB", "CB", "RCB", "RWB"], 72);
+      pushRow("MID", ["LCM", "CM", "RCM"], 53, 24, 76);
+      pushRow("ATT", ["LS", "RS"], 34, 30, 70);
       break;
     case "4-2-4":
-      pushRow("DEF", 4, 72, "D");
-      pushRow("MID", 2, 56, "M", 35, 65);
-      pushRow("ATT", 4, 34, "A");
+      pushRow("DEF", ["LB", "LCB", "RCB", "RB"], 72);
+      pushRow("MID", ["LCM", "RCM"], 56, 35, 65);
+      pushRow("ATT", ["LW", "LS", "RS", "RW"], 34);
       break;
     default:
-      pushRow("DEF", 4, 72, "D");
-      pushRow("MID", 4, 53, "M");
-      pushRow("ATT", 2, 34, "A", 30, 70);
+      pushRow("DEF", ["LB", "LCB", "RCB", "RB"], 72);
+      pushRow("MID", ["LM", "LCM", "RCM", "RM"], 53);
+      pushRow("ATT", ["LS", "RS"], 34, 30, 70);
       break;
   }
 
@@ -821,24 +882,15 @@ function spreadX(count: number, min: number, max: number): number[] {
 
 function shortStarterLabel(name: string): string {
   const normalized = name.trim().replace(/\s+/g, " ");
-  if (normalized.length <= 12) {
-    return normalized;
-  }
-
   const parts = normalized.split(" ");
-  if (parts.length < 2) {
-    return normalized.slice(0, 12);
+  if (parts.length >= 2) {
+    const firstInitial = `${parts[0].charAt(0).toUpperCase()}.`;
+    const lastName = parts[parts.length - 1];
+    const compact = `${firstInitial} ${lastName}`;
+    return compact.length <= 11 ? compact : `${firstInitial} ${lastName.slice(0, 7)}`;
   }
 
-  const firstInitial = `${parts[0].charAt(0).toUpperCase()}.`;
-  const lastName = parts[parts.length - 1];
-  const compact = `${firstInitial} ${lastName}`;
-
-  if (compact.length <= 12) {
-    return compact;
-  }
-
-  return `${firstInitial} ${lastName.slice(0, 8)}`;
+  return normalized.length <= 11 ? normalized : normalized.slice(0, 11);
 }
 
 function autoPickBestXi(players: SquadPlayer[], formation: FormationCode): { startingIds: number[] } | null {

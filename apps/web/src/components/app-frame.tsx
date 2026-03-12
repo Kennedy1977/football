@@ -153,7 +153,7 @@ export function AppFrame({ children, clerkConfigured }: AppFrameProps) {
           </div>
           <Link
             href="/profile"
-            className={`icon-btn ${isActivePath(pathname, "/profile") ? "is-active" : ""}`}
+            className={`icon-btn topbar-profile-button ${isActivePath(pathname, "/profile") ? "is-active" : ""}`}
             aria-label="Profile"
           >
             <ManagerAvatar avatar={manager?.avatar} name={manager?.name} className="topbar-profile-avatar" />

@@ -10,6 +10,7 @@ This project follows:
 
 Patch note entries:
 <!-- PATCH_NOTES_FEED_START -->
+- [2026-03-12 - v0.0.70 - Improve squad layout hierarchy and topbar notification layering](docs/patch-notes/2026-03-12-v0.0.70-improve-squad-layout-hierarchy-and-topbar-notification-layering.md)
 - [2026-03-12 - v0.0.69 - Remove duplicate result-page navigation buttons](docs/patch-notes/2026-03-12-v0.0.69-remove-duplicate-result-page-navigation-buttons.md)
 - [2026-03-11 - v0.0.68 - Fix oversized top-nav profile avatar](docs/patch-notes/2026-03-11-v0.0.68-fix-oversized-top-nav-profile-avatar.md)
 - [2026-03-11 - v0.0.67 - Add rarity borders to pitch and bench player avatars](docs/patch-notes/2026-03-11-v0.0.67-add-rarity-borders-to-pitch-and-bench-player-avatars.md)
