@@ -4,6 +4,7 @@ import { DAILY_REWARD_COINS, LEAGUE_PROMOTION_THRESHOLDS, type LeagueCode } from
 import { pool } from "../config/db";
 import { requireAccountId } from "../lib/auth";
 import { HttpError } from "../lib/errors";
+import { ensureCpuLeaguePopulation } from "../lib/world-seeding";
 import { getNextResetIso, getRewardDateKey } from "../lib/time";
 import { asyncHandler } from "../middleware/async-handler";
 
@@ -218,6 +219,9 @@ rewardsRouter.post(
         `,
         [nextTierRows[0].id, nextLeagueCode === "LEGENDS" ? 1 : null, context.club_id]
       );
+
+      // Ensure the destination tier has CPU clubs seeded so league tables/opponents are immediately available.
+      await ensureCpuLeaguePopulation(connection, { leagueCodes: [nextLeagueCode] });
 
       await connection.execute<ResultSetHeader>(
         "UPDATE managers SET exp = exp + ? WHERE id = ?",

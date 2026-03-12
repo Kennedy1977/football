@@ -3,6 +3,7 @@ import type { RowDataPacket } from "mysql2";
 import { pool } from "../config/db";
 import { requireAccountId } from "../lib/auth";
 import { HttpError } from "../lib/errors";
+import { ensureCpuLeaguePopulation } from "../lib/world-seeding";
 import { asyncHandler } from "../middleware/async-handler";
 
 export const leagueRouter = Router();
@@ -55,6 +56,7 @@ leagueRouter.get(
     }
 
     const membership = membershipRows[0];
+    await ensureLeaguePopulationForCode(membership.league_code);
 
     const [tableRows] = await pool.query<TableRow[]>(
       `
@@ -133,6 +135,7 @@ leagueRouter.get(
     }
 
     const membership = membershipRows[0];
+    await ensureLeaguePopulationForCode(membership.league_code);
 
     if (membership.league_code !== "LEGENDS") {
       throw new HttpError(400, "Club is not currently in Legends");
@@ -228,4 +231,13 @@ function selectActiveLeagueRows<T extends { club_id: number; points: number; goa
 function clampInt(value: number, min: number, max: number): number {
   const numeric = Number.isFinite(value) ? value : min;
   return Math.max(min, Math.min(max, Math.round(numeric)));
+}
+
+async function ensureLeaguePopulationForCode(leagueCode: string): Promise<void> {
+  const connection = await pool.getConnection();
+  try {
+    await ensureCpuLeaguePopulation(connection, { leagueCodes: [leagueCode] });
+  } finally {
+    connection.release();
+  }
 }

@@ -199,6 +199,7 @@ Core:
 
 Latest patch notes (newest first):
 <!-- PATCH_NOTES_FEED_START -->
+- [2026-03-12 - v0.0.80 - auto-seed leagues when viewing table and after promotion](docs/patch-notes/2026-03-12-v0.0.80-auto-seed-leagues-when-viewing-table-and-after-promotion.md)
 - [2026-03-12 - v0.0.79 - surface unfinished chest rewards with shop tabs](docs/patch-notes/2026-03-12-v0.0.79-surface-unfinished-chest-rewards-with-shop-tabs.md)
 - [2026-03-12 - v0.0.78 - fix shop chest build typing and add unfinished chest notifications](docs/patch-notes/2026-03-12-v0.0.78-fix-shop-chest-build-typing-and-add-unfinished-chest-notifications.md)
 - [2026-03-12 - v0.0.76 - add manager home-away kit picker with color lock](docs/patch-notes/2026-03-12-v0.0.76-add-manager-home-away-kit-picker-with-color-lock.md)
