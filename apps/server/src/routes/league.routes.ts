@@ -6,12 +6,14 @@ import { HttpError } from "../lib/errors";
 import { asyncHandler } from "../middleware/async-handler";
 
 export const leagueRouter = Router();
+const LEAGUE_TARGET_TEAM_COUNT = 20;
 
 interface MembershipRow extends RowDataPacket {
   club_id: number;
   league_tier_id: number;
   league_code: string;
   legends_division: number | null;
+  team_count: number;
 }
 
 interface TableRow extends RowDataPacket {
@@ -37,13 +39,15 @@ leagueRouter.get(
           lm.club_id,
           lm.league_tier_id,
           c.current_league_code AS league_code,
-          lm.legends_division
+          lm.legends_division,
+          LEAST(lt.team_count, ?) AS team_count
         FROM league_memberships lm
         INNER JOIN clubs c ON c.id = lm.club_id
+        INNER JOIN league_tiers lt ON lt.id = lm.league_tier_id
         WHERE c.account_id = ?
         LIMIT 1
       `,
-      [accountId]
+      [LEAGUE_TARGET_TEAM_COUNT, accountId]
     );
 
     if (!membershipRows.length) {
@@ -72,7 +76,8 @@ leagueRouter.get(
       [membership.league_tier_id]
     );
 
-    const ranked = tableRows.map((row, index) => ({
+    const activeRows = selectActiveLeagueRows(tableRows, membership.team_count, membership.club_id);
+    const ranked = activeRows.map((row, index) => ({
       rank: index + 1,
       clubId: row.club_id,
       clubName: row.club_name,
@@ -112,13 +117,15 @@ leagueRouter.get(
           lm.club_id,
           lm.league_tier_id,
           c.current_league_code AS league_code,
-          lm.legends_division
+          lm.legends_division,
+          LEAST(lt.team_count, ?) AS team_count
         FROM league_memberships lm
         INNER JOIN clubs c ON c.id = lm.club_id
+        INNER JOIN league_tiers lt ON lt.id = lm.league_tier_id
         WHERE c.account_id = ?
         LIMIT 1
       `,
-      [accountId]
+      [LEAGUE_TARGET_TEAM_COUNT, accountId]
     );
 
     if (!membershipRows.length) {
@@ -155,7 +162,8 @@ leagueRouter.get(
       [membership.league_tier_id]
     );
 
-    const ranked = tableRows.map((row, index) => ({
+    const activeRows = selectActiveLeagueRows(tableRows, membership.team_count, membership.club_id);
+    const ranked = activeRows.map((row, index) => ({
       rank: index + 1,
       clubId: row.club_id,
       clubName: row.club_name,
@@ -180,3 +188,44 @@ leagueRouter.get(
     });
   })
 );
+
+function selectActiveLeagueRows<T extends { club_id: number; points: number; goal_difference: number; goals_for: number }>(
+  rows: T[],
+  requestedTeamCount: number,
+  includeClubId?: number
+): T[] {
+  const teamCount = clampInt(requestedTeamCount, 2, LEAGUE_TARGET_TEAM_COUNT);
+  const sorted = [...rows].sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    if (b.goal_difference !== a.goal_difference) return b.goal_difference - a.goal_difference;
+    if (b.goals_for !== a.goals_for) return b.goals_for - a.goals_for;
+    return a.club_id - b.club_id;
+  });
+
+  if (sorted.length <= teamCount) {
+    return sorted;
+  }
+
+  const active = sorted.slice(0, teamCount);
+  if (includeClubId === undefined || active.some((row) => row.club_id === includeClubId)) {
+    return active;
+  }
+
+  const includeRow = sorted.find((row) => row.club_id === includeClubId);
+  if (!includeRow) {
+    return active;
+  }
+
+  const replaced = [...active.slice(0, teamCount - 1), includeRow];
+  return replaced.sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    if (b.goal_difference !== a.goal_difference) return b.goal_difference - a.goal_difference;
+    if (b.goals_for !== a.goals_for) return b.goals_for - a.goals_for;
+    return a.club_id - b.club_id;
+  });
+}
+
+function clampInt(value: number, min: number, max: number): number {
+  const numeric = Number.isFinite(value) ? value : min;
+  return Math.max(min, Math.min(max, Math.round(numeric)));
+}

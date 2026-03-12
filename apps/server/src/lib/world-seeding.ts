@@ -41,6 +41,7 @@ type SeededPlayerRow = Omit<StarterPlayerRow, "rarity"> & {
 };
 
 type StatField = "pace" | "shooting" | "passing" | "dribbling" | "defending" | "strength" | "goalkeeping";
+const LEAGUE_TARGET_TEAM_COUNT = 20;
 
 export interface CpuLeagueSeedSummary {
   leagueCode: string;
@@ -104,6 +105,7 @@ const CPU_MANAGER_FIRST = [
 ];
 
 const CPU_MANAGER_LAST = ["Hayes", "Nolan", "Parker", "Reed", "Diaz", "Silva", "Walker", "Cole", "Bennett", "Mason"];
+const CPU_FORMATIONS = ["4-4-2", "4-3-3", "4-5-1", "4-2-3-1", "3-5-2", "5-3-2", "4-2-4"] as const;
 
 const PACK_POOL_PROFILES: Array<{ packPrice: number; odds: Record<string, number>; baselineOverall: number }> = [
   { packPrice: 250, odds: { common: 0.82, rare: 0.17, epic: 0.01, legendary: 0 }, baselineOverall: 42 },
@@ -195,7 +197,7 @@ export async function ensureCpuLeaguePopulation(
       [tier.id]
     );
     const existingTeams = Number(countRows[0]?.total ?? 0);
-    const targetTeams = Number(tier.team_count);
+    const targetTeams = clampInt(Number(tier.team_count), 2, LEAGUE_TARGET_TEAM_COUNT);
     const missingTeams = Math.max(0, targetTeams - existingTeams);
 
     let createdCpuTeams = 0;
@@ -565,13 +567,18 @@ async function ensureCpuSquad(
   await connection.execute<ResultSetHeader>(
     `
       INSERT INTO lineups (club_id, formation_code, starting_player_ids, bench_player_ids)
-      VALUES (?, '4-4-2', ?, ?)
+      VALUES (?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         formation_code = VALUES(formation_code),
         starting_player_ids = VALUES(starting_player_ids),
         bench_player_ids = VALUES(bench_player_ids)
     `,
-    [clubId, JSON.stringify(starterPlayerIds), JSON.stringify(benchPlayerIds)]
+    [
+      clubId,
+      pickCpuFormation(`${seedSource}:formation`),
+      JSON.stringify(starterPlayerIds),
+      JSON.stringify(benchPlayerIds),
+    ]
   );
 }
 
@@ -769,4 +776,10 @@ function clampInt(value: number, min: number, max: number): number {
 
 function round2(value: number): number {
   return Number(value.toFixed(2));
+}
+
+function pickCpuFormation(seed: string): string {
+  const random = createSeededRng(seed);
+  const index = Math.floor(random() * CPU_FORMATIONS.length);
+  return CPU_FORMATIONS[index] ?? "4-4-2";
 }

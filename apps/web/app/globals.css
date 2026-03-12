@@ -2444,6 +2444,99 @@ button[disabled] {
   margin-top: 10px;
 }
 
+.profile-kit-grid {
+  margin-top: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.profile-kit-column {
+  border: 1px solid rgba(128, 190, 235, 0.34);
+  border-radius: 10px;
+  padding: 9px;
+  background: rgba(6, 23, 49, 0.6);
+}
+
+.profile-kit-column-title {
+  margin: 0 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #b6d4ef;
+}
+
+.profile-kit-options {
+  display: grid;
+  gap: 7px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.profile-kit-option {
+  border: 1px solid rgba(131, 188, 235, 0.38);
+  border-radius: 10px;
+  padding: 6px;
+  background: rgba(8, 31, 62, 0.64);
+  display: grid;
+  gap: 5px;
+  justify-items: center;
+}
+
+.profile-kit-option:hover,
+.profile-kit-option:focus-visible {
+  border-color: rgba(124, 213, 255, 0.8);
+  background: rgba(12, 42, 82, 0.78);
+}
+
+.profile-kit-option.is-selected {
+  border-color: rgba(100, 236, 176, 0.86);
+  box-shadow: 0 0 0 1px rgba(100, 236, 176, 0.22) inset;
+}
+
+.profile-kit-shirt-preview {
+  width: 54px;
+  height: 54px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 205, 244, 0.46);
+  background:
+    radial-gradient(circle at 24% 10%, rgba(255, 255, 255, 0.26), transparent 54%),
+    linear-gradient(180deg, rgba(8, 30, 60, 0.76), rgba(4, 16, 35, 0.92));
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-kit-shirt-sprite {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  bottom: 2px;
+  top: 18px;
+  background-image: url("/assets/player-cards/shirts-sprite.webp");
+  background-size: 800% 600%;
+  background-repeat: no-repeat;
+}
+
+.profile-kit-option-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #e7f1fc;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+}
+
+.profile-kit-option-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid rgba(225, 239, 255, 0.76);
+  box-shadow: 0 0 0 1px rgba(8, 22, 45, 0.7);
+}
+
+.profile-kit-save-row {
+  margin-top: 10px;
+}
+
 .manager-avatar-create-preview {
   display: flex;
   align-items: center;
@@ -3124,6 +3217,10 @@ button[disabled] {
   .profile-avatar {
     width: 60px;
     height: 60px;
+  }
+
+  .profile-kit-grid {
+    grid-template-columns: 1fr;
   }
 
   .manager-avatar-picker-tile {

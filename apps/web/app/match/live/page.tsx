@@ -97,6 +97,12 @@ export default function MatchLivePage() {
       return;
     }
     const dimensions = getSimulationViewport(containerRef.current);
+    const kitColors = resolveSimulationKitColors({
+      yourHomeKitColor: prep.yourHomeKitColor,
+      yourAwayKitColor: prep.yourAwayKitColor,
+      opponentHomeKitColor: prep.opponentHomeKitColor,
+      opponentAwayKitColor: prep.opponentAwayKitColor,
+    });
 
     try {
       const { mountPhaserMatchSimulation } = await import("../../../src/match/phaser-match-simulation");
@@ -129,6 +135,8 @@ export default function MatchLivePage() {
         {
           width: dimensions.width,
           height: dimensions.height,
+          homeColor: kitColors.homeColor,
+          awayColor: kitColors.awayColor,
           onResolved: (resolved) => {
             setSimulation(resolved);
             dispatch(setMatchEvents(resolved.events));
@@ -240,6 +248,92 @@ function getSimulationViewport(container: HTMLDivElement): { width: number; heig
     width,
     height: preferredHeight,
   };
+}
+
+function resolveSimulationKitColors(input: {
+  yourHomeKitColor: string;
+  yourAwayKitColor: string;
+  opponentHomeKitColor: string;
+  opponentAwayKitColor: string;
+}): { homeColor: number; awayColor: number } {
+  const fallbackHome = "#2f8ef0";
+  const fallbackAway = "#d72638";
+  const fallbackNeutral = "#22c55e";
+
+  const homeHex = normalizeHexColor(input.yourHomeKitColor) ?? normalizeHexColor(input.yourAwayKitColor) ?? fallbackHome;
+  const opponentHomeHex = normalizeHexColor(input.opponentHomeKitColor) ?? fallbackAway;
+  const opponentAwayHex = normalizeHexColor(input.opponentAwayKitColor) ?? fallbackNeutral;
+
+  const awayCandidates = [opponentHomeHex, opponentAwayHex, fallbackAway, fallbackNeutral, "#f4c534", "#111827"];
+  const awayHex = pickFirstNonClashingColor(homeHex, awayCandidates, opponentAwayHex);
+
+  return {
+    homeColor: hexToInt(homeHex),
+    awayColor: hexToInt(awayHex),
+  };
+}
+
+function pickFirstNonClashingColor(homeHex: string, candidates: string[], fallback: string): string {
+  for (const candidate of candidates) {
+    if (!colorsClash(homeHex, candidate)) {
+      return candidate;
+    }
+  }
+
+  return fallback;
+}
+
+function colorsClash(leftHex: string, rightHex: string): boolean {
+  const left = hexToRgb(leftHex);
+  const right = hexToRgb(rightHex);
+  if (!left || !right) {
+    return false;
+  }
+
+  const dr = left.r - right.r;
+  const dg = left.g - right.g;
+  const db = left.b - right.b;
+  const distance = Math.sqrt(dr * dr + dg * dg + db * db);
+  return distance < 90;
+}
+
+function normalizeHexColor(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const raw = value.trim();
+  if (!raw) {
+    return null;
+  }
+
+  if (/^#[0-9a-fA-F]{6}$/.test(raw)) {
+    return raw.toLowerCase();
+  }
+
+  if (/^#[0-9a-fA-F]{3}$/.test(raw)) {
+    return `#${raw[1]}${raw[1]}${raw[2]}${raw[2]}${raw[3]}${raw[3]}`.toLowerCase();
+  }
+
+  return null;
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const normalized = normalizeHexColor(hex);
+  if (!normalized) {
+    return null;
+  }
+
+  return {
+    r: Number.parseInt(normalized.slice(1, 3), 16),
+    g: Number.parseInt(normalized.slice(3, 5), 16),
+    b: Number.parseInt(normalized.slice(5, 7), 16),
+  };
+}
+
+function hexToInt(hex: string): number {
+  const normalized = normalizeHexColor(hex) ?? "#2f8ef0";
+  return Number.parseInt(normalized.slice(1), 16);
 }
 
 function waitForNextFrame(): Promise<void> {

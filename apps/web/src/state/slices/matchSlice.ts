@@ -12,6 +12,10 @@ interface MatchPrepState {
   matchSeed: string;
   opponentClubId: number;
   opponentName: string;
+  yourHomeKitColor: string;
+  yourAwayKitColor: string;
+  opponentHomeKitColor: string;
+  opponentAwayKitColor: string;
   yourFormation: string;
   opponentFormation: string;
   yourTeamOverall: number;
@@ -61,6 +65,10 @@ const matchSlice = createSlice({
         matchSeed: action.payload.matchSeed,
         opponentClubId: action.payload.opponent.clubId,
         opponentName: action.payload.opponent.name,
+        yourHomeKitColor: action.payload.yourClub.homeKitColor,
+        yourAwayKitColor: action.payload.yourClub.awayKitColor,
+        opponentHomeKitColor: action.payload.opponent.homeKitColor,
+        opponentAwayKitColor: action.payload.opponent.awayKitColor,
         yourFormation: action.payload.yourClub.formation || "4-4-2",
         opponentFormation: action.payload.opponent.formation || "4-4-2",
         yourTeamOverall: action.payload.yourClub.teamOverall,

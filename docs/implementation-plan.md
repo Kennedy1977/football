@@ -199,6 +199,7 @@ Core:
 
 Latest patch notes (newest first):
 <!-- PATCH_NOTES_FEED_START -->
+- [2026-03-12 - v0.0.76 - add manager home-away kit picker with color lock](docs/patch-notes/2026-03-12-v0.0.76-add-manager-home-away-kit-picker-with-color-lock.md)
 - [2026-03-12 - v0.0.74 - prevent striker back-passes when shot is on](docs/patch-notes/2026-03-12-v0.0.74-prevent-striker-back-passes-when-shot-is-on.md)
 - [2026-03-12 - v0.0.73 - add emergent support-triangle behavior in live sim](docs/patch-notes/2026-03-12-v0.0.73-add-emergent-support-triangle-behavior-in-live-sim.md)
 - [2026-03-12 - v0.0.72 - Convert shop packs to reward chests and align squad card visuals](docs/patch-notes/2026-03-12-v0.0.72-convert-shop-packs-to-reward-chests-and-align-squad-card-visuals.md)

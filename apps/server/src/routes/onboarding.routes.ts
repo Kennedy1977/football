@@ -38,6 +38,7 @@ interface ClubRow extends RowDataPacket {
 
 interface LeagueTierRow extends RowDataPacket {
   id: number;
+  team_count: number;
 }
 
 interface ClubLeagueRow extends RowDataPacket {
@@ -62,6 +63,8 @@ const DEFAULT_AWAY_KIT = {
   shorts: "#111827",
   pattern: "solid",
 };
+
+const MAX_SHIRT_SPRITE_INDEX = 47;
 
 onboardingRouter.post(
   "/manager",
@@ -185,6 +188,29 @@ onboardingRouter.put(
         exp: manager.exp,
         avatar: normalizeManagerAvatar(manager.avatar_json, manager.avatar_frame),
       },
+    });
+  })
+);
+
+onboardingRouter.put(
+  "/club/kits",
+  asyncHandler(async (req, res) => {
+    const accountId = await requireAccountId(req);
+    const payload = readClubKitUpdatePayload(req.body);
+
+    const [updateResult] = await pool.execute<ResultSetHeader>(
+      "UPDATE clubs SET home_kit_json = ?, away_kit_json = ? WHERE account_id = ?",
+      [JSON.stringify(payload.homeKit), JSON.stringify(payload.awayKit), accountId]
+    );
+
+    if (!updateResult.affectedRows) {
+      throw new HttpError(404, "Club profile not found");
+    }
+
+    res.status(200).json({
+      updated: true,
+      homeKit: payload.homeKit,
+      awayKit: payload.awayKit,
     });
   })
 );
@@ -375,7 +401,7 @@ async function createClubWithStarterSquad(
   }
 ) {
   const [tierRows] = await connection.query<LeagueTierRow[]>(
-    "SELECT id FROM league_tiers WHERE code = 'BEGINNER_I' LIMIT 1"
+    "SELECT id, LEAST(team_count, 20) AS team_count FROM league_tiers WHERE code = 'BEGINNER_I' LIMIT 1"
   );
 
   if (!tierRows.length) {
@@ -434,9 +460,9 @@ async function createClubWithStarterSquad(
         points,
         rank_position
       )
-      VALUES (?, ?, NULL, 0, 0, 0, 0, 0, 0, 0, 0, 28)
+      VALUES (?, ?, NULL, 0, 0, 0, 0, 0, 0, 0, 0, ?)
     `,
-    [clubId, tierRows[0].id]
+    [clubId, tierRows[0].id, tierRows[0].team_count]
   );
 
   await ensureCpuLeaguePopulation(connection, { leagueCodes: ["BEGINNER_I"] });
@@ -588,14 +614,122 @@ async function deleteClubData(connection: PoolConnection, clubId: number): Promi
 function readClubPayload(body: unknown) {
   const input = (body || {}) as Record<string, unknown>;
 
+  const homeKit = input.homeKit && typeof input.homeKit === "object" ? input.homeKit : DEFAULT_HOME_KIT;
+  const awayKit = input.awayKit && typeof input.awayKit === "object" ? input.awayKit : DEFAULT_AWAY_KIT;
+  const homeShirt = normalizeHexColor((homeKit as Record<string, unknown>).shirt);
+  const awayShirt = normalizeHexColor((awayKit as Record<string, unknown>).shirt);
+  if (homeShirt && awayShirt && homeShirt === awayShirt) {
+    throw new HttpError(400, "homeKit.shirt and awayKit.shirt must be different colours");
+  }
+
   return {
     clubName: readRequiredString(input.clubName, "clubName", 64),
     city: readRequiredString(input.city, "city", 64),
     stadiumName: readRequiredString(input.stadiumName, "stadiumName", 64),
     badge: input.badge && typeof input.badge === "object" ? input.badge : DEFAULT_BADGE,
-    homeKit: input.homeKit && typeof input.homeKit === "object" ? input.homeKit : DEFAULT_HOME_KIT,
-    awayKit: input.awayKit && typeof input.awayKit === "object" ? input.awayKit : DEFAULT_AWAY_KIT,
+    homeKit,
+    awayKit,
   };
+}
+
+function readClubKitUpdatePayload(body: unknown): {
+  homeKit: Record<string, unknown>;
+  awayKit: Record<string, unknown>;
+} {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new HttpError(400, "body must be an object");
+  }
+
+  const input = body as Record<string, unknown>;
+  const homeKit = normalizeKitPayload(input.homeKit, "homeKit");
+  const awayKit = normalizeKitPayload(input.awayKit, "awayKit");
+  const homeShirt = normalizeHexColor(homeKit.shirt);
+  const awayShirt = normalizeHexColor(awayKit.shirt);
+
+  if (homeShirt && awayShirt && homeShirt === awayShirt) {
+    throw new HttpError(400, "homeKit.shirt and awayKit.shirt must be different colours");
+  }
+
+  return { homeKit, awayKit };
+}
+
+function normalizeKitPayload(value: unknown, field: string): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new HttpError(400, `${field} must be an object`);
+  }
+
+  const input = value as Record<string, unknown>;
+  const shirt = normalizeHexColor(input.shirt);
+  if (!shirt) {
+    throw new HttpError(400, `${field}.shirt must be a hex color (#RRGGBB)`);
+  }
+
+  const shorts = normalizeHexColor(input.shorts) ?? "#ffffff";
+  const pattern = readOptionalPattern(input.pattern) ?? "solid";
+  const normalized: Record<string, unknown> = {
+    shirt,
+    shorts,
+    pattern,
+  };
+
+  const spriteIndex = readOptionalSpriteIndex(input.shirtSpriteIndex, `${field}.shirtSpriteIndex`);
+  if (spriteIndex !== null) {
+    normalized.shirtSpriteIndex = spriteIndex;
+  }
+
+  const colorGroup = readOptionalString(input.colorGroup, 24);
+  if (colorGroup) {
+    normalized.colorGroup = colorGroup.toLowerCase();
+  }
+
+  return normalized;
+}
+
+function readOptionalPattern(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  return trimmed.length > 24 ? trimmed.slice(0, 24) : trimmed;
+}
+
+function readOptionalSpriteIndex(value: unknown, field: string): number | null {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > MAX_SHIRT_SPRITE_INDEX) {
+    throw new HttpError(400, `${field} must be an integer between 0 and ${MAX_SHIRT_SPRITE_INDEX}`);
+  }
+
+  return parsed;
+}
+
+function normalizeHexColor(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) {
+    return trimmed.toLowerCase();
+  }
+
+  if (/^#[0-9a-fA-F]{3}$/.test(trimmed)) {
+    return `#${trimmed[1]}${trimmed[1]}${trimmed[2]}${trimmed[2]}${trimmed[3]}${trimmed[3]}`.toLowerCase();
+  }
+
+  return null;
 }
 
 function readRequiredString(value: unknown, field: string, maxLength: number): string {

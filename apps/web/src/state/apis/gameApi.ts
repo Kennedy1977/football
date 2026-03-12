@@ -26,6 +26,8 @@ import type {
   UpdateManagerAvatarResponse,
   UpdateLineupRequest,
   UpdateLineupResponse,
+  UpdateClubKitsRequest,
+  UpdateClubKitsResponse,
 } from "../../../../../packages/game-core/src";
 import type { RootState } from "../store";
 
@@ -64,6 +66,10 @@ export const gameApi = createApi({
     }),
     updateManagerAvatar: builder.mutation<UpdateManagerAvatarResponse, UpdateManagerAvatarRequest>({
       query: (body) => ({ url: "/onboarding/manager/avatar", method: "PUT", body }),
+      invalidatesTags: ["Dashboard"],
+    }),
+    updateClubKits: builder.mutation<UpdateClubKitsResponse, UpdateClubKitsRequest>({
+      query: (body) => ({ url: "/onboarding/club/kits", method: "PUT", body }),
       invalidatesTags: ["Dashboard"],
     }),
     createClub: builder.mutation<CreateOrResetClubResponse, ClubIdentityPayload>({
@@ -132,6 +138,7 @@ export const {
   useSyncAuthSessionMutation,
   useCreateManagerMutation,
   useUpdateManagerAvatarMutation,
+  useUpdateClubKitsMutation,
   useCreateClubMutation,
   useResetClubMutation,
   useGetDashboardSummaryQuery,

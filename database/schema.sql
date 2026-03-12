@@ -253,23 +253,28 @@ CREATE TABLE IF NOT EXISTS economy_transactions (
 
 INSERT INTO league_tiers (code, display_name, sort_order, is_legends, team_count, promotion_threshold_points)
 VALUES
-  ('BEGINNER_I', 'Beginner I', 1, FALSE, 28, 25),
-  ('BEGINNER_II', 'Beginner II', 2, FALSE, 28, 50),
-  ('BEGINNER_III', 'Beginner III', 3, FALSE, 28, 75),
-  ('BRONZE_I', 'Bronze I', 4, FALSE, 28, 125),
-  ('BRONZE_II', 'Bronze II', 5, FALSE, 28, 175),
-  ('BRONZE_III', 'Bronze III', 6, FALSE, 28, 225),
-  ('SILVER_I', 'Silver I', 7, FALSE, 28, 300),
-  ('SILVER_II', 'Silver II', 8, FALSE, 28, 375),
-  ('SILVER_III', 'Silver III', 9, FALSE, 28, 450),
-  ('GOLD_I', 'Gold I', 10, FALSE, 28, 550),
-  ('GOLD_II', 'Gold II', 11, FALSE, 28, 650),
-  ('GOLD_III', 'Gold III', 12, FALSE, 28, 750),
-  ('PLATINUM_I', 'Platinum I', 13, FALSE, 28, 1000),
-  ('PLATINUM_II', 'Platinum II', 14, FALSE, 28, 1500),
-  ('PLATINUM_III', 'Platinum III', 15, FALSE, 28, 2000),
-  ('LEGENDS', 'Legends', 16, TRUE, 50, NULL)
-ON DUPLICATE KEY UPDATE display_name = VALUES(display_name);
+  ('BEGINNER_I', 'Beginner I', 1, FALSE, 20, 25),
+  ('BEGINNER_II', 'Beginner II', 2, FALSE, 20, 50),
+  ('BEGINNER_III', 'Beginner III', 3, FALSE, 20, 75),
+  ('BRONZE_I', 'Bronze I', 4, FALSE, 20, 125),
+  ('BRONZE_II', 'Bronze II', 5, FALSE, 20, 175),
+  ('BRONZE_III', 'Bronze III', 6, FALSE, 20, 225),
+  ('SILVER_I', 'Silver I', 7, FALSE, 20, 300),
+  ('SILVER_II', 'Silver II', 8, FALSE, 20, 375),
+  ('SILVER_III', 'Silver III', 9, FALSE, 20, 450),
+  ('GOLD_I', 'Gold I', 10, FALSE, 20, 550),
+  ('GOLD_II', 'Gold II', 11, FALSE, 20, 650),
+  ('GOLD_III', 'Gold III', 12, FALSE, 20, 750),
+  ('PLATINUM_I', 'Platinum I', 13, FALSE, 20, 1000),
+  ('PLATINUM_II', 'Platinum II', 14, FALSE, 20, 1500),
+  ('PLATINUM_III', 'Platinum III', 15, FALSE, 20, 2000),
+  ('LEGENDS', 'Legends', 16, TRUE, 20, NULL)
+ON DUPLICATE KEY UPDATE
+  display_name = VALUES(display_name),
+  sort_order = VALUES(sort_order),
+  is_legends = VALUES(is_legends),
+  team_count = VALUES(team_count),
+  promotion_threshold_points = VALUES(promotion_threshold_points);
 
 INSERT INTO pack_catalogue (code, name, price_coins, reward_count, rarity_hint, reward_focus, odds_json)
 VALUES

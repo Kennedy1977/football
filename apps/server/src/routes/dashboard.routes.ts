@@ -20,6 +20,8 @@ interface DashboardRow extends RowDataPacket {
   club_name: string;
   city: string;
   stadium_name: string;
+  home_kit_json: unknown;
+  away_kit_json: unknown;
   coins: number;
   team_overall: number;
   current_league_code: string;
@@ -51,6 +53,8 @@ dashboardRouter.get(
           c.club_name,
           c.city,
           c.stadium_name,
+          c.home_kit_json,
+          c.away_kit_json,
           c.coins,
           c.team_overall,
           c.current_league_code
@@ -128,6 +132,8 @@ dashboardRouter.get(
         name: row.club_name,
         city: row.city,
         stadiumName: row.stadium_name,
+        homeKit: parseUnknownJsonObject(row.home_kit_json),
+        awayKit: parseUnknownJsonObject(row.away_kit_json),
         coins: row.coins,
         teamOverall: Number(row.team_overall),
         league: row.current_league_code,
@@ -192,4 +198,27 @@ function buildNotifications(values: {
     unreadCount: items.length,
     items,
   };
+}
+
+function parseUnknownJsonObject(value: unknown): Record<string, unknown> | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  if (typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return undefined;
+    }
+  }
+
+  return undefined;
 }

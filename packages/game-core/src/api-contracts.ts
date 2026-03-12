@@ -21,6 +21,8 @@ export interface ApiClubSummary {
   coins: number;
   teamOverall: number;
   league: LeagueCode | string;
+  homeKit?: Record<string, unknown>;
+  awayKit?: Record<string, unknown>;
 }
 
 export interface ApiPlayerSummary {
@@ -58,6 +60,17 @@ export interface UpdateManagerAvatarRequest {
 export interface UpdateManagerAvatarResponse {
   updated: boolean;
   manager: ApiManagerSummary;
+}
+
+export interface UpdateClubKitsRequest {
+  homeKit: Record<string, unknown>;
+  awayKit: Record<string, unknown>;
+}
+
+export interface UpdateClubKitsResponse {
+  updated: boolean;
+  homeKit: Record<string, unknown>;
+  awayKit: Record<string, unknown>;
 }
 
 export interface SyncAuthSessionRequest {
@@ -180,6 +193,8 @@ export interface StartMatchResponse {
     rank: number;
     formation: FormationCode | string;
     arcadeRatings: ArcadeTeamRatings;
+    homeKitColor: string;
+    awayKitColor: string;
   };
   opponent: {
     clubId: number;
@@ -188,6 +203,8 @@ export interface StartMatchResponse {
     rank: number;
     formation: FormationCode | string;
     arcadeRatings: ArcadeTeamRatings;
+    homeKitColor: string;
+    awayKitColor: string;
   };
 }
 
