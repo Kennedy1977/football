@@ -1011,7 +1011,27 @@ class MatchSimulationScene extends Phaser.Scene {
     const supportTargets = supportPlan.supportTargets;
     const safetyReceiver = supportPlan.safeOutlet ?? supportPlan.progressiveOutlet ?? supportPlan.fallbackReceiver;
     const progressiveReceiver = supportPlan.progressiveOutlet ?? supportPlan.safeOutlet ?? supportPlan.fallbackReceiver;
-    const receiver = pressure > 0.56 ? safetyReceiver : progressiveReceiver;
+    const carrierForwardAxis = this.toForwardAxis(attackingSide, carrier.container.y);
+    const goalLineOffset = Math.max(8, Math.round(this.pitchHeight * GOAL_LINE_BALL_OFFSET_RATIO));
+    const targetGoalY =
+      forwardDir < 0
+        ? this.pitchTop + goalLineOffset
+        : this.pitchTop + this.pitchHeight - goalLineOffset;
+    const targetGoalX = this.clampPitchX(centerX + this.possessionLane * this.pitchWidth * 0.07);
+    const shotLaneQuality = this.scorePassLaneQuality(
+      carrier.container.x,
+      carrier.container.y,
+      targetGoalX,
+      targetGoalY,
+      pressureDefenders
+    );
+    const strikerCanShoot =
+      carrier.role === "ATT" &&
+      carrierForwardAxis / Math.max(1, this.pitchHeight) >= 0.62 &&
+      this.possessionProgress >= 0.5 &&
+      pressure <= 0.7 &&
+      shotLaneQuality >= 0.48;
+    const receiver = strikerCanShoot ? progressiveReceiver : pressure > 0.56 ? safetyReceiver : progressiveReceiver;
     const receiverAnchor = this.getAnchorPosition(tacticalAnchors, receiver);
     const supportMovers = this.uniquePitchPlayers([
       supportPlan.safeOutlet,
@@ -1077,11 +1097,15 @@ class MatchSimulationScene extends Phaser.Scene {
       .sort((a, b) => b.score - a.score);
 
     const actionRoll = hashUnit(`${this.matchSeed}:${this.elapsed}:ambient:action`);
-    const inAttackingKillZone = carrier.role === "ATT" && this.possessionProgress >= 0.58;
+    const inAttackingKillZone = strikerCanShoot || (carrier.role === "ATT" && this.possessionProgress >= 0.58);
+    const avoidBackwardPass = strikerCanShoot;
     const directActions = rankedActions.filter(
-      (entry) => entry.action !== "RECYCLE" && (!inAttackingKillZone || entry.action !== "PASS")
+      (entry) =>
+        entry.action !== "RECYCLE" &&
+        (!inAttackingKillZone || entry.action !== "PASS") &&
+        (!avoidBackwardPass || entry.action !== "PASS")
     );
-    const shouldForceDirectPlay = carrier.role === "ATT" && this.possessionProgress >= 0.52;
+    const shouldForceDirectPlay = carrier.role === "ATT" && (this.possessionProgress >= 0.52 || strikerCanShoot);
     const preferredDirect =
       directActions.find((entry) => entry.action === "DRIBBLE" || entry.action === "THROUGH_BALL") ??
       directActions[0] ??
@@ -1113,7 +1137,7 @@ class MatchSimulationScene extends Phaser.Scene {
           : receiver;
       const effectiveReceiverAnchor = this.getAnchorPosition(tacticalAnchors, effectiveReceiver);
       const receiverPlanTarget = supportTargets.get(effectiveReceiver) ?? effectiveReceiverAnchor;
-      const receiverRoleForwardBias = effectiveReceiver === safetyReceiver ? -2 : 10;
+      const receiverRoleForwardBias = effectiveReceiver === safetyReceiver ? (strikerCanShoot ? 8 : -2) : 10;
       const receiverTargetX = this.clampPitchX(
         Phaser.Math.Linear(effectiveReceiverAnchor.x, receiverPlanTarget.x, 0.62) +
           this.pickSignedOffset(this.elapsed + 23, 12) +
