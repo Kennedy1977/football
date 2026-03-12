@@ -10,15 +10,22 @@ import {
 import { toRarityFrame } from "../../src/lib/rarity-frame";
 
 type ChestTier = "green" | "blue" | "purple" | "epic" | "gold" | "legend";
+type ShopTab = "chests" | "pending";
 
 export default function ShopPage() {
-  const [activeTab, setActiveTab] = useState("chests");
+  const [activeTab, setActiveTab] = useState<ShopTab>("chests");
   const { data, isLoading, error, refetch } = useGetPacksQuery();
-  const { data: pendingData, isLoading: pendingLoading, refetch: refetchPending } = useGetPendingPackRewardsQuery();
+  const {
+    data: pendingData,
+    isLoading: pendingLoading,
+    isError: pendingError,
+    refetch: refetchPending,
+  } = useGetPendingPackRewardsQuery();
   const [purchasePack, purchaseState] = usePurchasePackMutation();
   const [decideReward, rewardDecisionState] = useDecidePackRewardMutation();
   const [purchasingPackId, setPurchasingPackId] = useState<number | null>(null);
   const pendingSectionRef = useRef<HTMLElement | null>(null);
+  const pendingCount = pendingData?.rewards?.length ?? 0;
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -26,7 +33,7 @@ export default function ShopPage() {
     }
 
     const tab = new URLSearchParams(window.location.search).get("tab");
-    setActiveTab((tab || "chests").toLowerCase());
+    setActiveTab(normalizeTab(tab));
   }, []);
 
   useEffect(() => {
@@ -35,7 +42,7 @@ export default function ShopPage() {
     }
 
     pendingSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [activeTab, pendingData?.rewards?.length]);
+  }, [activeTab, pendingCount]);
 
   return (
     <main className="page-panel page-panel-portrait">
@@ -43,15 +50,43 @@ export default function ShopPage() {
       <p className="page-copy">Open chests to earn players, coins, and EXP.</p>
 
       <div className="inline" style={{ marginBottom: 10 }}>
-        <button type="button" onClick={() => refetch()}>
+        <button
+          type="button"
+          onClick={() => {
+            void refetch();
+            void refetchPending();
+          }}
+        >
           Refresh Chests
+        </button>
+      </div>
+
+      <div className="shop-tabs" role="tablist" aria-label="Shop sections">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "chests"}
+          className={`shop-tab-button ${activeTab === "chests" ? "is-active" : ""}`}
+          onClick={() => setActiveTab("chests")}
+        >
+          Chests
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "pending"}
+          className={`shop-tab-button ${activeTab === "pending" ? "is-active" : ""}`}
+          onClick={() => setActiveTab("pending")}
+        >
+          Unfinished
+          {pendingCount > 0 ? <span className="shop-tab-count">{pendingCount}</span> : null}
         </button>
       </div>
 
       {isLoading && <p className="feedback">Loading chests...</p>}
       {error && <p className="feedback error">Unable to load chest catalogue.</p>}
 
-      {data?.packs?.length ? (
+      {activeTab === "chests" && data?.packs?.length ? (
         <section className="chest-grid">
           {data.packs.map((pack) => {
             const chest = getChestPresentation(pack.priceCoins, pack.rewardFocus, pack.rarityHint);
@@ -93,6 +128,7 @@ export default function ShopPage() {
                     try {
                       await purchasePack({ packId: pack.id }).unwrap();
                       await refetchPending();
+                      setActiveTab("pending");
                     } finally {
                       setPurchasingPackId(null);
                     }
@@ -108,60 +144,85 @@ export default function ShopPage() {
 
       {purchaseState.isError && <p className="feedback error">Chest purchase failed.</p>}
 
-      <section
-        ref={pendingSectionRef}
-        className={`onboarding-card section-pad ${activeTab === "pending" ? "shop-pending-focus" : ""}`}
-        style={{ marginTop: 16 }}
-      >
-        <h3>Unfinished Chests</h3>
-        <p className="page-copy">Complete your reward decisions for unopened chest pulls.</p>
-        {pendingLoading ? <p className="feedback">Loading unfinished rewards...</p> : null}
-        {pendingData?.rewards?.length ? (
-          <div className="player-grid">
-            {pendingData.rewards.map((reward) => (
-              <article key={reward.rewardId} className={`player-card rarity-${toRarityFrame(reward.player.rarity)}`}>
-                <div className="player-card-head">
-                  <div>
-                    <h3>{reward.player.name}</h3>
-                    <p>{reward.player.rarity}</p>
-                    <p>{reward.pack.name}</p>
-                  </div>
-                  <div className="player-overall">{reward.player.overall}</div>
-                </div>
-                <div className="inline">
-                  <button
-                    type="button"
-                    disabled={rewardDecisionState.isLoading || !reward.keepAvailable}
-                    onClick={async () => {
-                      await decideReward({ rewardId: reward.rewardId, decision: "KEEP" }).unwrap();
-                      await refetchPending();
-                    }}
-                  >
-                    Keep
-                  </button>
-                  <button
-                    type="button"
-                    disabled={rewardDecisionState.isLoading}
-                    onClick={async () => {
-                      await decideReward({ rewardId: reward.rewardId, decision: "CONVERT_COINS" }).unwrap();
-                      await refetchPending();
-                    }}
-                  >
-                    +{reward.convertCoins} Coins
-                  </button>
-                </div>
-              </article>
-            ))}
+      {activeTab === "chests" && pendingCount > 0 ? (
+        <section className="onboarding-card section-pad" style={{ marginTop: 16 }}>
+          <h3>Unfinished Chests</h3>
+          <p className="page-copy">
+            You have {pendingCount} reward{pendingCount === 1 ? "" : "s"} waiting for a decision.
+          </p>
+          <div className="inline">
+            <button type="button" onClick={() => setActiveTab("pending")}>
+              Open Unfinished Chests
+            </button>
           </div>
-        ) : (
-          <p className="feedback">No unfinished chest rewards.</p>
-        )}
-        {rewardDecisionState.isError && <p className="feedback error">Reward decision failed.</p>}
-        {rewardDecisionState.isSuccess && <p className="feedback">Reward decision saved.</p>}
-      </section>
+        </section>
+      ) : null}
 
+      {activeTab === "pending" ? (
+        <section
+          ref={pendingSectionRef}
+          className="onboarding-card section-pad shop-pending-focus"
+          style={{ marginTop: 16 }}
+        >
+          <h3>Unfinished Chests</h3>
+          <p className="page-copy">Complete your reward decisions for unopened chest pulls.</p>
+          {pendingLoading ? <p className="feedback">Loading unfinished rewards...</p> : null}
+          {pendingError ? <p className="feedback error">Unable to load unfinished chest rewards.</p> : null}
+          {pendingData?.rewards?.length ? (
+            <div className="player-grid">
+              {pendingData.rewards.map((reward) => (
+                <article key={reward.rewardId} className={`player-card rarity-${toRarityFrame(reward.player.rarity)}`}>
+                  <div className="player-card-head">
+                    <div>
+                      <h3>{reward.player.name}</h3>
+                      <p>{reward.player.rarity}</p>
+                      <p>{reward.pack.name}</p>
+                    </div>
+                    <div className="player-overall">{reward.player.overall}</div>
+                  </div>
+                  <div className="inline">
+                    <button
+                      type="button"
+                      disabled={rewardDecisionState.isLoading || !reward.keepAvailable}
+                      onClick={async () => {
+                        await decideReward({ rewardId: reward.rewardId, decision: "KEEP" }).unwrap();
+                        await refetchPending();
+                      }}
+                    >
+                      Keep
+                    </button>
+                    <button
+                      type="button"
+                      disabled={rewardDecisionState.isLoading}
+                      onClick={async () => {
+                        await decideReward({ rewardId: reward.rewardId, decision: "CONVERT_COINS" }).unwrap();
+                        await refetchPending();
+                      }}
+                    >
+                      +{reward.convertCoins} Coins
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="feedback">No unfinished chest rewards.</p>
+          )}
+          {rewardDecisionState.isError && <p className="feedback error">Reward decision failed.</p>}
+          {rewardDecisionState.isSuccess && <p className="feedback">Reward decision saved.</p>}
+        </section>
+      ) : null}
     </main>
   );
+}
+
+function normalizeTab(value: string | null): ShopTab {
+  if (!value) {
+    return "chests";
+  }
+
+  const normalized = value.toLowerCase();
+  return normalized === "pending" ? "pending" : "chests";
 }
 
 function getChestPresentation(priceCoins: number, rewardFocus: string, rarityHint: string): {

@@ -1999,6 +1999,49 @@ button[disabled] {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
 }
 
+.shop-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.shop-tab-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(132, 190, 236, 0.5);
+  background: rgba(7, 27, 57, 0.6);
+  color: #d7eafb;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.shop-tab-button.is-active {
+  border-color: rgba(95, 235, 174, 0.78);
+  background: linear-gradient(180deg, rgba(11, 74, 49, 0.82), rgba(8, 45, 31, 0.92));
+  color: #eafff3;
+}
+
+.shop-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  border: 1px solid rgba(252, 197, 197, 0.78);
+  background: rgba(194, 32, 55, 0.86);
+  color: #fff4f6;
+  font-size: 11px;
+  line-height: 1;
+}
+
 .chest-grid {
   display: grid;
   gap: 12px;
@@ -3197,6 +3240,10 @@ button[disabled] {
 
   .chest-grid {
     grid-template-columns: 1fr;
+  }
+
+  .shop-tabs {
+    flex-wrap: wrap;
   }
 
   .action-tile {
