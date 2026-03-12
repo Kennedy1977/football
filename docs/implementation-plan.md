@@ -199,6 +199,7 @@ Core:
 
 Latest patch notes (newest first):
 <!-- PATCH_NOTES_FEED_START -->
+- [2026-03-12 - v0.0.84 - fix shop pending rewards build typing](docs/patch-notes/2026-03-12-v0.0.84-update-page.md)
 - [2026-03-12 - v0.0.82 - update pre commit](docs/patch-notes/2026-03-12-v0.0.82-update-pre-commit.md)
 - [2026-03-12 - v0.0.80 - auto-seed leagues when viewing table and after promotion](docs/patch-notes/2026-03-12-v0.0.80-auto-seed-leagues-when-viewing-table-and-after-promotion.md)
 - [2026-03-12 - v0.0.79 - surface unfinished chest rewards with shop tabs](docs/patch-notes/2026-03-12-v0.0.79-surface-unfinished-chest-rewards-with-shop-tabs.md)

@@ -27,8 +27,7 @@ export default function ShopPage() {
   const [decideReward, rewardDecisionState] = useDecidePackRewardMutation();
   const [purchasingPackId, setPurchasingPackId] = useState<number | null>(null);
   const pendingSectionRef = useRef<HTMLElement | null>(null);
-  const hasRemotePending = Boolean(pendingData && !pendingError);
-  const pendingRewards = hasRemotePending ? pendingData.rewards : localPendingRewards;
+  const pendingRewards = pendingError ? localPendingRewards : (pendingData?.rewards ?? localPendingRewards);
   const pendingCount = pendingRewards.length;
 
   useEffect(() => {
