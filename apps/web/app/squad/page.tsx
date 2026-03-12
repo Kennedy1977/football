@@ -559,11 +559,12 @@ export default function SquadPage() {
                 const isSelectedReserve = selectedReservePlayerId === player.id;
                 const isDraggingReserve = draggingReservePlayerId === player.id;
                 const isUnavailable = player.stamina <= 0;
+                const rarityClass = `rarity-${toRarityFrame(player.rarity)}`;
 
                 return (
                   <article
                     key={player.id}
-                    className={`lineup-carousel-card rarity-${toRarityFrame(player.rarity)} ${
+                    className={`lineup-carousel-card ${rarityClass} ${
                       isBench ? "is-bench" : ""
                     } ${isSelectedReserve ? "is-selected" : ""} ${isDraggingReserve ? "is-dragging" : ""} ${
                       isUnavailable ? "is-unavailable" : ""
@@ -592,16 +593,16 @@ export default function SquadPage() {
                       setHoveredSlotIndex(null);
                     }}
                   >
-                    <div className="lineup-carousel-avatar" aria-hidden>
-                      <span className="lineup-carousel-shirt" style={shirtStyle} />
-                      <span className="lineup-carousel-face" style={faceStyle} />
-                    </div>
-
-                    <div className="lineup-carousel-head">
-                      <h4>{player.name}</h4>
-                      <p>
+                    <div className={`preview-player-card lineup-carousel-player-card ${rarityClass}`}>
+                      <div className="preview-player-art" aria-hidden>
+                        <span className="preview-player-shirt" style={shirtStyle} />
+                        <span className="preview-player-face" style={faceStyle} />
+                      </div>
+                      <span className="preview-player-rating">{toTwoDigitRating(player.overall)}</span>
+                      <span className="preview-player-name">{formatCarouselDisplayName(player.name)}</span>
+                      <span className="preview-player-meta">
                         #{player.shirtNumber} • {player.position}
-                      </p>
+                      </span>
                     </div>
 
                     <div className="lineup-carousel-meta">
@@ -891,6 +892,33 @@ function shortStarterLabel(name: string): string {
   }
 
   return normalized.length <= 11 ? normalized : normalized.slice(0, 11);
+}
+
+function formatCarouselDisplayName(fullName: string): string {
+  const normalized = fullName.trim().replace(/\s+/g, " ");
+  if (normalized.length <= 13) {
+    return normalized;
+  }
+
+  const parts = normalized.split(" ");
+  if (parts.length < 2) {
+    return normalized.slice(0, 13);
+  }
+
+  const firstInitial = parts[0].charAt(0).toUpperCase();
+  const lastName = parts[parts.length - 1];
+  const shortName = `${firstInitial}. ${lastName}`;
+  if (shortName.length <= 13) {
+    return shortName;
+  }
+
+  return `${firstInitial}. ${lastName.slice(0, 10)}`.trimEnd();
+}
+
+function toTwoDigitRating(overall: number): string {
+  return Math.min(99, Math.max(0, Math.round(overall)))
+    .toString()
+    .padStart(2, "0");
 }
 
 function autoPickBestXi(players: SquadPlayer[], formation: FormationCode): { startingIds: number[] } | null {

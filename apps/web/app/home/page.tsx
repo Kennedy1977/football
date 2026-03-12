@@ -1,6 +1,6 @@
 "use client";
 
-import { Coins, Flag, Shield, ShoppingBag, TrendingUp, Trophy, Users } from "lucide-react";
+import { Coins, Flag } from "lucide-react";
 import Link from "next/link";
 import { useClaimDailyRewardMutation, useGetDashboardSummaryQuery } from "../../src/state/apis/gameApi";
 import { ManagerAvatar } from "../../src/components/manager-avatar";
@@ -19,6 +19,7 @@ export default function HomePage() {
   const manager = data?.manager;
   const club = data?.club;
   const daily = data?.dailyReward;
+  const showClaimRewardCta = Boolean(daily && (!daily.claimed || claimState.isLoading));
   const managerXpProgress = manager ? manager.exp % 100 : 0;
   const teamOverallProgress = club ? club.teamOverall : 0;
 
@@ -39,21 +40,14 @@ export default function HomePage() {
         <p className="home-hero-copy">
           {manager ? manager.name : "Manager"} • {club?.name || "Create your club"}
         </p>
-        <div className="home-hero-actions">
-          <Link href="/match/prep" className="home-cta-primary">
-            <Shield size={18} />
-            <span>Play Match</span>
-          </Link>
-          <button
-            type="button"
-            className="home-cta-secondary"
-            onClick={claimReward}
-            disabled={!daily || daily.claimed || claimState.isLoading}
-          >
-            <Coins size={16} />
-            <span>{claimState.isLoading ? "Claiming..." : daily?.claimed ? "Reward Claimed" : "Claim Rewards"}</span>
-          </button>
-        </div>
+        {showClaimRewardCta ? (
+          <div className="home-hero-actions">
+            <button type="button" className="home-cta-secondary" onClick={claimReward} disabled={claimState.isLoading}>
+              <Coins size={16} />
+              <span>{claimState.isLoading ? "Claiming..." : "Claim Rewards"}</span>
+            </button>
+          </div>
+        ) : null}
       </section>
 
       {isLoading ? <p className="feedback">Loading dashboard...</p> : null}
@@ -142,31 +136,6 @@ export default function HomePage() {
           </section>
         </>
       ) : null}
-
-      <section className="home-quick-actions">
-        <div className="home-section-head">
-          <TrendingUp size={16} />
-          <h3>Quick Actions</h3>
-        </div>
-        <div className="home-action-grid">
-          <Link href="/squad" className="home-action-card">
-            <Users size={16} />
-            <span>Open Squad</span>
-          </Link>
-          <Link href="/shop" className="home-action-card">
-            <ShoppingBag size={16} />
-            <span>Upgrade Team</span>
-          </Link>
-          <Link href="/league" className="home-action-card">
-            <Trophy size={16} />
-            <span>League Table</span>
-          </Link>
-          <Link href="/match/prep" className="home-action-card">
-            <Shield size={16} />
-            <span>Start Match</span>
-          </Link>
-        </div>
-      </section>
 
       {claimState.isError ? <p className="feedback error">Daily reward claim failed.</p> : null}
       {claimState.isSuccess ? <p className="feedback">Daily reward claimed.</p> : null}

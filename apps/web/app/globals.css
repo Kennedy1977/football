@@ -856,26 +856,6 @@ button[disabled] {
   gap: 10px;
 }
 
-.home-cta-primary {
-  border: 1px solid rgba(120, 255, 204, 0.84);
-  border-radius: 16px;
-  min-height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background:
-    linear-gradient(145deg, rgba(42, 251, 190, 0.34), rgba(16, 169, 126, 0.28)),
-    linear-gradient(145deg, rgba(7, 57, 42, 0.86), rgba(6, 44, 33, 0.9));
-  font-family: "Barlow Condensed", "Exo 2", sans-serif;
-  font-size: 30px;
-  line-height: 1;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  font-weight: 800;
-  box-shadow: 0 0 24px rgba(82, 248, 188, 0.34);
-}
-
 .home-cta-secondary {
   border: 1px solid rgba(101, 191, 255, 0.5);
   border-radius: 14px;
@@ -943,8 +923,7 @@ button[disabled] {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.home-milestones,
-.home-quick-actions {
+.home-milestones {
   margin-top: 12px;
   border: 1px solid rgba(92, 181, 250, 0.28);
   border-radius: 20px;
@@ -966,25 +945,6 @@ button[disabled] {
   letter-spacing: 0.05em;
   font-family: "Barlow Condensed", "Exo 2", sans-serif;
   font-size: 24px;
-}
-
-.home-action-grid {
-  display: grid;
-  gap: 9px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.home-action-card {
-  border: 1px solid rgba(115, 194, 255, 0.32);
-  border-radius: 14px;
-  min-height: 58px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  justify-content: center;
-  background: rgba(8, 29, 62, 0.62);
-  font-weight: 700;
-  letter-spacing: 0.02em;
 }
 
 .player-grid {
@@ -1357,6 +1317,22 @@ button[disabled] {
     0 0 0 2px rgba(255, 212, 86, 0.27);
 }
 
+.lineup-carousel-player-card {
+  margin-bottom: 8px;
+}
+
+.lineup-carousel-player-card .preview-player-rating {
+  font-size: 18px;
+}
+
+.lineup-carousel-player-card .preview-player-name {
+  font-size: clamp(16px, 1.9vw, 22px);
+}
+
+.lineup-carousel-player-card .preview-player-meta {
+  font-size: 11px;
+}
+
 .lineup-carousel-avatar {
   position: relative;
   width: 100%;
@@ -1416,7 +1392,7 @@ button[disabled] {
   border: 2px solid rgba(223, 239, 255, 0.7);
   background-image: url("/assets/player-cards/faces-sprite.webp");
   background-size: 1200% 900%;
-  box-shadow: 0 2px 8px rgba(2, 10, 24, 0.4);
+  box-shadow: none;
 }
 
 .lineup-carousel-card.rarity-common .lineup-carousel-face {
@@ -1670,7 +1646,7 @@ button[disabled] {
   background-image: url("/assets/player-cards/faces-sprite.webp");
   background-size: 1200% 900%;
   background-position: 0% 0%;
-  box-shadow: 0 1px 4px rgba(2, 6, 16, 0.6);
+  box-shadow: none;
 }
 
 .preview-block {
@@ -1795,7 +1771,7 @@ button[disabled] {
   background-size: 1200% 900%;
   background-repeat: no-repeat;
   background-position: 0% 0%;
-  box-shadow: 0 3px 10px rgba(1, 6, 16, 0.42);
+  box-shadow: none;
 }
 
 .preview-player-rating {
