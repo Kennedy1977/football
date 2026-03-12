@@ -1857,6 +1857,16 @@ button[disabled] {
     var(--card-gradient-rare);
 }
 
+.manager-avatar.topbar-profile-avatar {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  min-height: 26px;
+  border-radius: 8px;
+  border-width: 1px;
+  box-shadow: none;
+}
+
 .manager-avatar.is-sprite {
   background-image:
     linear-gradient(160deg, rgba(6, 25, 55, 0.2), rgba(5, 20, 43, 0.34)),

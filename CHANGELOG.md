@@ -10,6 +10,7 @@ This project follows:
 
 Patch note entries:
 <!-- PATCH_NOTES_FEED_START -->
+- [2026-03-11 - v0.0.68 - Fix oversized top-nav profile avatar](docs/patch-notes/2026-03-11-v0.0.68-fix-oversized-top-nav-profile-avatar.md)
 - [2026-03-11 - v0.0.67 - Add rarity borders to pitch and bench player avatars](docs/patch-notes/2026-03-11-v0.0.67-add-rarity-borders-to-pitch-and-bench-player-avatars.md)
 - [2026-03-11 - v0.0.66 - Fix squad pitch player hover position jump](docs/patch-notes/2026-03-11-v0.0.66-fix-squad-pitch-player-hover-position-jump.md)
 - [2026-03-11 - v0.0.65 - Auto-pick and auto-save lineup when formation changes](docs/patch-notes/2026-03-11-v0.0.65-auto-pick-and-auto-save-lineup-when-formation-changes.md)
@@ -43,6 +44,7 @@ Patch note entries:
 - Living implementation spec now includes auto-maintained patch note feed.
 
 ### Fixed
+- Top-nav manager profile avatar is now constrained to icon size and no longer expands the header.
 - Squad formation-pitch player markers no longer shift out of position on hover.
 - Live match simulation now applies independent home/away formation layouts instead of defaulting to a single shape.
 - Avatar normalization now gracefully handles legacy manager avatar JSON shapes.
