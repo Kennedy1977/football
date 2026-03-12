@@ -1,14 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
 import { MATCH_DURATION_SECONDS, type MatchChanceOutcome, type SubmitMatchResponse } from "../../../../../packages/game-core/src";
 import { useClaimPromotionRewardMutation, useGetDashboardSummaryQuery, useGetSquadQuery } from "../../../src/state/apis/gameApi";
 import { readApiErrorMessage } from "../../../src/lib/api-error";
 import type { RootState } from "../../../src/state/store";
-import { clearMatchState } from "../../../src/state/slices/matchSlice";
 
 type ResultTab = "timeline" | "lineups" | "stats";
 
@@ -53,8 +51,6 @@ const EMPTY_MATCH_NARRATIVE: MatchNarrative = {
 };
 
 export default function MatchResultPage() {
-  const router = useRouter();
-  const dispatch = useDispatch();
   const prep = useSelector((state: RootState) => state.match.matchPrep);
   const result = useSelector((state: RootState) => state.match.lastSubmission);
   const runtimeResult = useSelector((state: RootState) => state.match.runtimeResult);
@@ -332,21 +328,6 @@ export default function MatchResultPage() {
         </div>
       </section>
 
-      <div className="inline" style={{ marginTop: 2 }}>
-        <button
-          type="button"
-          className="no-hover-lift"
-          onClick={() => {
-            dispatch(clearMatchState());
-            router.push("/match/prep");
-          }}
-        >
-          Play Next Match
-        </button>
-        <Link href="/home" className="btn no-hover-lift">
-          Back To Dashboard
-        </Link>
-      </div>
     </main>
   );
 }

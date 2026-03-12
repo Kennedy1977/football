@@ -29,6 +29,10 @@ interface ClaimRow extends RowDataPacket {
   id: number;
 }
 
+interface CountRow extends RowDataPacket {
+  total: number;
+}
+
 dashboardRouter.get(
   "/summary",
   asyncHandler(async (req, res) => {
@@ -75,6 +79,10 @@ dashboardRouter.get(
         },
         club: null,
         onboardingComplete: false,
+        notifications: {
+          unreadCount: 0,
+          items: [],
+        },
       });
       return;
     }
@@ -84,6 +92,27 @@ dashboardRouter.get(
       "SELECT id FROM daily_reward_claims WHERE club_id = ? AND reward_date = ? LIMIT 1",
       [row.club_id, rewardDate]
     );
+
+    const dailyClaimed = claimRows.length > 0;
+    const [pendingPackRows] = await pool.query<CountRow[]>(
+      `
+        SELECT COUNT(*) AS total
+        FROM pack_rewards pr
+        INNER JOIN pack_purchases pp ON pp.id = pr.pack_purchase_id
+        WHERE pp.club_id = ? AND pr.resolved_at IS NULL
+      `,
+      [row.club_id]
+    );
+    const [freePackRows] = await pool.query<CountRow[]>(
+      "SELECT COUNT(*) AS total FROM pack_catalogue WHERE is_active = TRUE AND price_coins = 0"
+    );
+    const pendingPackRewards = Number(pendingPackRows[0]?.total || 0);
+    const freePacksAvailable = Number(freePackRows[0]?.total || 0);
+    const notifications = buildNotifications({
+      dailyClaimed,
+      freePacksAvailable,
+      pendingPackRewards,
+    });
 
     res.status(200).json({
       onboardingComplete: true,
@@ -105,9 +134,62 @@ dashboardRouter.get(
       },
       dailyReward: {
         coins: 200,
-        claimed: claimRows.length > 0,
+        claimed: dailyClaimed,
         nextResetAt: getNextResetIso(),
       },
+      notifications,
     });
   })
 );
+
+function buildNotifications(values: {
+  dailyClaimed: boolean;
+  freePacksAvailable: number;
+  pendingPackRewards: number;
+}) {
+  const items: Array<{
+    id: string;
+    type: "DAILY_REWARD" | "FREE_PACKS" | "UNOPENED_PACKS";
+    title: string;
+    detail: string;
+    href: string;
+    count?: number;
+  }> = [];
+
+  if (!values.dailyClaimed) {
+    items.push({
+      id: "daily-reward",
+      type: "DAILY_REWARD",
+      title: "Daily reward ready",
+      detail: "Collect your daily coins.",
+      href: "/home",
+    });
+  }
+
+  if (values.freePacksAvailable > 0) {
+    items.push({
+      id: "free-packs",
+      type: "FREE_PACKS",
+      title: "Free packs available",
+      detail: `${values.freePacksAvailable} free pack${values.freePacksAvailable === 1 ? "" : "s"} ready to open.`,
+      href: "/shop",
+      count: values.freePacksAvailable,
+    });
+  }
+
+  if (values.pendingPackRewards > 0) {
+    items.push({
+      id: "unopened-packs",
+      type: "UNOPENED_PACKS",
+      title: "Unopened pack rewards",
+      detail: `${values.pendingPackRewards} reward${values.pendingPackRewards === 1 ? "" : "s"} still need a decision.`,
+      href: "/shop",
+      count: values.pendingPackRewards,
+    });
+  }
+
+  return {
+    unreadCount: items.length,
+    items,
+  };
+}

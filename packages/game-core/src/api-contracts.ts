@@ -112,6 +112,19 @@ export interface DashboardSummaryResponse {
     claimed: boolean;
     nextResetAt: string;
   };
+  notifications?: {
+    unreadCount: number;
+    items: DashboardNotificationItem[];
+  };
+}
+
+export interface DashboardNotificationItem {
+  id: string;
+  type: "DAILY_REWARD" | "FREE_PACKS" | "UNOPENED_PACKS";
+  title: string;
+  detail: string;
+  href: string;
+  count?: number;
 }
 
 export interface SquadResponse {

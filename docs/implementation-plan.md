@@ -114,7 +114,7 @@ Implemented highlights:
 - `/squad`: lineup editor with formation switching, XI/bench validation, drag/drop swaps, automatic best-XI pick on formation change, auto-save, and rarity-coded player borders on pitch/bench.
 - `/match/prep`: pre-match setup and start.
 - `/match/live`: Phaser runtime host.
-- `/match/result`: full-time presentation + rewards/promotion.
+- `/match/result`: full-time presentation + rewards/promotion (navigation handled by app shell menu/nav, without duplicate local nav buttons).
 - `/league`: full table and rank context.
 - `/shop`: pack catalogue, purchase flow, reward decision flow.
 - `/profile`: manager/club summary + editable manager portrait picker.
@@ -199,6 +199,7 @@ Core:
 
 Latest patch notes (newest first):
 <!-- PATCH_NOTES_FEED_START -->
+- [2026-03-12 - v0.0.69 - Remove duplicate result-page navigation buttons](docs/patch-notes/2026-03-12-v0.0.69-remove-duplicate-result-page-navigation-buttons.md)
 - [2026-03-11 - v0.0.68 - Fix oversized top-nav profile avatar](docs/patch-notes/2026-03-11-v0.0.68-fix-oversized-top-nav-profile-avatar.md)
 - [2026-03-11 - v0.0.67 - Add rarity borders to pitch and bench player avatars](docs/patch-notes/2026-03-11-v0.0.67-add-rarity-borders-to-pitch-and-bench-player-avatars.md)
 - [2026-03-11 - v0.0.66 - Fix squad pitch player hover position jump](docs/patch-notes/2026-03-11-v0.0.66-fix-squad-pitch-player-hover-position-jump.md)

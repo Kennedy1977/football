@@ -10,6 +10,7 @@ This project follows:
 
 Patch note entries:
 <!-- PATCH_NOTES_FEED_START -->
+- [2026-03-12 - v0.0.69 - Remove duplicate result-page navigation buttons](docs/patch-notes/2026-03-12-v0.0.69-remove-duplicate-result-page-navigation-buttons.md)
 - [2026-03-11 - v0.0.68 - Fix oversized top-nav profile avatar](docs/patch-notes/2026-03-11-v0.0.68-fix-oversized-top-nav-profile-avatar.md)
 - [2026-03-11 - v0.0.67 - Add rarity borders to pitch and bench player avatars](docs/patch-notes/2026-03-11-v0.0.67-add-rarity-borders-to-pitch-and-bench-player-avatars.md)
 - [2026-03-11 - v0.0.66 - Fix squad pitch player hover position jump](docs/patch-notes/2026-03-11-v0.0.66-fix-squad-pitch-player-hover-position-jump.md)
@@ -39,6 +40,7 @@ Patch note entries:
 - Squad formation changes now auto-pick the best eligible XI for the selected shape.
 - Squad lineup and formation edits now auto-save when valid, without manual save action.
 - Squad formation pitch and bench avatars now show rarity-coded quality borders.
+- Match result view now relies on shell navigation (bottom nav + burger menu) instead of duplicate in-page nav buttons.
 - Added an explicit, reusable commit template file: `.gitmessage.txt`.
 - Version pipeline now treats `package.json` as source of truth and refreshes both build meta and runtime version file.
 - Living implementation spec now includes auto-maintained patch note feed.
