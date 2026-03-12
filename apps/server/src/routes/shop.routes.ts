@@ -54,10 +54,10 @@ interface PendingPackRewardRow extends RowDataPacket {
   reward_payload_json: string | null;
   coin_amount: number | null;
   exp_amount: number | null;
-  pack_id: number;
-  pack_code: string;
-  pack_name: string;
-  pack_price_coins: number;
+  pack_id: number | null;
+  pack_code: string | null;
+  pack_name: string | null;
+  pack_price_coins: number | null;
 }
 
 interface PlayerStatsRow extends RowDataPacket {
@@ -144,48 +144,37 @@ shopRouter.get(
     );
     const keepAvailable = Number(countRows[0]?.total ?? 0) < 28;
 
-    const [rows] = await pool.query<PendingPackRewardRow[]>(
-      `
-        SELECT
-          pr.id AS reward_id,
-          pr.pack_purchase_id,
-          pr.reward_payload_json,
-          pr.coin_amount,
-          pr.exp_amount,
-          pc.id AS pack_id,
-          pc.code AS pack_code,
-          pc.name AS pack_name,
-          pc.price_coins AS pack_price_coins
-        FROM pack_rewards pr
-        INNER JOIN pack_purchases pp ON pp.id = pr.pack_purchase_id
-        INNER JOIN pack_catalogue pc ON pc.id = pp.pack_id
-        WHERE pp.club_id = ? AND pr.resolved_at IS NULL AND pr.reward_type = 'PLAYER'
-        ORDER BY pp.created_at DESC, pr.id ASC
-      `,
-      [club.club_id]
-    );
+    const rows = await readPendingPackRewards(club.club_id);
 
-    res.status(200).json({
-      rewards: rows.map((row) => {
-        const payload = parseRewardPayload(row.reward_payload_json);
-        const projectedValue = playerSellValue(toPreviewCard(payload));
-        const convertAmount = Math.max(1, Math.round(projectedValue * 0.2));
+    const rewards = rows.flatMap((row) => {
+      const payload = tryParseRewardPayload(row.reward_payload_json);
+      if (!payload) {
+        return [];
+      }
 
-        return {
+      const projectedValue = playerSellValue(toPreviewCard(payload));
+      const convertAmount = Math.max(1, Math.round(projectedValue * 0.2));
+
+      return [
+        {
           rewardId: row.reward_id,
           purchaseId: row.pack_purchase_id,
           pack: {
-            id: row.pack_id,
-            code: row.pack_code,
-            name: row.pack_name,
-            priceCoins: row.pack_price_coins,
+            id: Number(row.pack_id ?? 0),
+            code: row.pack_code || "CHEST",
+            name: row.pack_name || "Chest Reward",
+            priceCoins: Number(row.pack_price_coins ?? 0),
           },
           player: payload,
           keepAvailable,
           convertCoins: Number(row.coin_amount ?? convertAmount),
           convertExp: Number(row.exp_amount ?? convertAmount),
-        };
-      }),
+        },
+      ];
+    });
+
+    res.status(200).json({
+      rewards,
     });
   })
 );
@@ -626,6 +615,65 @@ function readDecision(value: unknown): "KEEP" | "CONVERT_COINS" | "CONVERT_EXP" 
   return value;
 }
 
+async function readPendingPackRewards(clubId: number): Promise<PendingPackRewardRow[]> {
+  try {
+    const [rows] = await pool.query<PendingPackRewardRow[]>(
+      `
+        SELECT
+          pr.id AS reward_id,
+          pr.pack_purchase_id,
+          pr.reward_payload_json,
+          pr.coin_amount,
+          pr.exp_amount,
+          pc.id AS pack_id,
+          pc.code AS pack_code,
+          pc.name AS pack_name,
+          pc.price_coins AS pack_price_coins
+        FROM pack_rewards pr
+        INNER JOIN pack_purchases pp ON pp.id = pr.pack_purchase_id
+        INNER JOIN pack_catalogue pc ON pc.id = pp.pack_id
+        WHERE pp.club_id = ? AND pr.resolved_at IS NULL AND pr.reward_type = 'PLAYER'
+        ORDER BY pp.created_at DESC, pr.id ASC
+      `,
+      [clubId]
+    );
+    return rows;
+  } catch (error) {
+    if (!isMissingColumnError(error)) {
+      throw error;
+    }
+
+    const [fallbackRows] = await pool.query<PendingPackRewardRow[]>(
+      `
+        SELECT
+          pr.id AS reward_id,
+          pr.pack_purchase_id,
+          pr.reward_payload_json,
+          NULL AS coin_amount,
+          NULL AS exp_amount,
+          pp.pack_id,
+          NULL AS pack_code,
+          NULL AS pack_name,
+          NULL AS pack_price_coins
+        FROM pack_rewards pr
+        INNER JOIN pack_purchases pp ON pp.id = pr.pack_purchase_id
+        WHERE pp.club_id = ? AND pr.resolved_at IS NULL AND pr.reward_type = 'PLAYER'
+        ORDER BY pr.id ASC
+      `,
+      [clubId]
+    );
+    return fallbackRows;
+  }
+}
+
+function isMissingColumnError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  return (error as { code?: unknown }).code === "ER_BAD_FIELD_ERROR";
+}
+
 function parseRewardPayload(raw: string | null): RewardPlayerPayload {
   const parsed = raw ? tryParseJson(raw) : null;
   if (!parsed || typeof parsed !== "object") {
@@ -665,6 +713,14 @@ function parseRewardPayload(raw: string | null): RewardPlayerPayload {
       goalkeeping: Number(requiredStats.goalkeeping),
     },
   };
+}
+
+function tryParseRewardPayload(raw: string | null): RewardPlayerPayload | null {
+  try {
+    return parseRewardPayload(raw);
+  } catch {
+    return null;
+  }
 }
 
 function pickNextShirtNumber(preferred: number, taken: number[]): number {

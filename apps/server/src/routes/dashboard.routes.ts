@@ -35,6 +35,10 @@ interface CountRow extends RowDataPacket {
   total: number;
 }
 
+interface PendingRewardPayloadRow extends RowDataPacket {
+  reward_payload_json: unknown;
+}
+
 dashboardRouter.get(
   "/summary",
   asyncHandler(async (req, res) => {
@@ -98,19 +102,23 @@ dashboardRouter.get(
     );
 
     const dailyClaimed = claimRows.length > 0;
-    const [pendingPackRows] = await pool.query<CountRow[]>(
+    const [pendingRewardRows] = await pool.query<PendingRewardPayloadRow[]>(
       `
-        SELECT COUNT(*) AS total
+        SELECT pr.reward_payload_json
         FROM pack_rewards pr
         INNER JOIN pack_purchases pp ON pp.id = pr.pack_purchase_id
-        WHERE pp.club_id = ? AND pr.resolved_at IS NULL
+        WHERE
+          pp.club_id = ?
+          AND pr.resolved_at IS NULL
+          AND pr.reward_type = 'PLAYER'
+          AND pr.reward_payload_json IS NOT NULL
       `,
       [row.club_id]
     );
     const [freePackRows] = await pool.query<CountRow[]>(
       "SELECT COUNT(*) AS total FROM pack_catalogue WHERE is_active = TRUE AND price_coins = 0"
     );
-    const pendingPackRewards = Number(pendingPackRows[0]?.total || 0);
+    const pendingPackRewards = countActionablePendingRewards(pendingRewardRows);
     const freePacksAvailable = Number(freePackRows[0]?.total || 0);
     const notifications = buildNotifications({
       dailyClaimed,
@@ -221,4 +229,43 @@ function parseUnknownJsonObject(value: unknown): Record<string, unknown> | undef
   }
 
   return undefined;
+}
+
+function countActionablePendingRewards(rows: PendingRewardPayloadRow[]): number {
+  let total = 0;
+
+  for (const row of rows) {
+    if (isActionableRewardPayload(row.reward_payload_json)) {
+      total += 1;
+    }
+  }
+
+  return total;
+}
+
+function isActionableRewardPayload(raw: unknown): boolean {
+  const parsed = parseUnknownJsonObject(raw);
+  if (!parsed) {
+    return false;
+  }
+
+  const stats = parseUnknownJsonObject(parsed.stats);
+  if (!stats) {
+    return false;
+  }
+
+  if (
+    typeof parsed.name !== "string" ||
+    !parsed.name.trim() ||
+    typeof parsed.age !== "number" ||
+    !parsed.position ||
+    !parsed.rarity ||
+    typeof parsed.overall !== "number" ||
+    typeof parsed.shirtNumber !== "number"
+  ) {
+    return false;
+  }
+
+  const requiredStatKeys = ["pace", "shooting", "passing", "dribbling", "defending", "strength", "goalkeeping"];
+  return requiredStatKeys.every((key) => key in stats);
 }

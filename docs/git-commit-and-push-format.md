@@ -12,6 +12,8 @@ npm run protocol:install
 This configures:
 - `core.hooksPath=.githooks`
 - `commit.template=.gitmessage.txt`
+- pre-commit auto-prepares/stages required protocol files
+- commit-msg auto-fills `Patch-Notes:` when exactly one patch note file is staged
 
 ## 1. Commit message format
 
@@ -73,11 +75,10 @@ git push
 
 ## 5. Recommended release commit sequence
 
-1. Bump version and regenerate build metadata:
-   - `npm run protocol:prepare`
-2. Generate patch note file.
-3. Stage code + notes + changelog + living spec updates together.
-4. Commit using the format above.
+1. Stage your code changes (normal `git add ...`).
+2. Commit using the format above.
+3. Pre-commit will auto-run protocol prep, generate/stage missing required files, and stage a patch note file.
+4. Commit-msg will auto-fill `Patch-Notes:` if the template placeholder is still present.
 5. Push branch.
 6. Open PR and include patch note link in PR description.
 
@@ -96,11 +97,15 @@ Protocol checks:
 Example:
 
 ```bash
-npm run protocol:prepare
-npm run notes:new -- --title "Center live pitch and compact TV HUD" --type fix --scope match-live
 git add -A
 git commit
 git push -u origin fix/match-live-hud
+```
+
+Optional manual preflight (same behavior as pre-commit auto-step):
+
+```bash
+npm run protocol:auto
 ```
 
 Manual commit message example:

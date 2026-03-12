@@ -8,12 +8,14 @@ import {
   usePurchasePackMutation,
 } from "../../src/state/apis/gameApi";
 import { toRarityFrame } from "../../src/lib/rarity-frame";
+import type { PendingPackReward } from "../../../../packages/game-core/src";
 
 type ChestTier = "green" | "blue" | "purple" | "epic" | "gold" | "legend";
 type ShopTab = "chests" | "pending";
 
 export default function ShopPage() {
   const [activeTab, setActiveTab] = useState<ShopTab>("chests");
+  const [localPendingRewards, setLocalPendingRewards] = useState<PendingPackReward[]>([]);
   const { data, isLoading, error, refetch } = useGetPacksQuery();
   const {
     data: pendingData,
@@ -25,7 +27,9 @@ export default function ShopPage() {
   const [decideReward, rewardDecisionState] = useDecidePackRewardMutation();
   const [purchasingPackId, setPurchasingPackId] = useState<number | null>(null);
   const pendingSectionRef = useRef<HTMLElement | null>(null);
-  const pendingCount = pendingData?.rewards?.length ?? 0;
+  const hasRemotePending = Boolean(pendingData && !pendingError);
+  const pendingRewards = hasRemotePending ? pendingData.rewards : localPendingRewards;
+  const pendingCount = pendingRewards.length;
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -43,6 +47,14 @@ export default function ShopPage() {
 
     pendingSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [activeTab, pendingCount]);
+
+  useEffect(() => {
+    if (!pendingData?.rewards || pendingError) {
+      return;
+    }
+
+    setLocalPendingRewards(pendingData.rewards);
+  }, [pendingData, pendingError]);
 
   return (
     <main className="page-panel page-panel-portrait">
@@ -126,7 +138,22 @@ export default function ShopPage() {
                   onClick={async () => {
                     setPurchasingPackId(pack.id);
                     try {
-                      await purchasePack({ packId: pack.id }).unwrap();
+                      const purchaseResult = await purchasePack({ packId: pack.id }).unwrap();
+                      const boughtRewards: PendingPackReward[] = purchaseResult.rewards.map((reward) => ({
+                        rewardId: reward.rewardId,
+                        purchaseId: purchaseResult.purchaseId,
+                        pack: {
+                          id: purchaseResult.pack.id,
+                          code: purchaseResult.pack.code,
+                          name: purchaseResult.pack.name,
+                          priceCoins: purchaseResult.pack.priceCoins,
+                        },
+                        player: reward.player,
+                        keepAvailable: reward.keepAvailable,
+                        convertCoins: reward.convertCoins,
+                        convertExp: reward.convertExp,
+                      }));
+                      setLocalPendingRewards((current) => mergePendingRewards(current, boughtRewards));
                       await refetchPending();
                       setActiveTab("pending");
                     } finally {
@@ -167,10 +194,10 @@ export default function ShopPage() {
           <h3>Unfinished Chests</h3>
           <p className="page-copy">Complete your reward decisions for unopened chest pulls.</p>
           {pendingLoading ? <p className="feedback">Loading unfinished rewards...</p> : null}
-          {pendingError ? <p className="feedback error">Unable to load unfinished chest rewards.</p> : null}
-          {pendingData?.rewards?.length ? (
+          {pendingError && !pendingRewards.length ? <p className="feedback error">Unable to load unfinished chest rewards.</p> : null}
+          {pendingRewards.length ? (
             <div className="player-grid">
-              {pendingData.rewards.map((reward) => (
+              {pendingRewards.map((reward) => (
                 <article key={reward.rewardId} className={`player-card rarity-${toRarityFrame(reward.player.rarity)}`}>
                   <div className="player-card-head">
                     <div>
@@ -186,6 +213,7 @@ export default function ShopPage() {
                       disabled={rewardDecisionState.isLoading || !reward.keepAvailable}
                       onClick={async () => {
                         await decideReward({ rewardId: reward.rewardId, decision: "KEEP" }).unwrap();
+                        setLocalPendingRewards((current) => current.filter((entry) => entry.rewardId !== reward.rewardId));
                         await refetchPending();
                       }}
                     >
@@ -196,6 +224,7 @@ export default function ShopPage() {
                       disabled={rewardDecisionState.isLoading}
                       onClick={async () => {
                         await decideReward({ rewardId: reward.rewardId, decision: "CONVERT_COINS" }).unwrap();
+                        setLocalPendingRewards((current) => current.filter((entry) => entry.rewardId !== reward.rewardId));
                         await refetchPending();
                       }}
                     >
@@ -223,6 +252,24 @@ function normalizeTab(value: string | null): ShopTab {
 
   const normalized = value.toLowerCase();
   return normalized === "pending" ? "pending" : "chests";
+}
+
+function mergePendingRewards(current: PendingPackReward[], incoming: PendingPackReward[]): PendingPackReward[] {
+  if (!incoming.length) {
+    return current;
+  }
+
+  const merged = new Map<number, PendingPackReward>();
+
+  for (const reward of current) {
+    merged.set(reward.rewardId, reward);
+  }
+
+  for (const reward of incoming) {
+    merged.set(reward.rewardId, reward);
+  }
+
+  return Array.from(merged.values());
 }
 
 function getChestPresentation(priceCoins: number, rewardFocus: string, rarityHint: string): {
